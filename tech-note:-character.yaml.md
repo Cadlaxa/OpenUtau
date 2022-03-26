@@ -59,6 +59,7 @@ image: renri.bmp
 portrait: portrait.webp
 portrait_opacity: 0.67
 author: ゆずり
+voice: ゆずり
 web: https://renrivoice.wixsite.com/renri-voice/utau
 subbanks:
 - color: ''
