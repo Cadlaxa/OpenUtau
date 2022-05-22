@@ -20,6 +20,7 @@ name: 闇音レンリ・連続音Ver1.5
 image: renri.bmp
 author: ゆずり
 voice: ゆずり
+version: 1.5
 web: https://renrivoice.wixsite.com/renri-voice/utau
 ```
 These are similar basic character info in `character.txt`. If not present, info in `character.txt` will be used.
@@ -61,6 +62,7 @@ portrait: portrait.webp
 portrait_opacity: 0.67
 author: ゆずり
 voice: ゆずり
+version: 1.5
 web: https://renrivoice.wixsite.com/renri-voice/utau
 subbanks:
 - color: ''
