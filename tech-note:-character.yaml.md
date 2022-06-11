@@ -64,6 +64,7 @@ author: ゆずり
 voice: ゆずり
 version: 1.5
 web: https://renrivoice.wixsite.com/renri-voice/utau
+default_phonemizer: OpenUtau.Plugin.Builtin.JapaneseVCVPhonemizer
 subbanks:
 - color: ''
   prefix: ''
