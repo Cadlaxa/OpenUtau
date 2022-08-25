@@ -84,6 +84,7 @@ If a curve name appears in both inputs and outputs, it becomes pass-through data
     ...
   ]
 }
+```
 ### `audio_samples`
 ```
 {
@@ -94,7 +95,7 @@ If a curve name appears in both inputs and outputs, it becomes pass-through data
     "samples": [0, 0, 0, ...]
   ]
 }
-
+```
 ## API
 ### `ops`:
 This API describes all available operations of a backend. This helps the frontend to understand how to call the APIs to transform note sequences to audios.
