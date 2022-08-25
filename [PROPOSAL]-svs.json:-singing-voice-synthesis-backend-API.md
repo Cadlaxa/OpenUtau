@@ -71,7 +71,7 @@ There is not a hard requirement, but the preferred transport of these json objec
 {
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
-  "f0": [261, 261, 261, 261, 261, ...] // Hz, each number is a frame
+  "f0": [6000, 6000, 6000, 6000, 6000, ...] // cents (MIDI key * 100) , each number is a frame
 }
 ```
 ### `curve:<name>`
