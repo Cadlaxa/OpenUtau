@@ -20,10 +20,10 @@ There is not a hard requirement, but the preferred transport of these json objec
 
 ## Data Structs
 ### `note_sequence`
-```
+```json
 {
-  time_unit: "ms", // s, ms or us
-  notes: [
+  "time_unit": "ms", // s, ms or us
+  "notes": [
     {
       "lyric": "", // rest note. practically all note sequences should start with a rest note since the voice usually starts before the note.
       "duration": 500,
@@ -39,10 +39,10 @@ There is not a hard requirement, but the preferred transport of these json objec
 }
 ```
 ### `phoneme_sequence`
-```
+```json
 {
-  time_unit: "ms",
-  phonemes: [
+  "time_unit": "ms",
+  "phonemes": [
     {
       "phoneme": "", // rest note
       "duration": 400,
@@ -63,7 +63,7 @@ There is not a hard requirement, but the preferred transport of these json objec
 ```
 ### `f0`
 `f0` is a curve that can be edited by the user after generation.
-```
+```json
 {
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
@@ -73,7 +73,7 @@ There is not a hard requirement, but the preferred transport of these json objec
 ### `curve:<name>`
 If a curve name appears only in inputs, it becomes a user input.
 If a curve name appears in both inputs and outputs, it becomes pass-through data. I.e., one API generates and the frontend passes it to another API.
-```
+```json
 {
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
@@ -83,7 +83,7 @@ If a curve name appears in both inputs and outputs, it becomes pass-through data
 }
 ```
 ### `world_mgc`, `world_sp`, `world_bap`, `world_ap`
-```
+```json
 {
   "time_unit": "ms",
   "frame_duration": 5, // 5ms per frame
@@ -96,7 +96,7 @@ If a curve name appears in both inputs and outputs, it becomes pass-through data
 }
 ```
 ### `audio_samples`
-```
+```json
 {
   "channels": 1, // probably should always be 1
   "sample_rate": 44100, // or 22500, 48000, etc.
@@ -111,13 +111,13 @@ If a curve name appears in both inputs and outputs, it becomes pass-through data
 This API describes all available operations of a backend. This helps the frontend to understand how to call the APIs to transform note sequences to audios.
 
 Example request:
-```
+```json
 {
   "op": "ops"
 }
 ```
 Example Response (NNSVS):
-```
+```json
 {
   "ops": [
     {
@@ -160,7 +160,7 @@ Example Response (NNSVS):
 }
 ```
 Example Response (Renderer with ML vocoder):
-```
+```json
 {
   "ops": [
     {
@@ -230,7 +230,7 @@ Other than the `ops` API, other APIs are very simple. Just constructs a json obj
 ### Example API: NNSVS `phonemize`
 
 Example request:
-```
+```json
 {
   "op": "phonemize",
   "note_sequence": {
@@ -239,7 +239,7 @@ Example request:
 }
 ```
 Example Response:
-```
+```json
 {
   "phoneme_sequence": [...] // as defined earlier
 }
@@ -248,14 +248,14 @@ Example Response:
 ### Example API: NNSVS `synth_world_features`
 
 Example request:
-```
+```json
 {
   "op": "synth_world_features",
   "phoneme_sequence": [...] // as defined earlier
 }
 ```
 Example Response:
-```
+```json
 {
   "world_mgc": [...],
   "world_bap": [...],
