@@ -1,5 +1,9 @@
 # svs.json - singing voice synthesis backend API
 
+This proposal describes a json-based API for SVS backends. This API is flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself.
+
+The preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely.
+
 ## Data Structs
 ### `note_sequence`
 ```
@@ -120,7 +124,8 @@ Example Response (Renderer with ML vocoder):
   - Or `audio_samples`
 - `f0` is optional. The frontend can use it as a base for further user editing. Otherwise, the frontend still can use `f0` created by the user.
 - This is the only required API for a backend. Any other APIs are defined by the backend and returned via this API.
- 
+- This API can also be used to check if the backend is started, or still alive. If the backend does not return in 1 second, it is considered offline.
+
 ## Example API: NNSVS `phonemize`
 
 Example request:
