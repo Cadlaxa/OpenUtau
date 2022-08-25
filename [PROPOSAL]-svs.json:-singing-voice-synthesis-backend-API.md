@@ -14,10 +14,8 @@ There is not a hard requirement, but the preferred transport of these json objec
       "lyric": "", // rest note. practically all note sequences should start with a rest note since the voice usually starts before the note.
       "duration": 500,
       "key": 60,
-      "flags": { // optional, keys can be arbitrary, backend can decide how to use them.
-        "timbre": "Falsetto",
-        "gender": 0
-      }
+      "flag:timbre": "Falsetto", // flags are optional, names can be arbitrary, backend can decide how to use them.
+      "flag:gender": 0,
     }, {
       "lyric": "花",
       "duration": 500,
@@ -34,10 +32,8 @@ There is not a hard requirement, but the preferred transport of these json objec
     {
       "phoneme": "", // rest note
       "duration": 400,
-      "flags": { // optional, keys can be arbitrary, backend can decide how to use them.
-        "timbre": "Falsetto",
-        "gender": 0
-      }
+      "flag:timbre": "Falsetto", // flags are optional, names can be arbitrary, backend can decide how to use them.
+      "flag:gender": 0,
     }, {
       "phoneme": "h", // h from hua (花), starts 100ms before first note
       "duration": 200
