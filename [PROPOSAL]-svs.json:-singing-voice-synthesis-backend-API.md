@@ -44,6 +44,7 @@ There is not a hard requirement, but the preferred transport of these json objec
 }
 ```
 ### `f0`
+`f0` is a curve that can be edited by the user after generation.
 ```
 {
   "time_unit": "ms",
@@ -52,6 +53,7 @@ There is not a hard requirement, but the preferred transport of these json objec
 }
 ```
 ### `gender_curve`, `strength_curve`, `tension_curve`, `breathiness_curve`, `voicing_curve`
+The curves are similar to "f0", which can be edited by the user after generation.
 ```
 {
   "time_unit": "ms",
