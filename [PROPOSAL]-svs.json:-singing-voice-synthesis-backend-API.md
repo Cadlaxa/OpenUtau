@@ -1,6 +1,6 @@
 This proposal describes a json-based API for SVS backends. This API is flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself.
 
-The preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely.
+There is not a hard requirement, but the preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely. 
 
 ## Data Structs
 ### `note_sequence`
