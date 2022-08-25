@@ -212,7 +212,7 @@ Example Response (Renderer with ML vocoder):
           "sample_rate": 44100,
           "sample_format": "int16"
         }
-      },
+      }
     }
   ]
 }
