@@ -1,6 +1,6 @@
 This proposal describes a json-based API for SVS backends.
 
-ML based SVS often has different data flows. Some intakes notes and outputs audio samples, end to end. Some have intermediate steps, such as phonemes and f0 curve. To accommodate such needs, this API is designed to be flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself. The frontend is able to find out a path of notes to audio, from the described API structure.
+ML based SVS often has different data flows. Some intakes notes and outputs audio samples, end to end. Some have intermediate steps, such as phonemes and f0 curve. To accommodate such needs, this API is designed to be flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself. Then the frontend find out the sequence to call these APIs from the API graph.
 
 There is not a hard requirement, but the preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely. 
 
