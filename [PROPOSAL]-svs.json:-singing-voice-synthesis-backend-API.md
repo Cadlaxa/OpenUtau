@@ -58,7 +58,9 @@ The curves are similar to "f0", which can be edited by the user after generation
 {
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
-  "gender_curve": [0, 0, 0, 0, 0, ...] // all curves are in [-100, 100] range
+  "range": [-100, 100],
+  "scale": "linear", // "linear", "log", "log2", "log10" or "db",
+  "gender_curve": [0, 0, 0, 0, 0, ...]
 }
 ```
 ### `world_mgc`, `world_sp`, `world_bap`, `world_ap`
@@ -169,10 +171,19 @@ Example Response (Renderer with ML vocoder):
           "required": true
         },
         "gender": {
-          "required": false
+          "required": false,
+          "range": [-100, 100],
+          "scale": "linear",
         },
         "tension": {
-          "required": false
+          "required": false,
+          "range": [-100, 100],
+          "scale": "linear",
+        },
+        "strength": {
+          "required": false,
+          "range": [-20, 20],
+          "scale": "db",
         }
       },
       "outputs": {
