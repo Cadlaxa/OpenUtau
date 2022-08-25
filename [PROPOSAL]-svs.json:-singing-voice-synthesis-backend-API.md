@@ -14,7 +14,10 @@ There is not a hard requirement, but the preferred transport of these json objec
       "lyric": "", // rest note. practically all note sequences should start with a rest note since the voice usually starts before the note.
       "duration": 500,
       "key": 60,
-      "flags": ["Falsetto"] // optional, backend can decide how to use them.
+      "flags": { // optional, keys can be arbitrary, backend can decide how to use them.
+        "timbre": "Falsetto",
+        "gender": 0
+      }
     }, {
       "lyric": "花",
       "duration": 500,
@@ -31,7 +34,10 @@ There is not a hard requirement, but the preferred transport of these json objec
     {
       "phoneme": "", // rest note
       "duration": 400,
-      "flags": ["Falsetto"] // optional, backend can decide how to use them.
+      "flags": { // optional, keys can be arbitrary, backend can decide how to use them.
+        "timbre": "Falsetto",
+        "gender": 0
+      }
     }, {
       "phoneme": "h", // h from hua (花), starts 100ms before first note
       "duration": 200
@@ -54,15 +60,16 @@ There is not a hard requirement, but the preferred transport of these json objec
   "f0": [261, 261, 261, 261, 261, ...] // Hz, each number is a frame
 }
 ```
-### `gender_curve`, `strength_curve`, `tension_curve`, `breathiness_curve`, `voicing_curve`
+### `curve`
 The curves are similar to "f0", which can be edited by the user after generation.
 ```
 {
+  "name": "tension",
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
-  "range": [-100, 100],
+  "range": [-100, 100], // only used if editable
   "scale": "linear", // "linear", "log", "log2", "log10" or "db",
-  "gender_curve": [0, 0, 0, 0, 0, ...]
+  "curve": [0, 0, 0, 0, 0, ...]
 }
 ```
 ### `world_mgc`, `world_sp`, `world_bap`, `world_ap`
@@ -172,17 +179,20 @@ Example Response (Renderer with ML vocoder):
         "phoneme_sequence": {
           "required": true
         },
-        "gender": {
+        "curve:gender": {
+          "name": "gender",
           "required": false,
           "range": [-100, 100],
           "scale": "linear",
         },
-        "tension": {
+        "curve:tension": {
+          "name": "tension",
           "required": false,
           "range": [-100, 100],
           "scale": "linear",
         },
-        "strength": {
+        "curve:strength": {
+          "name": "strength",
           "required": false,
           "range": [-20, 20],
           "scale": "db",
