@@ -60,14 +60,13 @@ There is not a hard requirement, but the preferred transport of these json objec
   "f0": [261, 261, 261, 261, 261, ...] // Hz, each number is a frame
 }
 ```
-### `curve`
+### `curve:<name>`
 The curves are similar to "f0", which can be edited by the user after generation.
 ```
 {
-  "name": "tension",
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
-  "range": [-100, 100], // only used if editable
+  "range": [-100, 100],
   "scale": "linear", // "linear", "log", "log2", "log10" or "db",
   "curve": [0, 0, 0, 0, 0, ...]
 }
