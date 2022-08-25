@@ -124,7 +124,7 @@ Example Response (Renderer with ML vocoder):
 - This is the only required API for a backend. Any other APIs are defined by the backend and returned via this API.
 - This API can also be used to check if the backend is started, or still alive. If the backend does not return in 1 second, it is considered offline.
 
-## Example API: NNSVS `phonemize`
+### Example API: NNSVS `phonemize`
 
 Example request:
 ```
@@ -142,7 +142,7 @@ Example Response:
 }
 ```
 
-## Example API: NNSVS `synth_world_features`
+### Example API: NNSVS `synth_world_features`
 
 Example request:
 ```
