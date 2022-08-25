@@ -4,6 +4,20 @@ ML based SVS often has different data flows. Some intakes notes and outputs audi
 
 There is not a hard requirement, but the preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely. 
 
+```
+
+ ┌──────────────────────────────┐          ┌───────────────────────────────┐
+ │                              │          │                               │
+ │  ┌──────────┐  ┌──────────┐  │          │  ┌──────────┐  ┌───────────┐  │
+ │  │          │◄─┤          │◄─┼──────────┼──┤          │◄─┤           │  │
+ │  │    UI    │  │ svs.json │  │  ZeroMQ  │  │ svs.json │  │ algorithm │  │
+ │  │          ├─►│          ├──┼──────────┼─►│          ├─►│           │  │
+ │  └──────────┘  └──────────┘  │          │  └──────────┘  └───────────┘  │
+ │            Frontend          │          │             Backend           │
+ └──────────────────────────────┘          └───────────────────────────────┘
+
+```
+
 ## Data Structs
 ### `note_sequence`
 ```
