@@ -31,7 +31,7 @@ There is not a hard requirement, but the preferred transport of these json objec
       "flag:timbre": "Falsetto", // flags are optional, names can be arbitrary, backend can decide how to use them.
       "flag:gender": 0,
     }, {
-      "lyric": "花",
+      "lyric": "hua",
       "duration": 500,
       "key": 60, // midi spec, C4 = 60
     }
@@ -49,10 +49,10 @@ There is not a hard requirement, but the preferred transport of these json objec
       "flag:timbre": "Falsetto", // flags are optional, names can be arbitrary, backend can decide how to use them.
       "flag:gender": 0,
     }, {
-      "phoneme": "h", // h from hua (花), starts 100ms before first note
+      "phoneme": "h", // h from hua, starts 100ms before first note
       "duration": 200
     }, {
-      "phoneme": "ua", // ua from hua (花)
+      "phoneme": "ua", // ua from hua
       "duration": 400
     }, {
       "phoneme": "", // rest note
