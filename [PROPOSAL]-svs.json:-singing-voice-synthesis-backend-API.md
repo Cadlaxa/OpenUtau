@@ -177,19 +177,16 @@ Example Response (Renderer with ML vocoder):
           "required": true
         },
         "curve:gender": {
-          "name": "gender",
           "required": false,
           "range": [-100, 100],
           "scale": "linear",
         },
         "curve:tension": {
-          "name": "tension",
           "required": false,
           "range": [-100, 100],
           "scale": "linear",
         },
         "curve:strength": {
-          "name": "strength",
           "required": false,
           "range": [-20, 20],
           "scale": "db",
