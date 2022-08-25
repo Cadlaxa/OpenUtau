@@ -61,12 +61,13 @@ There is not a hard requirement, but the preferred transport of these json objec
 }
 ```
 ### `curve:<name>`
-The curves are similar to "f0", which can be edited by the user after generation.
+If a curve name appears only in inputs, it becomes a user input.
+If a curve name appears in both inputs and outputs, it becomes pass-through data. I.e., one API generates and the frontend passes it to another API.
 ```
 {
   "time_unit": "ms",
   "frame_duration": "5", // 5ms per frame
-  "range": [-100, 100],
+  "range": [-100, 100], // only used if editable
   "scale": "linear", // "linear", "log", "log2", "log10" or "db",
   "curve": [0, 0, 0, 0, 0, ...]
 }
