@@ -1,4 +1,4 @@
-This proposal describes a json-based API for SVS backends. This API is flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself.
+This proposal describes a json-based API for SVS backends. This API is flexible. It defines some data structs and a single API `ops`, and allows the backend to define and describe its API structure itself. The frontend is able to find out a path of notes to audio, from the described API structure.
 
 There is not a hard requirement, but the preferred transport of these json objects is ZeroMQ. The choice is based on ZeroMQ's simplicity and flexibility. Without going into too many details here, it's a very easy IPC setup, and works locally or remotely. 
 
@@ -6,59 +6,69 @@ There is not a hard requirement, but the preferred transport of these json objec
 ### `note_sequence`
 ```
 {
- time_unit: "ms", // s, ms or us
- notes: [
-   {
-     "lyric": "", // rest note. practically all note sequences should start with a rest note since the voice usually starts before the note.
-     "duration": 500,
-     "key": 60
-   }, {
-     "lyric": "花",
-     "duration": 500,
-     "key": 60 // midi spec, C4 = 60
-   }
- ]
+  time_unit: "ms", // s, ms or us
+  notes: [
+    {
+      "lyric": "", // rest note. practically all note sequences should start with a rest note since the voice usually starts before the note.
+      "duration": 500,
+      "key": 60,
+      "timbre": "Falsetto" // optional
+    }, {
+      "lyric": "花",
+      "duration": 500,
+      "key": 60, // midi spec, C4 = 60
+    }
+  ]
 }
 ```
 ### `phoneme_sequence`
 ```
 {
- time_unit: "ms",
- phonemes: [
-   {
-     "phoneme": "", // rest note
-     "duration": 400
-   }, {
-     "phoneme": "h", // h from hua (花), starts 100ms before first note
-     "duration": 200
-   }, {
-     "phoneme": "ua", // ua from hua (花)
-     "duration": 400
-   },, {
-     "phoneme": "", // rest note
-     "duration": 500
-   } 
- ]
+  time_unit: "ms",
+  phonemes: [
+    {
+      "phoneme": "", // rest note
+      "duration": 400,
+      "timbre": "Falsetto" // optional
+    }, {
+      "phoneme": "h", // h from hua (花), starts 100ms before first note
+      "duration": 200
+    }, {
+      "phoneme": "ua", // ua from hua (花)
+      "duration": 400
+    }, {
+      "phoneme": "", // rest note
+      "duration": 500
+    } 
+  ]
 }
 ```
 ### `f0`
 ```
 {
- "time_unit": "ms",
- "frame_duration": "5", // 5ms per frame
- "f0": [261, 261, 261, 261, 261, ...] // Hz, each number is a frame
+  "time_unit": "ms",
+  "frame_duration": "5", // 5ms per frame
+  "f0": [261, 261, 261, 261, 261, ...] // Hz, each number is a frame
+}
+```
+### `gender_curve`, `strength_curve`, `tension_curve`, `breathiness_curve`, `voicing_curve`
+```
+{
+  "time_unit": "ms",
+  "frame_duration": "5", // 5ms per frame
+  "gender_curve": [0, 0, 0, 0, 0, ...] // all curves are in [-100, 100] range
 }
 ```
 ### `world_mgc`, `world_sp`, `world_bap`, `world_ap`
 ```
 {
- "time_unit": "ms",
- "frame_duration": 5, // 5ms per frame
- "width": 60,
- "world_mgc": [
-   [0, 0, 0, ...], // first frame, length = 60
-   [0, 0, 0, ...], // second frame, length = 60
-   ...
+  "time_unit": "ms",
+  "frame_duration": 5, // 5ms per frame
+  "width": 60,
+  "world_mgc": [
+    [0, 0, 0, ...], // first frame, length = 60
+    [0, 0, 0, ...], // second frame, length = 60
+    ...
   ]
 }
 ### `audio_samples`
@@ -88,13 +98,39 @@ Example Response (NNSVS):
   "ops": [
     {
       "op": "phonemize", // op names are free for backends to define
-      "inputs": ["note_sequence"], // input and output data structs are predefined as above
-      "outputs": ["phoneme_sequence"]
+      "inputs": {
+        "note_sequence": {
+          "required": true,
+        }
+      }, // input and output data structs are predefined as above
+      "outputs": {
+        "phoneme_sequence": {
+        }
+      }
     },
     {
       "op": "synth_world_features",
-      "inputs": ["phoneme_sequence"],
-      "outputs": ["world_mgc", "world_bap", "f0"],
+      "inputs": {
+        "phoneme_sequence": {
+          "required": true,
+        }
+      },
+      "outputs": {
+        "world_mgc": {
+          "time_unit": "ms",
+          "frame_duration": 5,
+          "width": 60
+        },
+        "world_bap": {
+          "time_unit": "ms",
+          "frame_duration": 5,
+          "width": 5
+        },
+        "f0": {
+          "time_unit": "ms",
+          "frame_duration": 5
+        }
+      }
     }
   ]
 }
@@ -105,13 +141,45 @@ Example Response (Renderer with ML vocoder):
   "ops": [
     {
       "op": "phonemize",
-      "inputs": ["note_sequence"],
-      "outputs": ["f0", "phoneme_sequence"]
+      "inputs": {
+        "note_sequence": {
+          "required": true,
+        }
+      },
+      "outputs": {
+        "f0": {
+          "time_unit": "ms",
+          "frame_duration": 5
+        },
+        "phoneme_sequence": {
+        }
+      }
     },
     {
       "op": "synth_audio_samples",
-      "inputs": ["f0", "phoneme_sequence"],
-      "outputs": ["audio_samples"],
+      "inputs": {
+        "f0": {
+          "required": true,
+          "time_unit": "ms",
+          "frame_duration": 5
+        },
+        "phoneme_sequence": {
+          "required": true
+        },
+        "gender": {
+          "required": false
+        },
+        "tension": {
+          "required": false
+        }
+      },
+      "outputs": {
+        "audio_samples": {
+          "channels": 1,
+          "sample_rate": 44100,
+          "sample_format": "int16"
+        }
+      },
     }
   ]
 }
