@@ -127,6 +127,8 @@ Example request:
 Example Response (NNSVS):
 ```json
 {
+  "name": "ENUNU",
+  "version": "0.5.0",
   "ops": [
     {
       "op": "phonemize", // op names are free for backends to define
@@ -170,6 +172,8 @@ Example Response (NNSVS):
 Example Response (Renderer with ML vocoder):
 ```json
 {
+  "name": "SomeRenderer",
+  "version": "1.0",
   "ops": [
     {
       "op": "phonemize",
