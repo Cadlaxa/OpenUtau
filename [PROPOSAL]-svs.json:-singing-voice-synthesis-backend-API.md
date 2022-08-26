@@ -44,20 +44,24 @@ There is not a hard requirement, but the preferred transport of these json objec
   "time_unit": "ms",
   "phonemes": [
     {
+      "note_index": 0, // used by frontend to map phonemes to notes
       "phoneme": "", // rest note
       "duration": 400,
       "key": 60,
       "flag:timbre": "Falsetto", // flags are optional, names can be arbitrary, backend can decide how to use them.
       "flag:gender": 0
     }, {
+      "note_index": 1,
       "phoneme": "h", // h from hua, starts 100ms before first note
       "duration": 200,
       "key": 60
     }, {
+      "note_index": 2,
       "phoneme": "ua", // ua from hua
       "duration": 400,
       "key": 60
     }, {
+      "note_index": 3,
       "phoneme": "", // rest note
       "duration": 500,
       "key": 60
