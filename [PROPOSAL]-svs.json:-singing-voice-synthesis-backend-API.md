@@ -32,7 +32,7 @@ There is not a hard requirement, but the preferred transport of these json objec
       "flag:gender": 0,
     }, {
       "lyric": "hua",
-      "duration": 500,
+      "duration": 500.0,
       "key": 60, // midi spec, C4 = 60
     }
   ]
