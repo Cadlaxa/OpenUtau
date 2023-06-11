@@ -17,6 +17,7 @@ The encoding used to read `character.txt`, `prefix.map` and `oto.ini`. The `char
 ### Character Info
 ```
 name: 闇音レンリ・連続音Ver1.5
+singer_type: utau
 image: renri.bmp
 author: ゆずり
 voice: ゆずり
@@ -56,6 +57,7 @@ portrait_opacity: 0.67
 
 ### Full Example
 ```name: 闇音レンリ・連続音Ver1.5
+singer_type: utau
 text_file_encoding: shift_jis
 image: renri.bmp
 portrait: portrait.webp
