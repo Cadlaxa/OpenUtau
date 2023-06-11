@@ -56,7 +56,8 @@ portrait_opacity: 0.67
 ![subbanks](https://i.imgur.com/XznEdSu.png)
 
 ### Full Example
-```name: 闇音レンリ・連続音Ver1.5
+```
+name: 闇音レンリ・連続音Ver1.5
 singer_type: utau
 text_file_encoding: shift_jis
 image: renri.bmp
