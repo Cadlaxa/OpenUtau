@@ -12,7 +12,7 @@ The example is based on `闇音レンリ・連続音Ver1.5`.
 ```
 text_file_encoding: shift_jis
 ```
-The encoding used to read `character.txt`, `prefix.map` and `oto.ini`. The `character.yaml` itself, should always be `utf-8`.
+The encoding used to read `character.txt`, `prefix.map` and `oto.ini`. The `character.yaml` itself and all the yaml dictionaries in the voicebank (such as `arpasing.yaml`), should always be `utf-8`.
 
 ### Character Info
 ```
