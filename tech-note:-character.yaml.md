@@ -31,7 +31,7 @@ These are similar basic character info in `character.txt`. If not present, info 
 localized_names:
   en-US: Renri Yamine VCV Ver1.5
 ```
-This will display localized names for the user's selected UI language.
+This will display localized names for the user's selected singer name display language.
 
 available language codes: `en-US`, `de-DE`, `es-ES`, `es-MX`, `fi-FI`, `fr-FR`, `id-ID`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `th-TH`, `vi-VN`, `zh-CN`, `zh-TW`
 ### Portrait
