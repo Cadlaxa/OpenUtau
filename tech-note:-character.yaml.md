@@ -9,13 +9,13 @@ The example is based on `闇音レンリ・連続音Ver1.5`.
 - Every field is optional at the moment.
 
 ### Encoding
-```
+```yml
 text_file_encoding: shift_jis
 ```
 The encoding used to read `character.txt`, `prefix.map` and `oto.ini`. The `character.yaml` itself and all the yaml dictionaries in the voicebank (such as `arpasing.yaml`), should always be `utf-8`.
 
 ### Character Info
-```
+```yml
 name: 闇音レンリ・連続音Ver1.5
 singer_type: utau
 image: renri.bmp
@@ -26,8 +26,16 @@ web: https://renrivoice.wixsite.com/renri-voice/utau
 ```
 These are similar basic character info in `character.txt`. If not present, info in `character.txt` will be used.
 
-### Portrait
+### Localized name
+```yml
+localized_names:
+  en-US: Renri Yamine VCV Ver1.5
 ```
+This will display localized names for the user's selected UI language.
+
+available language codes: `en-US`, `de-DE`, `es-ES`, `es-MX`, `fi-FI`, `fr-FR`, `id-ID`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `th-TH`, `vi-VN`, `zh-CN`, `zh-TW`
+### Portrait
+```yml
 portrait: portrait.png
 portrait_opacity: 0.67
 ```
@@ -56,8 +64,10 @@ portrait_opacity: 0.67
 ![subbanks](https://i.imgur.com/XznEdSu.png)
 
 ### Full Example
-```
+```yml
 name: 闇音レンリ・連続音Ver1.5
+localized_names:
+  en-US: Renri Yamine VCV Ver1.5
 singer_type: utau
 text_file_encoding: shift_jis
 image: renri.bmp
