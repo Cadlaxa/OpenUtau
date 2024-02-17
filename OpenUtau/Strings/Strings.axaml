@@ -80,6 +80,7 @@
   <system:String x:Key="exps.type.options">Options</system:String>
 
   <system:String x:Key="languages.de">German</system:String>
+  <system:String x:Key="languages.cy">Welsh</system:String>
   <system:String x:Key="languages.en">English</system:String>
   <system:String x:Key="languages.es">Spanish</system:String>
   <system:String x:Key="languages.fr">French</system:String>

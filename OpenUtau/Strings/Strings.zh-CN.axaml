@@ -76,6 +76,7 @@
   <system:String x:Key="exps.type.options">选项</system:String>
 
   <system:String x:Key="languages.de">德语</system:String>
+  <system:String x:Key="languages.cy">威尔士语</system:String>
   <system:String x:Key="languages.en">英语</system:String>
   <system:String x:Key="languages.es">西班牙语</system:String>
   <system:String x:Key="languages.fr">法语</system:String>

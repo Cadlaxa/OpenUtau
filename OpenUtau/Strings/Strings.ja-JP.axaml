@@ -76,6 +76,7 @@
   <system:String x:Key="exps.type.options">カスタム</system:String>
 
   <system:String x:Key="languages.de">ドイツ語</system:String>
+  <system:String x:Key="languages.cy">ウェールズ語</system:String>
   <system:String x:Key="languages.en">英語</system:String>
   <system:String x:Key="languages.es">スペイン語</system:String>
   <system:String x:Key="languages.fr">フランス語</system:String>
