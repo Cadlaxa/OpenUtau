@@ -114,6 +114,9 @@ namespace OpenUtau.Plugin.Builtin {
         private readonly string[] ccNoParsing = { "sk", "sm", "sn", "sp", "st", "hhy" };
         private readonly string[] stopCs = { "b", "d", "g", "k", "p", "t" };
         private readonly string[] ucvCs = { "r", "l", "w", "y", "f"};
+        private readonly string[] starlightccs = { "rl", "ll", "nn", "mm" };
+
+
 
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
@@ -440,7 +443,7 @@ namespace OpenUtau.Plugin.Builtin {
                         if (phonemes.Count == 0) {
                             // opera [9 p] + [pr] + [_ru]
                             parsingCC = $"{cc[0]}{cc[1]}";
-                            if (HasOto(parsingCC, syllable.vowelTone) && lastCPrevWord != 1 && ucvCs.Contains($"{cc[1]}") && parsingCC != "rl" ) {
+                            if (HasOto(parsingCC, syllable.vowelTone) && lastCPrevWord != 1 && ucvCs.Contains($"{cc[1]}") && !starlightccs.Contains($"{cc[0]}{cc[1]}")) {
                                 parsingVCC = $"{prevV} {cc[0]}";
 
                                 basePhoneme = $"_{cc.Last()}{v}";

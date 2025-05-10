@@ -373,9 +373,11 @@ namespace OpenUtau.Plugin.Builtin {
         }
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
-            var prevV = syllable.prevV == "" ? "" : $"{syllable.prevV}";
-            string[] cc = syllable.cc.Select(c => ReplacePhoneme(c)).ToArray();
-            string v = ReplacePhoneme(syllable.v);
+            var replacedPrevV = ReplacePhoneme(syllable.prevV);
+            var prevV = string.IsNullOrEmpty(replacedPrevV) ? "" : replacedPrevV;
+            //string prevV = syllable.prevV;
+            string[] cc = syllable.cc;
+            string v = syllable.v;
             string basePhoneme;
             var phonemes = new List<string>();
             var lastC = cc.Length - 1;
