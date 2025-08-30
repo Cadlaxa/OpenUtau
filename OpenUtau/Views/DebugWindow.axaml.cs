@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia.Controls;
+using FluentAvalonia.UI;
 using OpenUtau.App.ViewModels;
 
 namespace OpenUtau.App.Views {

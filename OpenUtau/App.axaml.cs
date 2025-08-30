@@ -12,6 +12,14 @@ using Serilog;
 
 namespace OpenUtau.App {
     public class App : Application {
+        public static AppBuilder BuildAvaloniaApp()
+    => AppBuilder.Configure<App>()
+                 .UsePlatformDetect()
+                 .LogToTrace();
+
+        public static void Main(string[] args)
+            => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+
         public override void Initialize() {
             Log.Information("Initializing application.");
             AvaloniaXamlLoader.Load(this);
