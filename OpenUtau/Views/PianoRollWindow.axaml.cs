@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reactive;
 using System.Threading.Tasks;
+using FluentAvalonia.UI.Windowing;
+using FluentAvalonia;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
