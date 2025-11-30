@@ -64,7 +64,7 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(vm => vm.Singer)
                 .WhereNotNull()
                 .Subscribe(singer => {
-                    if (MessageBox.LoadingIsActive()) {
+                    if (LoadingWindow.IsLoading()) {
                         try {
                             AttachSinger();
                         } catch (Exception e) {
@@ -521,7 +521,7 @@ namespace OpenUtau.App.ViewModels {
                         if (samples != null) {
                             int f0Method;
                             switch (method) {
-                                case "dioss":
+                                case "harvest":
                                     f0Method = 1;
                                     break;
                                 case "pyin":

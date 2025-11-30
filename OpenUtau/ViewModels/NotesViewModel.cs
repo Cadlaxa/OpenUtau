@@ -57,6 +57,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public bool DrawPitchTool { get; set; }
         [Reactive] public bool DrawLinePitchTool { get; set; }
         [Reactive] public bool OverwritePitchTool { get; set; }
+        [Reactive] public bool OverwriteLinePitchTool { get; set; }
         [Reactive] public bool KnifeTool { get; set; }
         public ReactiveCommand<string, Unit> SelectToolCommand { get; }
         [Reactive] public bool ShowTips { get; set; }
@@ -213,6 +214,7 @@ namespace OpenUtau.App.ViewModels {
             DrawPitchTool = false;
             DrawLinePitchTool = false;
             OverwritePitchTool = false;
+            OverwriteLinePitchTool = false;
             KnifeTool = false;
             SelectToolCommand = ReactiveCommand.Create<string>(index => {
                 CursorTool = index == "1";
@@ -222,6 +224,7 @@ namespace OpenUtau.App.ViewModels {
                 DrawPitchTool = index == "4";
                 OverwritePitchTool = index == "4+";
                 DrawLinePitchTool = index == "4++";
+                OverwriteLinePitchTool = index == "4+++";
                 KnifeTool = index == "5";
             });
 
@@ -515,7 +518,7 @@ namespace OpenUtau.App.ViewModels {
                     Portrait = null;
                     portraitSource = null;
                 }
-                PortraitMask = new SolidColorBrush(Colors.White, singer.PortraitOpacity);
+                PortraitMask = new SolidColorBrush(Avalonia.Media.Colors.White, singer.PortraitOpacity);
                 Task.Run(() => {
                     lock (portraitLock) {
                         try {
@@ -846,24 +849,66 @@ namespace OpenUtau.App.ViewModels {
                 int left = (DocManager.Inst.playPosTick / snapUnit) * snapUnit;
                 int minPosition = DocManager.Inst.NotesClipboard.Select(note => note.position).Min();
                 //If PlayPos is before the beginning of the part, don't paste.
-                if (left >= Part.position) {
-                    int offset = left - minPosition - Part.position;
-                    var notes = DocManager.Inst.NotesClipboard.Select(note => note.Clone()).ToList();
-                    notes.ForEach(note => note.position += offset);
-                    DocManager.Inst.StartUndoGroup();
-                    DocManager.Inst.ExecuteCmd(new AddNoteCommand(Part, notes));
-                    int minDurTick = Part.GetMinDurTick(Project);
-                    if (Part.Duration < minDurTick) {
-                        DocManager.Inst.ExecuteCmd(new ResizePartCommand(Project, Part, minDurTick - Part.Duration, false));
-                    }
-                    DocManager.Inst.EndUndoGroup();
-                    Selection.Select(notes);
-                    MessageBus.Current.SendMessage(new NotesSelectionEvent(Selection));
+                if (left < Part.position) {
+                    return;
+                }
+                int offset = left - minPosition - Part.position;
+                var notes = DocManager.Inst.NotesClipboard.Select(note => note.Clone()).ToList();
+                notes.ForEach(note => note.position += offset);
+                DocManager.Inst.StartUndoGroup();
+                DocManager.Inst.ExecuteCmd(new AddNoteCommand(Part, notes));
+                int minDurTick = Part.GetMinDurTick(Project);
+                if (Part.Duration < minDurTick) {
+                    DocManager.Inst.ExecuteCmd(new ResizePartCommand(Project, Part, minDurTick - Part.Duration, false));
+                }
+                DocManager.Inst.EndUndoGroup();
+                Selection.Select(notes);
+                MessageBus.Current.SendMessage(new NotesSelectionEvent(Selection));
 
-                    var note = notes.First();
-                    if (left < TickOffset || TickOffset + ViewportTicks < note.position + note.duration + Part.position) {
-                        TickOffset = Math.Clamp(note.position + note.duration * 0.5 - ViewportTicks * 0.5, 0, HScrollBarMax);
-                    }
+                var note = notes.First();
+                if (left < TickOffset || TickOffset + ViewportTicks < note.position + note.duration + Part.position) {
+                    TickOffset = Math.Clamp(note.position + note.duration * 0.5 - ViewportTicks * 0.5, 0, HScrollBarMax);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Paste notes but only keep tone, relative position, duration and lyric.
+        /// </summary>
+        public void PastePlainNotes() {
+            UNote toPlainNote(UNote note) {
+                var plainNote = DocManager.Inst.Project.CreateNote(
+                    note.tone,
+                    note.position,
+                    note.duration);
+                plainNote.lyric = note.lyric;
+                return plainNote;
+            }
+
+            if (Part != null && DocManager.Inst.NotesClipboard != null && DocManager.Inst.NotesClipboard.Count > 0) {
+                int snapUnit = DocManager.Inst.Project.resolution * 4 / SnapDiv;
+                int left = (DocManager.Inst.playPosTick / snapUnit) * snapUnit;
+                int minPosition = DocManager.Inst.NotesClipboard.Select(note => note.position).Min();
+                //If PlayPos is before the beginning of the part, don't paste.
+                if (left < Part.position) {
+                    return;
+                }
+                int offset = left - minPosition - Part.position;
+                var notes = DocManager.Inst.NotesClipboard.Select(note => toPlainNote(note)).ToList();
+                notes.ForEach(note => note.position += offset);
+                DocManager.Inst.StartUndoGroup();
+                DocManager.Inst.ExecuteCmd(new AddNoteCommand(Part, notes));
+                int minDurTick = Part.GetMinDurTick(Project);
+                if (Part.Duration < minDurTick) {
+                    DocManager.Inst.ExecuteCmd(new ResizePartCommand(Project, Part, minDurTick - Part.Duration, false));
+                }
+                DocManager.Inst.EndUndoGroup();
+                Selection.Select(notes);
+                MessageBus.Current.SendMessage(new NotesSelectionEvent(Selection));
+
+                var note = notes.First();
+                if (left < TickOffset || TickOffset + ViewportTicks < note.position + note.duration + Part.position) {
+                    TickOffset = Math.Clamp(note.position + note.duration * 0.5 - ViewportTicks * 0.5, 0, HScrollBarMax);
                 }
             }
         }
@@ -969,29 +1014,23 @@ namespace OpenUtau.App.ViewModels {
             }
         }
 
-        internal (UNote[], string[]) PrepareInsertLyrics() {
+        internal (UNote[], UNote[]) PrepareInsertLyrics() {
             var first = Selection.FirstOrDefault();
-            var last = Selection.LastOrDefault();
-            if(Part == null){
-                return (new UNote[0], new string[0]);
+            if (Part == null) {
+                return (Array.Empty<UNote>(), Array.Empty<UNote>());
             }
             //If no note is selected, InsertLyrics will apply to all notes in the part.
-            if (first == null || last == null) {
-                return (Part.notes.ToArray(), Part.notes.Select(n => n.lyric).ToArray());
+            if (first == null) {
+                return (Part.notes.ToArray(), Array.Empty<UNote>());
             }
             List<UNote> notes = new List<UNote>();
             var note = first;
-            while (note != last) {
+            while (note.Next != null) {
                 notes.Add(note);
                 note = note.Next;
             }
             notes.Add(note);
-            var lyrics = notes.Select(n => n.lyric).ToArray();
-            while (note.Next != null) {
-                note = note.Next;
-                notes.Add(note);
-            }
-            return (notes.ToArray(), lyrics);
+            return (notes.ToArray(), Selection.ToArray());
         }
 
         bool IsExpSupported(string expKey) {

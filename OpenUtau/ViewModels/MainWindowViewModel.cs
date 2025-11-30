@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using DynamicData.Binding;
@@ -46,13 +47,18 @@ namespace OpenUtau.App.ViewModels {
         public string Title => !ProjectSaved
             ? $"{AppVersion}"
             : $"{(DocManager.Inst.ChangesSaved ? "" : "*")}{AppVersion} [{DocManager.Inst.Project.FilePath}]";
-        
+        public double Width => Preferences.Default.MainWindowSize.Width;
+        public double Height => Preferences.Default.MainWindowSize.Height;
+
         /// <summary>
         ///0: welcome page, 1: tracks page
         /// </summary>
         [Reactive] public int Page { get; set; } = 0;
         ObservableCollectionExtended<RecentFileInfo> RecentFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
         ObservableCollectionExtended<RecentFileInfo> TemplateFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
+        [Reactive] public bool HasRecovery { get; set; } = false;
+        [Reactive] public string RecoveryPath { get; set; } = String.Empty;
+        [Reactive] public string RecoveryString { get; set; } = String.Empty;
 
         [Reactive] public PlaybackViewModel PlaybackViewModel { get; set; }
         [Reactive] public TracksViewModel TracksViewModel { get; set; }
@@ -79,6 +85,9 @@ namespace OpenUtau.App.ViewModels {
         private ObservableCollectionExtended<MenuItemViewModel> openTemplatesMenuItems
             = new ObservableCollectionExtended<MenuItemViewModel>();
 
+        // view will set this to the real AskIfSaveAndContinue implementation
+        public Func<Task<bool>>? AskIfSaveAndContinue { get; set; }
+
         public MainWindowViewModel() {
             PlaybackViewModel = new PlaybackViewModel();
             TracksViewModel = new TracksViewModel();
@@ -92,8 +101,22 @@ namespace OpenUtau.App.ViewModels {
             Directory.CreateDirectory(PathManager.Inst.TemplatesPath);
             TemplateFiles.AddRange(Directory.GetFiles(PathManager.Inst.TemplatesPath, "*.ustx")
                 .Select(file => new RecentFileInfo(file)));
-            OpenRecentCommand = ReactiveCommand.Create<string>(OpenRecent);
-            OpenTemplateCommand = ReactiveCommand.Create<string>(OpenTemplate);
+
+            // create async commands that consult the view's save prompt
+            OpenRecentCommand = ReactiveCommand.CreateFromTask<string>(async file => {
+                if (!DocManager.Inst.ChangesSaved && AskIfSaveAndContinue != null) {
+                    if (!await AskIfSaveAndContinue()) return;
+                }
+                OpenRecent(file);
+            });
+
+            OpenTemplateCommand = ReactiveCommand.CreateFromTask<string>(async file => {
+                if (!DocManager.Inst.ChangesSaved && AskIfSaveAndContinue != null) {
+                    if (!await AskIfSaveAndContinue()) return;
+                }
+                OpenTemplate(file);
+            });
+
             PartDeleteCommand = ReactiveCommand.Create<UPart>(part => {
                 TracksViewModel.DeleteSelectedParts();
             });
@@ -107,9 +130,10 @@ namespace OpenUtau.App.ViewModels {
             DocManager.Inst.Redo();
         }
 
-        public async void InitProject(MainWindow window) {
+        public void InitProject(MainWindow window) {
             var recPath = Preferences.Default.RecoveryPath;
             if (!string.IsNullOrWhiteSpace(recPath) && File.Exists(recPath)) {
+                /*
                 var result = await MessageBox.Show(
                     window,
                     $"{ThemeManager.GetString("dialogs.recovery")}\n{recPath}",
@@ -128,6 +152,11 @@ namespace OpenUtau.App.ViewModels {
                     }
                     return;
                 }
+                */
+                RecoveryPath = recPath;
+                RecoveryString = ThemeManager.GetString("dialogs.recovery") + "\n" + recPath;
+                HasRecovery = true;
+                return;
             }
           
             var args = Environment.GetCommandLineArgs();
@@ -140,6 +169,7 @@ namespace OpenUtau.App.ViewModels {
                     var customEx = new MessageCustomizableException($"Failed to open file {args[1]}", $"<translate:errors.failed.openfile>: {args[1]}", e);
                     DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(customEx));
                 }
+                return;
             }
         }
 
@@ -161,12 +191,15 @@ namespace OpenUtau.App.ViewModels {
             DocManager.Inst.Recovered = false;
         }
 
+
+
         public void OpenProject(string[] files) {
             if (files == null) {
                 return;
             }
             DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), true, "project"));
             try {
+
                 Core.Format.Formats.LoadProject(files);
                 DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(-1, true));
                 this.RaisePropertyChanged(nameof(Title));
