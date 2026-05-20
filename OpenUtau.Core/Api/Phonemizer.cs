@@ -130,6 +130,11 @@ namespace OpenUtau.Api {
             public int position;
 
             /// <summary>
+            /// Error from the phonemizer, if this phoneme represents an error.
+            /// </summary>
+            public Exception? error;
+
+            /// <summary>
             /// Suggested attributes. It may later be overwritten with a user-specified value.
             /// </summary>
             public List<PhonemeExpression> expressions;
@@ -151,6 +156,7 @@ namespace OpenUtau.Api {
         public string Tag { get; set; }
         public string Language { get; set; }
         public string Engine { get; set; }
+        internal Exception? SetUpException { get; set; }
 
         protected double bpm;
         protected TimeAxis timeAxis;
