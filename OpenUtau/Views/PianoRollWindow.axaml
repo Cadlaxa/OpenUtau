@@ -624,18 +624,21 @@
                           Part="{Binding NotesViewModel.Part}"
                           Key="{Binding NotesViewModel.SecondaryKey}"
                           ShowRealCurve="False"/>
-      <c:ExpressionCanvas Grid.Row="5" Grid.Column="1"
-                          IsVisible="{Binding NotesViewModel.ShowExpressions}"
-                          Bounds="{Binding NotesViewModel.ExpBounds, Mode=OneWayToSource}"
-                          TickWidth="{Binding NotesViewModel.TickWidth}"
-                          TickOffset="{Binding NotesViewModel.TickOffset}"
-                          Part="{Binding NotesViewModel.Part}"
-                          Key="{Binding NotesViewModel.PrimaryKey}"
-                          ShowRealCurve="True"
-                          PointerPressed="ExpCanvasPointerPressed"
-                          PointerMoved="ExpCanvasPointerMoved"
-                          PointerReleased="ExpCanvasPointerReleased">
-      </c:ExpressionCanvas>
+      <ScrollViewer Name="ExpScrollViewer" Grid.Row="5" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <c:ExpressionCanvas IsVisible="{Binding NotesViewModel.ShowExpressions}"
+                              Bounds="{Binding NotesViewModel.ExpBounds, Mode=OneWayToSource}"
+                              TickWidth="{Binding NotesViewModel.TickWidth}"
+                              TickOffset="{Binding NotesViewModel.TickOffset}"
+                              Part="{Binding NotesViewModel.Part}"
+                              Key="{Binding NotesViewModel.PrimaryKey}"
+                              ShowRealCurve="True"
+                              MinHeight="{Binding #ExpScrollViewer.Bounds.Height}"
+                              VerticalAlignment="Top"
+                              PointerPressed="ExpCanvasPointerPressed"
+                              PointerMoved="ExpCanvasPointerMoved"
+                              PointerReleased="ExpCanvasPointerReleased">
+          </c:ExpressionCanvas>
+      </ScrollViewer>
       <TextBlock Classes="tips" Grid.Row="5" Grid.Column="1"
                  IsHitTestVisible="False" VerticalAlignment="Bottom" Margin="10,5"
                  IsVisible="{Binding NotesViewModel.PrimaryKeyNotSupported}"
