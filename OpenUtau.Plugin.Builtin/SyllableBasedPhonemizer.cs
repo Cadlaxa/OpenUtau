@@ -341,7 +341,7 @@ namespace OpenUtau.Plugin.Builtin {
 
                     if (File.Exists(file)) {
                         try {
-                            var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                            var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file)) ?? new YAMLData();
                             
                             if (backupVowels == null) backupVowels = GetVowels() ?? Array.Empty<string>();
                             if (backupConsonants == null) backupConsonants = GetConsonants() ?? Array.Empty<string>();
@@ -349,7 +349,7 @@ namespace OpenUtau.Plugin.Builtin {
                             var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
                             vowels = backupVowels.Concat(yamlVowels).Distinct().ToArray();
 
-                            tails = (tails ?? Array.Empty<string>()).Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                            tails = new string[] { "-", "R" }.Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
                             
                             fricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
                             aspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
@@ -388,7 +388,7 @@ namespace OpenUtau.Plugin.Builtin {
                                     }
                                 }
                             }
-
+                            yamlFallbacks.Clear();
                             if (data?.fallbacks != null) {
                                 yamlFallbacks.Clear();
                                 foreach (var df in data.fallbacks) {
