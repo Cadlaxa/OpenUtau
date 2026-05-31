@@ -812,9 +812,12 @@ namespace OpenUtau.App.ViewModels {
                             string trimmedVal = val.Trim();
                             bool isExplicitList = trimmedVal.StartsWith("[") && trimmedVal.EndsWith("]");
                             
-                            var matches = System.Text.RegularExpressions.Regex.Matches(trimmedVal, @"\""[^\""]*\""|'[^']*'|[^ ,]+");
+                            // NEW: Protects fallbacks from being split if it uses the dictionary format
+                            bool isFallbacksBlock = cat.Name.Equals("fallbacks", StringComparison.OrdinalIgnoreCase);
                             
-                            if (matches.Count > 1 || isExplicitList) {
+                            var matches = System.Text.RegularExpressions.Regex.Matches(trimmedVal, @"\""[^\""]*\""|[^ ,]+");
+                            
+                            if (isExplicitList || (matches.Count > 1 && !isFallbacksBlock)) {
                                 dictNode[key] = matches.Cast<System.Text.RegularExpressions.Match>()
                                                        .Select(m => m.Value.Trim('[', ']'))
                                                        .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -845,18 +848,26 @@ namespace OpenUtau.App.ViewModels {
 
                             string trimmedVal = val.Trim();
                             bool isExplicitList = trimmedVal.StartsWith("[") && trimmedVal.EndsWith("]");
-                            
                             bool isPhonemesColumn = col.Equals("phonemes", StringComparison.OrdinalIgnoreCase);
+                            
+                            bool isGraphemeColumn = col.Equals("grapheme", StringComparison.OrdinalIgnoreCase) || col.Equals("graphemes", StringComparison.OrdinalIgnoreCase);
+                            
+                            bool isFallbacksBlock = cat.Name.Equals("fallbacks", StringComparison.OrdinalIgnoreCase);
+                            
+                            bool isReplacementsBlock = cat.Name.Equals("replacements", StringComparison.OrdinalIgnoreCase) 
+                                                       && (col.Equals("from", StringComparison.OrdinalIgnoreCase) || col.Equals("to", StringComparison.OrdinalIgnoreCase));
+                            
                             var matches = System.Text.RegularExpressions.Regex.Matches(trimmedVal, @"\""[^\""]*\""|[^ ,]+");
                             
-                            // It becomes a list IF: multiple items, explicit brackets, OR if it is the phonemes column!
-                            if (matches.Count > 1 || isExplicitList || isPhonemesColumn) {
+                            // It becomes a list IF: explicit brackets, phonemes, replacements... 
+                            // OR (multiple items AND it is NOT the grapheme column AND NOT in fallbacks)
+                            if (isExplicitList || isPhonemesColumn || isReplacementsBlock || (matches.Count > 1 && !isGraphemeColumn && !isFallbacksBlock)) {
                                 newRow[col] = matches.Cast<System.Text.RegularExpressions.Match>()
                                                      .Select(m => m.Value.Trim('[', ']'))
                                                      .Where(s => !string.IsNullOrWhiteSpace(s))
                                                      .ToList();
                             } else {
-                                newRow[col] = trimmedVal; // Otherwise, preserve as standard string
+                                newRow[col] = trimmedVal; 
                             }
                         }
                         if (newRow.Count > 0) rowList.Add(newRow);
