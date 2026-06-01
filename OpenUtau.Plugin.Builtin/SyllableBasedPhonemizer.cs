@@ -1029,17 +1029,21 @@ namespace OpenUtau.Plugin.Builtin {
         protected List<Replacement> splittingReplacements = new List<Replacement>();
 
         protected virtual bool IsGroupKeyword(string rulePhoneme) {
-            string baseGroup = rulePhoneme.Split(new[] { '!', '=', '+' })[0];
+            // Trim parentheses so "(vowel)" evaluates identically to "vowel"
+            string cleanRule = rulePhoneme.Trim('(', ')');
+            string baseGroup = cleanRule.Split(new[] { '!', '=', '&' })[0];
             return new[] { "vowel", "vowels", "consonant", "consonants", 
                            "affricate", "fricative", "aspirate", "semivowel", 
                            "liquid", "nasal", "stop", "tap" }.Contains(baseGroup);
         }
 
         protected virtual bool IsGroupMatch(string rulePhoneme, string actualPhoneme) {
-            string baseGroup = rulePhoneme.Split(new[] { '!', '=', '+' })[0];
-            if (rulePhoneme.Contains("+")) {
-                string added = rulePhoneme.Substring(rulePhoneme.IndexOf('+') + 1).Split(new[] { '!', '=' })[0];
-                // If it matches another group name, or a literal letter, it passes
+            string cleanRule = rulePhoneme.Trim('(', ')');
+            string baseGroup = cleanRule.Split(new[] { '!', '=', '&' })[0];
+            
+            // Replaced '+' with '&' for group addition
+            if (cleanRule.Contains("&")) {
+                string added = cleanRule.Substring(cleanRule.IndexOf('&') + 1).Split(new[] { '!', '=' })[0];
                 foreach (string inc in added.Split(',')) {
                     if (IsGroupKeyword(inc) ? IsGroupMatch(inc, actualPhoneme) : inc == actualPhoneme) {
                         return true;
@@ -1047,7 +1051,6 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            // BASE GROUP: If it wasn't an addition, it must belong to the base group.
             bool inBaseGroup = false;
             switch (baseGroup) {
                 case "vowel": case "vowels": inBaseGroup = GetVowels().Contains(actualPhoneme); break;
@@ -1064,15 +1067,13 @@ namespace OpenUtau.Plugin.Builtin {
 
             if (!inBaseGroup) return false;
 
-            // EXCLUSIONS (!): Reject if it's in the excluded list.
-            if (rulePhoneme.Contains("!")) {
-                string excluded = rulePhoneme.Substring(rulePhoneme.IndexOf('!') + 1).Split(new[] { '=', '+' })[0];
+            if (cleanRule.Contains("!")) {
+                string excluded = cleanRule.Substring(cleanRule.IndexOf('!') + 1).Split(new[] { '=', '&' })[0];
                 if (excluded.Split(',').Contains(actualPhoneme)) return false;
             }
 
-            // RESTRICTIONS (=): Reject if an equals list exists, and the phoneme isn't in it.
-            if (rulePhoneme.Contains("=")) {
-                string restricted = rulePhoneme.Substring(rulePhoneme.IndexOf('=') + 1).Split(new[] { '!', '+' })[0];
+            if (cleanRule.Contains("=")) {
+                string restricted = cleanRule.Substring(cleanRule.IndexOf('=') + 1).Split(new[] { '!', '&' })[0];
                 if (!restricted.Split(',').Contains(actualPhoneme)) return false;
             }
 
@@ -1105,7 +1106,8 @@ namespace OpenUtau.Plugin.Builtin {
                             string rulePh = fromArray[j];
                             string actualPh = inputPhonemes[idx + j];
                             
-                            string baseRulePh = rulePh.Split(new[] { '!', '=', '+' })[0];
+                            string cleanRulePh = rulePh.Trim('(', ')');
+                            string baseRulePh = cleanRulePh.Split(new[] { '!', '=', '&' })[0];
                             
                             if (IsGroupKeyword(baseRulePh)) {
                                 if (IsGroupMatch(rulePh, actualPh)) {
@@ -1126,16 +1128,22 @@ namespace OpenUtau.Plugin.Builtin {
                                 var captureIndices = new Dictionary<string, int>();
                                 
                                 foreach (string toPh in toArray) {
+                                    // Split by + for concatenation
                                     string[] parts = toPh.Split('+');
                                     string[] cleanParts = new string[parts.Length];
                                     string baseGroupTo = null;
 
                                     for (int k = 0; k < parts.Length; k++) {
-                                        int cutoff = parts[k].IndexOfAny(new[] { '!', '=' });
-                                        cleanParts[k] = cutoff >= 0 ? parts[k].Substring(0, cutoff) : parts[k];
+                                        // Strip parenthesis to find the base group cleanly
+                                        string partNoParens = parts[k].Trim('(', ')');
+                                        int cutoff = partNoParens.IndexOfAny(new[] { '!', '=', '&' });
+                                        string potentialGroup = cutoff >= 0 ? partNoParens.Substring(0, cutoff) : partNoParens;
                                         
-                                        if (baseGroupTo == null && IsGroupKeyword(cleanParts[k])) {
-                                            baseGroupTo = cleanParts[k];
+                                        if (baseGroupTo == null && IsGroupKeyword(potentialGroup)) {
+                                            baseGroupTo = potentialGroup;
+                                            cleanParts[k] = potentialGroup; // Store just the base group name
+                                        } else {
+                                            cleanParts[k] = partNoParens; // Store literals
                                         }
                                     }
 
@@ -1145,6 +1153,7 @@ namespace OpenUtau.Plugin.Builtin {
                                         if (cIdx >= captures[baseGroupTo].Count) cIdx = captures[baseGroupTo].Count - 1;
                                         
                                         string capturedPhoneme = captures[baseGroupTo][cIdx];
+                                        
                                         string reconstructed = "";
                                         for (int k = 0; k < cleanParts.Length; k++) {
                                             if (cleanParts[k] == baseGroupTo) {
@@ -1177,7 +1186,8 @@ namespace OpenUtau.Plugin.Builtin {
                         if (fromArray == null || fromArray.Count != 1) continue;
 
                         string rulePh = fromArray[0];
-                        string baseRulePh = rulePh.Split(new[] { '!', '=', '+' })[0];
+                        string cleanRulePh = rulePh.Trim('(', ')');
+                        string baseRulePh = cleanRulePh.Split(new[] { '!', '=', '&' })[0];
 
                         if (IsGroupKeyword(baseRulePh) ? IsGroupMatch(rulePh, currentPhoneme) : rulePh == currentPhoneme) {
                             
@@ -1190,11 +1200,15 @@ namespace OpenUtau.Plugin.Builtin {
                                     string baseGroupTo = null;
 
                                     for (int k = 0; k < parts.Length; k++) {
-                                        int cutoff = parts[k].IndexOfAny(new[] { '!', '=' });
-                                        cleanParts[k] = cutoff >= 0 ? parts[k].Substring(0, cutoff) : parts[k];
+                                        string partNoParens = parts[k].Trim('(', ')');
+                                        int cutoff = partNoParens.IndexOfAny(new[] { '!', '=', '&' });
+                                        string potentialGroup = cutoff >= 0 ? partNoParens.Substring(0, cutoff) : partNoParens;
                                         
-                                        if (baseGroupTo == null && IsGroupKeyword(cleanParts[k])) {
-                                            baseGroupTo = cleanParts[k];
+                                        if (baseGroupTo == null && IsGroupKeyword(potentialGroup)) {
+                                            baseGroupTo = potentialGroup;
+                                            cleanParts[k] = potentialGroup;
+                                        } else {
+                                            cleanParts[k] = partNoParens;
                                         }
                                     }
 
