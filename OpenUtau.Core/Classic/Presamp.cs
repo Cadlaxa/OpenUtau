@@ -38,21 +38,34 @@ namespace Classic {
 
         public Dictionary<string, PresampPhoneme> PhonemeList { get; set; } = new Dictionary<string, PresampPhoneme>();
 
-        public Presamp() {
+        public void Reset() {
             SetVowels(defVowels);
             SetConsonants(defConsonants);
-            
-            // Initialize new instances instead of linking to static memory (same bug with SBP before)
-            // Prevents one voicebank from destroying the defaults for another voicebank.
+            Priorities = new List<string> { "k", "ky", "g", "gy", "t", "ty", "d", "dy", "ch", "ts", "b", "by", "p", "py", "r", "ry" };
             Replace = new Dictionary<string, string>(defReplace);
+            AliasRules = new PresampAliasRules();
+            Prefixs = new List<string>(); 
+            SuffixOrder = new List<string> { "%num%", "%append%", "%pitch%" };
             Nums = new List<string>(defNums);
             Appends = new List<string>(defAppends);
             Pitches = new List<string>(defPitches);
+            AliasPriorityDefault = new List<string> { "VCV", "CVVC", "CROSS_CV", "CV", "BEGINING_CV" };
+            AliasPriorityDifAppend = new List<string> { "CVVC", "VCV", "CROSS_CV", "CV", "BEGINING_CV" };
+            AliasPriorityDifPitch = new List<string> { "CVVC", "VCV", "CROSS_CV", "CV", "BEGINING_CV" };
+            Split = true;
+            MustVC = false;
+            CFlags = "p0";
+            VCLengthFromCV = true;
+            AddEnding = 1;
+        }
 
+        public Presamp() {
+            Reset();
             MakePhonemeList();
         }
 
         public void ReadPresampIni(string dirPath, Encoding textFileEncoding) {
+            Reset();
             try {
                 string iniPath = Path.Combine(dirPath, "presamp.ini");
                 if (!File.Exists(iniPath)) {
