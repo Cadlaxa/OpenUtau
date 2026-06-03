@@ -378,7 +378,7 @@ namespace OpenUtau.Plugin.Builtin {
                             var yamlConsonants = fricative.Concat(aspirate).Concat(semivowel).Concat(liquid).Concat(nasal).Concat(stop).Concat(tap).Concat(affricate).ToArray();
                             consonants = backupConsonants.Concat(yamlConsonants).Distinct().ToArray();
 
-                            PhonemeOverrides = data.timings?.ToDictionary(t => t.symbol, t => t.value) ?? new Dictionary<string, double>();
+                            PhonemeOverrides = data.timings?.GroupBy(t => t.symbol).ToDictionary(g => g.Key, g => g.First().value) ?? new Dictionary<string, double>();
                             if (backupDictionaryReplacements == null) {
                                 backupDictionaryReplacements = new Dictionary<string, string>(dictionaryReplacements);
                             }
@@ -408,7 +408,10 @@ namespace OpenUtau.Plugin.Builtin {
                                 yamlFallbacks.Clear();
                                 foreach (var df in data.fallbacks) {
                                     if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
-                                        yamlFallbacks[df.from] = df.to;
+                                        // Prevent duplicates: only use the first instance found
+                                        if (!yamlFallbacks.ContainsKey(df.from)) {
+                                            yamlFallbacks[df.from] = df.to;
+                                        }
                                     }
                                 }
                             }
@@ -785,6 +788,13 @@ namespace OpenUtau.Plugin.Builtin {
 
         protected double GetTransitionBasicLengthMsByConstant() {
             return TransitionBasicLengthMs * GetTempoNoteLengthFactor();
+        }
+
+        protected virtual double GetTransitionMultiplier(string alias) {
+            if (alias != null && PhonemeOverrides != null && PhonemeOverrides.TryGetValue(alias, out double overrideRatio)) {
+                return overrideRatio;
+            }
+            return 1.0;
         }
 
         /// <summary>
@@ -1422,13 +1432,30 @@ namespace OpenUtau.Plugin.Builtin {
             int[] trueLengths = new int[phonemeSymbols.Count];
             for (int i = 1; i < phonemeSymbols.Count; i++) {
                 var prevPhonemeI = phonemeSymbols.Count - i;
+                var currentPhonemeI = phonemeSymbols.Count - i - 1; 
+                
                 var nextGlobalIndex = globalStartIndex + prevPhonemeI;
                 var nextPAttr = attributes?.FirstOrDefault(a => a.index == nextGlobalIndex) ?? default;
-                double nextStretch = nextPAttr.consonantStretchRatio ?? 1.0;
                 
                 string nextAlias = phonemeSymbols[prevPhonemeI];
-                double baseLengthMs = GetTransitionBasicLengthMs(nextAlias, tone, nextPAttr);
-                trueLengths[i] = MsToTick(baseLengthMs * nextStretch);
+                string currentAlias = phonemeSymbols[currentPhonemeI];
+
+                double baseLengthMs;
+                double stretch = nextPAttr.consonantStretchRatio ?? 1.0;
+                
+                // Check if the alias has a YAML or Categorical multiplier
+                double overrideRatio = currentAlias != null ? GetTransitionMultiplier(currentAlias) : 1.0;
+
+                if (overrideRatio != 1.0) {
+                    // If there's a custom multiplier, use the Constant length to prevent giant envelopes
+                    baseLengthMs = GetTransitionBasicLengthMsByConstant();
+                    stretch *= overrideRatio; 
+                } else {
+                    // Default behavior: use OTO preutterance
+                    baseLengthMs = GetTransitionBasicLengthMsByOto(nextAlias, tone, nextPAttr);
+                }
+                
+                trueLengths[i] = MsToTick(baseLengthMs * stretch);
             }
 
             // IsGlide
@@ -1458,8 +1485,20 @@ namespace OpenUtau.Plugin.Builtin {
                     if (i == 0) {
                         if (isEnding) {
                             var pAttr = attributes?.FirstOrDefault(a => a.index == globalIndex) ?? default;
-                            double baseLengthMs = GetTransitionBasicLengthMs(phonemes[phonemeI].phoneme, tone, pAttr);
+                            double baseLengthMs;
+                            double stretch = pAttr.consonantStretchRatio ?? 1.0;
                             
+                            double overrideRatio = phonemes[phonemeI].phoneme != null ? GetTransitionMultiplier(phonemes[phonemeI].phoneme) : 1.0;
+
+                            if (overrideRatio != 1.0) {
+                                baseLengthMs = GetTransitionBasicLengthMsByConstant();
+                                stretch *= overrideRatio;
+                            } else {
+                                baseLengthMs = GetTransitionBasicLengthMsByOto(phonemes[phonemeI].phoneme, tone, pAttr);
+                            }
+
+                            phonemes[phonemeI].position = MsToTick(baseLengthMs * stretch);
+
                             if (NoGap) {
                                 // Snapped mode: Use a visible 50-tick anchor capped at 1/3 of the note
                                 int targetTicks = 50; 

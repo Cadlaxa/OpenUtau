@@ -899,91 +899,47 @@ namespace OpenUtau.Plugin.Builtin {
 
         protected override bool NoGap => true;
 
-        protected override double GetTransitionBasicLengthMs(string alias = "") {
-            //I wish these were automated instead :')
-            double transitionMultiplier = 1.0; // Default multiplier
+        protected override double GetTransitionMultiplier(string alias) {
+            double baseMultiplier = base.GetTransitionMultiplier(alias);
+            if (baseMultiplier != 1.0) {
+                return baseMultiplier;
+            }
 
             var fricative_def = 2.3;
             var aspirate_def = 1.3;
             var semivowel_def = 1.2;
             var liquid_def = 1.5;
             var nasal_def = 1.5;
-            var stop_def = 1.8;
+            var stop_def = 1.4;
             var tap_def = 0.5;
             var affricate_def = 1.5;
 
-            var allConsonants = fricative.Concat(aspirate)
-                        .Concat(semivowel)
-                        .Concat(liquid)
-                        .Concat(nasal)
-                        .Concat(stop)
-                        .Concat(tap)
-                        .Concat(affricate)
-                        .Distinct(); // Ensure no duplicates
-
-            
-
-            // consonant timings
-
-            var sortedOverrides = PhonemeOverrides.OrderByDescending(kv => kv.Key.Length);
-            foreach (var kvp in sortedOverrides) {
-                var overridePhoneme = kvp.Key;
-                var overrideValue = kvp.Value;
-                if (PhonemeIsPresent(alias, overridePhoneme)) {
-                    return base.GetTransitionBasicLengthMs() * overrideValue;
-                }
-            }
-
-
             foreach (var c in fricative) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * fricative_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return fricative_def;
             }
-
             foreach (var c in aspirate) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * aspirate_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return aspirate_def;
             }
-
             foreach (var c in semivowel) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * semivowel_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return semivowel_def;
             }
-
             foreach (var c in liquid) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * liquid_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return liquid_def;
             }
-
             foreach (var c in nasal) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * nasal_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return nasal_def;
             }
-
             foreach (var c in stop) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * stop_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return stop_def;
             }
-
             foreach (var c in tap) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * tap_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return tap_def;
             }
-
             foreach (var c in affricate) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * affricate_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return affricate_def;
             }
 
-            return base.GetTransitionBasicLengthMs() * transitionMultiplier;
+            return 1.0;
         }
     }
 }
