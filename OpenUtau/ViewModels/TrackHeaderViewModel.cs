@@ -449,31 +449,40 @@ namespace OpenUtau.App.ViewModels {
                     Command = SelectPhonemizerCommand,
                     CommandParameter = factory,
                 }));
-            //more phonemizers grouped by singing language
-            items.Add(new MenuItemViewModel() {
-                Header = $"{ThemeManager.GetString("tracks.more")} ...",
-                Items = PhonemizerFactory.GetAll()
-                    // Engine type
-                    .GroupBy(factory => factory.engine ?? "Utau")
-                    .OrderBy(typeGroup => typeGroup.Key)
-                    .Select(typeGroup => new MenuItemViewModel() {
-                        Header = typeGroup.Key,
-                        
-                        // language specific to the engine
-                        Items = typeGroup.GroupBy(factory => factory.language)
-                            .OrderBy(langGroup => langGroup.Key)
-                            .Select(langGroup => new MenuItemViewModel() {
-                                Header = GetPhonemizerGroupHeader(langGroup.Key),
-                                
-                                // actual phonemizers in that language folder
-                                Items = langGroup.Select(factory => new MenuItemViewModel() {
-                                    Header = factory.ToString(),
-                                    Command = SelectPhonemizerCommand,
-                                    CommandParameter = factory,
-                                }).ToArray(),
-                            }).ToArray()
-                    }).ToArray()
-            });
+
+            if (items.Count > 0) {
+                items.Add(new MenuItemViewModel() {
+                    Header = "-",
+                    Height = 1
+                });
+            }
+
+            // Get all phonemizers grouped by Engine, then by Language
+            var engineGroups = PhonemizerFactory.GetAll()
+                // Engine type (First Level)
+                .GroupBy(factory => factory.engine ?? "Utau")
+                .OrderBy(typeGroup => typeGroup.Key)
+                .Select(typeGroup => new MenuItemViewModel() {
+                    Header = typeGroup.Key,
+                    
+                    // Language specific to the engine (Second Level)
+                    Items = typeGroup.GroupBy(factory => factory.language)
+                        .OrderBy(langGroup => langGroup.Key)
+                        .Select(langGroup => new MenuItemViewModel() {
+                            Header = GetPhonemizerGroupHeader(langGroup.Key),
+                            
+                            // Actual phonemizers in that language folder (Third Level)
+                            Items = langGroup.Select(factory => new MenuItemViewModel() {
+                                Header = factory.ToString(),
+                                Command = SelectPhonemizerCommand,
+                                CommandParameter = factory,
+                            }).ToArray(),
+                        }).ToArray()
+                }).ToArray();
+
+            // Add the engine groups directly to the main items list, bypassing the "More..." wrapper
+            items.AddRange(engineGroups);
+
             PhonemizerMenuItems = items.ToArray();
             this.RaisePropertyChanged(nameof(PhonemizerMenuItems));
         }

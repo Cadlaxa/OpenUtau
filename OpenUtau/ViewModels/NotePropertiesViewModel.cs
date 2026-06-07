@@ -325,33 +325,33 @@ namespace OpenUtau.App.ViewModels {
                     }));
             }
 
+            // Visual separator before the full list
             items.Add(new MenuItemViewModel() { Header = "-", Height = 1 });
 
-            items.Add(new MenuItemViewModel() {
-                Header = $"{ThemeManager.GetString("tracks.more")} ...",
-                Items = PhonemizerFactory.GetAll()
-                    // Group by Engine (e.g., Utau, Vogen, etc.)
-                    .GroupBy(factory => factory.engine ?? "Utau")
-                    .OrderBy(typeGroup => typeGroup.Key)
-                    .Select(typeGroup => new MenuItemViewModel() {
-                        Header = typeGroup.Key,
+            // Get all phonemizers grouped by Engine, then by Language
+            var engineGroups = PhonemizerFactory.GetAll()
+                // Group by Engine (e.g., Utau, Vogen, etc.)
+                .GroupBy(factory => factory.engine ?? "Utau")
+                .OrderBy(typeGroup => typeGroup.Key)
+                .Select(typeGroup => new MenuItemViewModel() {
+                    Header = typeGroup.Key,
+                    
+                    // Group by Language within that Engine
+                    Items = typeGroup.GroupBy(factory => factory.language)
+                    .OrderBy(langGroup => langGroup.Key)
+                    .Select(langGroup => new MenuItemViewModel() {
+                        Header = GetPhonemizerGroupHeader(langGroup.Key),
                         
-                        // Group by Language within that Engine
-                        Items = typeGroup.GroupBy(factory => factory.language)
-                        .OrderBy(langGroup => langGroup.Key)
-                        .Select(langGroup => new MenuItemViewModel() {
-                            Header = GetPhonemizerGroupHeader(langGroup.Key),
-                            
-                            // The actual phonemizers
-                            Items = langGroup.Select(factory => new MenuItemViewModel() {
-                                Header = factory.ToString(),
-                                Command = SelectPhonemizerCommand,
-                                CommandParameter = factory.name,
-                            }).ToArray(),
-                        }).ToArray()
+                        // The actual phonemizers
+                        Items = langGroup.Select(factory => new MenuItemViewModel() {
+                            Header = factory.ToString(),
+                            Command = SelectPhonemizerCommand,
+                            CommandParameter = factory.name,
+                        }).ToArray(),
                     }).ToArray()
-            });
+                }).ToArray();
 
+            items.AddRange(engineGroups);
             PhonemizerMenuItems = items;
         }
 
