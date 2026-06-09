@@ -36,36 +36,6 @@ namespace OpenUtau.Plugin.Builtin {
         private string[] diphthongs = Array.Empty<string>();
         private static string[] c_cR = Array.Empty<string>();
 
-        protected override bool IsGroupKeyword(string rulePhoneme) {
-            string baseGroup = rulePhoneme.Split(new[] { '!', '+' })[0];
-            return base.IsGroupKeyword(rulePhoneme) || new[] { "affricate", "fricative", "aspirate", "semivowel", "liquid", "nasal", "stop", "tap", "diphthong" }.Contains(baseGroup);
-        }
-        protected override bool IsGroupMatch(string rulePhoneme, string actualPhoneme) {
-            if (base.IsGroupMatch(rulePhoneme, actualPhoneme)) return true;
-            string baseGroup = rulePhoneme.Split(new[] { '!', '+' })[0];
-            
-            if (rulePhoneme.Contains("!")) {
-                string[] exceptions = rulePhoneme.Split('!')[1].Split(',');
-                if (exceptions.Contains(actualPhoneme)) return false;
-            }
-            if (rulePhoneme.Contains("+")) {
-                string[] inclusions = rulePhoneme.Split('+')[1].Split(',');
-                if (!inclusions.Contains(actualPhoneme)) return false;
-            }
-            switch (baseGroup) {
-                case "affricate": return affricate.Contains(actualPhoneme);
-                case "fricative": return fricative.Contains(actualPhoneme);
-                case "aspirate": return aspirate.Contains(actualPhoneme);
-                case "semivowel": return semivowel.Contains(actualPhoneme);
-                case "liquid": return liquid.Contains(actualPhoneme);
-                case "nasal": return nasal.Contains(actualPhoneme);
-                case "stop": return stop.Contains(actualPhoneme);
-                case "tap": return tap.Contains(actualPhoneme);
-                case "diphthong": return diphthongs.Contains(actualPhoneme);
-                default: return false;
-            }
-        }
-
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
