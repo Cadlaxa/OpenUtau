@@ -308,39 +308,50 @@ namespace OpenUtau.Plugin.Builtin {
                     basePhoneme = v;
                 }
             } else if (syllable.IsVV) {
-                if (!CanMakeAliasExtension(syllable)) {
-                    var vv = $"{prevV} {v}";
-                    basePhoneme = vv;
-                    if (!HasOto(vv, syllable.vowelTone) && !HasOto(ValidateAlias(vv), syllable.vowelTone) && (vvExceptions.ContainsKey(prevV) && prevV != v || Delta5vvExceptions.ContainsKey(prevV) && prevV != v)) {
-                        // VV splits to [V C][CV] or [V][V]
-                        var delta5vc = $"{Delta5vvExceptions[prevV]}";
-                        bool CV = false;
-                        if ((!HasOto(delta5vc, syllable.vowelTone) && !HasOto(ValidateAlias(delta5vc), syllable.vowelTone))) {
-                            delta5vc = $"{prevV} {vvExceptions[prevV]}";
-                            CV = true;
+                if (CanMakeAliasExtension(syllable)) {
+                    if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
+                        basePhoneme = $"{prevV} {v}";
+                    } else if (HasOto($"{prevV}{v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV}{v}"), syllable.vowelTone)) {
+                        basePhoneme = $"{prevV}{v}";
+                    } 
+                    
+                    // Diphthong Fallbacks
+                    else if (diphthongSplits.ContainsKey(prevV) || diphthongTails.ContainsKey(prevV)) {
+                        string cv = "";
+                        if (diphthongSplits.ContainsKey(prevV)) {
+                            var splitOverride = diphthongSplits[prevV];
+                            var vc = splitOverride[0].Replace("{v}", v);
+                            cv = splitOverride[1].Replace("{v}", v);
+                            TryAddPhoneme(phonemes, syllable.tone, vc, ValidateAlias(vc));
+                        } 
+                        else { // Default YAML diphthong logic
+                            var tail = diphthongTails[prevV];
+                            var vcSpace = $"{prevV} {tail}";
+                            var vcNoSpace = $"{prevV}{tail}";
+                            cv = $"{tail}{v}";
+                            TryAddPhoneme(phonemes, syllable.tone, vcSpace, ValidateAlias(vcSpace), vcNoSpace, ValidateAlias(vcNoSpace));
                         }
-                        phonemes.Add(delta5vc);
-                        // if delta5 vc is not available, turn v to cv
-                        var cv = $"{vvExceptions[prevV]}{v}";
-                        basePhoneme = v;
-                        if (CV && (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv), syllable.vowelTone))) {
+
+                        if (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv), syllable.vowelTone)) {
                             basePhoneme = cv;
-                        }
-                    } else {
-                        // VV to V
-                        if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
-                            basePhoneme = $"{prevV} {v}";
-                        } else if (HasOto($"{prevV}{v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV}{v}"), syllable.vowelTone)) {
-                            basePhoneme = $"{prevV}{v}";
+                        } else if  (!HasOto(cv, syllable.vowelTone) || !HasOto(ValidateAlias(cv), syllable.vowelTone)) {
+                            basePhoneme = $"{diphthongTails[prevV]} {v}";
                         } else if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
                             basePhoneme = v;
+                        } else {
+                            basePhoneme = ValidateAlias($"- {v}");
+                            phonemes.Add($"{prevV} -");
+                        }
+                    } else {
+                        if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
+                            basePhoneme = v;
+                        } else {
+                            basePhoneme = ValidateAlias($"- {v}");
+                            phonemes.Add($"{prevV} -");
                         }
                     }
-                 // EXTEND AS [V]
-                } else if (HasOto($"{v}", syllable.vowelTone) && HasOto(ValidateAlias($"{v}"), syllable.vowelTone)) {
-                    basePhoneme = v;
-                } else {
-                    // PREVIOUS ALIAS WILL EXTEND as [V V]
+                } 
+                else {
                     basePhoneme = null;
                 }
             } else if (syllable.IsStartingCVWithOneConsonant) {

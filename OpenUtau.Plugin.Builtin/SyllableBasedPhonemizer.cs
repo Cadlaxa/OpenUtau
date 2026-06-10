@@ -365,6 +365,20 @@ namespace OpenUtau.Plugin.Builtin {
 
                             tails = (tails ?? Array.Empty<string>()).Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
                             enableGlides = data?.isglides ?? true;
+                            var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
+
+                            var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
+                            foreach (var d in yamlDiphthongs) {
+                                // Only auto-assign if the child constructor or user YAML hasn't explicitly set it
+                                if (!diphthongTails.ContainsKey(d) && !diphthongSplits.ContainsKey(d)) {
+                                    foreach (var tail in dynamicTails) {
+                                        if (d.EndsWith(tail) && d != tail) {
+                                            diphthongTails[d] = tail; // Auto-assigns things like "eang" -> "ng"
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                             
                             fricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
                             aspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
@@ -411,6 +425,30 @@ namespace OpenUtau.Plugin.Builtin {
                                         // Prevent duplicates: only use the first instance found
                                         if (!yamlFallbacks.ContainsKey(df.from)) {
                                             yamlFallbacks[df.from] = df.to;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (backupDiphthongTails == null) {
+                                backupDiphthongTails = new Dictionary<string, string>(diphthongTails);
+                            }
+                            if (backupDiphthongSplits == null) {
+                                backupDiphthongSplits = new Dictionary<string, string[]>(diphthongSplits);
+                            }
+                            diphthongTails.Clear();
+                            foreach (var kvp in backupDiphthongTails) {
+                                diphthongTails[kvp.Key] = kvp.Value;
+                            }
+                            diphthongSplits.Clear();
+                            foreach (var kvp in backupDiphthongSplits) {
+                                diphthongSplits[kvp.Key] = kvp.Value;
+                            }
+                            if (data?.diphthongs != null) {
+                                foreach (var d in data.diphthongs) {
+                                    if (!string.IsNullOrEmpty(d.from) && !string.IsNullOrEmpty(d.to)) {
+                                        if (!diphthongTails.ContainsKey(d.from)) {
+                                            diphthongTails[d.from] = d.to;
                                         }
                                     }
                                 }
@@ -566,6 +604,8 @@ namespace OpenUtau.Plugin.Builtin {
         }
         private string[] backupVowels = null;
         private string[] backupConsonants = null;
+        private Dictionary<string, string> backupDiphthongTails = null;
+        private Dictionary<string, string[]> backupDiphthongSplits = null;
         private Dictionary<string, string> backupDictionaryReplacements = null;
 
         /// <summary>
@@ -1000,6 +1040,9 @@ namespace OpenUtau.Plugin.Builtin {
         protected Dictionary<string, string> yamlFallbacks = new Dictionary<string, string>();
         protected List<string> consExceptions = new List<string>();
 
+        protected Dictionary<string, string> diphthongTails = new Dictionary<string, string>();
+        protected Dictionary<string, string[]> diphthongSplits = new Dictionary<string, string[]>();
+
         public class YAMLData {
             public string version { get; set; }
             public bool? isglides { get; set; }
@@ -1007,10 +1050,12 @@ namespace OpenUtau.Plugin.Builtin {
             public Replacement[] replacements { get; set; } = Array.Empty<Replacement>();
             public Fallbacks[] fallbacks { get; set; } = Array.Empty<Fallbacks>();
             public Timings[] timings { get; set; } = Array.Empty<Timings>();
+            public DiphthongData[] diphthongs { get; set; } = Array.Empty<DiphthongData>();
 
             public struct SymbolData { public string symbol { get; set; } public string type { get; set; } }
             public struct Fallbacks { public string from { get; set; } public string to { get; set; } }
             public struct Timings { public string symbol { get; set; } public double value { get; set; } }
+            public struct DiphthongData { public string from { get; set; } public string to { get; set; } }
         }
 
         public class Replacement {

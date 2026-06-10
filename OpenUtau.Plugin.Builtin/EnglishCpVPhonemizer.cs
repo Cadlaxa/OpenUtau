@@ -30,10 +30,15 @@ namespace OpenUtau.Plugin.Builtin {
             "eu", "oe", "yw", "yx", "wx", "ox", "ex", "ea", "ia", "oa", "ua", "ean", "eam", "eang", "N", "nn", "mm", "ll"
             };
             this.consonants = "b,ch,d,dh,dr,dx,f,g,hh,jh,k,l,m,n,ng,p,q,r,s,sh,t,th,tr,v,w,y,z".Split(',');
-            this.diphthongs = Array.Empty<string>();
+            this.diphthongTails = new Dictionary<string, string>() {
+                { "ay", "ay-" }, 
+                { "ey", "ey-" }, 
+                { "oy", "oy-" }, 
+                { "aw", "aw-" }, 
+                { "ow", "ow-" }
+            };
             
         }
-        private string[] diphthongs = Array.Empty<string>();
         private static string[] c_cR = Array.Empty<string>();
 
         protected override string[] GetVowels() => vowels;
@@ -64,7 +69,7 @@ namespace OpenUtau.Plugin.Builtin {
                 .ToDictionary(parts => parts[0], parts => parts[1]);
         private bool isTimitPhonemes = false;
 
-        private Dictionary<string, string> DiphthongExceptions = new Dictionary<string, string>() {
+        private Dictionary<string, string> diphthongTails = new Dictionary<string, string>() {
             { "ay", "ay-" }, { "ey", "ey-" }, { "oy", "oy-" }, { "aw", "aw-" }, { "ow", "ow-" }
         };
 
@@ -183,7 +188,6 @@ namespace OpenUtau.Plugin.Builtin {
             base.SetSinger(singer);
 
             if (this.singer != null && this.singer.Loaded) {
-                
                 string file = Path.Combine(this.singer.Location, YamlFileName);
                 if (!File.Exists(file)) {
                     file = Path.Combine(PluginDir, YamlFileName);
@@ -191,49 +195,35 @@ namespace OpenUtau.Plugin.Builtin {
 
                 if (File.Exists(file)) {
                     try {
-                        var data = Core.Yaml.DefaultDeserializer.Deserialize<ArpabetYAMLData>(File.ReadAllText(file));
-                        
-                        if (data?.diphthongs != null && data.diphthongs.Any()) {
-                            DiphthongExceptions.Clear();
-                            foreach (var df in data.diphthongs) {
-                                if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
-                                    DiphthongExceptions[df.from] = df.to;
-                                }
-                            }
-                        }
-                        
-                        this.diphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                        DiphthongExceptions.Clear();
-                        foreach (var d in this.diphthongs) {
-                            DiphthongExceptions[d] = d + "-"; 
-                        }
-                        
-                        if (data?.diphthongs != null && data.diphthongs.Any()) {
-                            foreach (var df in data.diphthongs) {
-                                if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
-                                    DiphthongExceptions[df.from] = df.to;
-                                }
-                            }
-                        }
+                        var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
 
                         if (data?.symbols != null) {
+                            
                             string[] targetTypes = { "nasal", "liquid", "semivowel", "fricative", "aspirate" };
                             c_cR = data.symbols
                                 .Where(s => targetTypes.Contains(s.type?.ToLower()))
                                 .Select(s => s.symbol)
                                 .Distinct()
                                 .ToArray();
+
+                            var yamlDiphthongs = data.symbols
+                                .Where(s => s.type?.ToLower() == "diphthong")
+                                .Select(s => s.symbol)
+                                .Distinct()
+                                .ToArray();
+
+                            foreach (var d in yamlDiphthongs) {
+                                if (!diphthongSplits.ContainsKey(d)) {
+                                    diphthongTails[d] = d + "-"; // Overwrites SBP's consonant guess with the C+V format
+                                }
+                            }
                         }
                         
                     } catch (Exception ex) {
-                        Log.Error($"Failed to parse custom diphthongs from {YamlFileName}: {ex.Message}");
+                        Log.Error($"Failed to parse symbols from {YamlFileName}: {ex.Message}");
                     }
                 }
             }
-        }
-
-        public class ArpabetYAMLData: YAMLData {
-            public Fallbacks[] diphthongs { get; set; } = Array.Empty<Fallbacks>();
         }
 
         private string ReplacePhoneme(string phoneme, int tone) {
@@ -301,29 +291,54 @@ namespace OpenUtau.Plugin.Builtin {
             }
             // [V V] or [V C][- C/C][V]/[V]
             else if (syllable.IsVV) {
-                if (!CanMakeAliasExtension(syllable)) {
-                    basePhoneme = $"{prevV} {v}";
-                    if (!HasOto(basePhoneme, syllable.vowelTone) && !HasOto(ValidateAlias(basePhoneme), syllable.vowelTone) && DiphthongExceptions.ContainsKey(prevV)) {
-                        // VV IS NOT PRESENT, CHECKS DiphthongExceptions LOGIC
-                        var vc = $"{prevV} {DiphthongExceptions[prevV]}";
-                        if (!HasOto(vc, syllable.vowelTone) && !HasOto(ValidateAlias(vc), syllable.vowelTone)) {
-                            vc = AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", syllable.vowelTone, "");
-                        }
-                        TryAddPhoneme(phonemes, syllable.tone, vc, ValidateAlias(vc));
-                        basePhoneme = AliasFormat(v, "vv", syllable.vowelTone, "");
-                    } else {
-                        {
-                            if (!HasOto($"{prevV} {v}", syllable.vowelTone) || !HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
-                                basePhoneme = AliasFormat(v, "vv", syllable.vowelTone, "");
+                if (CanMakeAliasExtension(syllable)) {
+                    if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
+                        basePhoneme = $"{prevV} {v}";
+                    } 
+                    else if (diphthongSplits.ContainsKey(prevV) || diphthongTails.ContainsKey(prevV)) {
+                        string cv = "";
+
+                        if (diphthongSplits.ContainsKey(prevV)) {
+                            var splitOverride = diphthongSplits[prevV];
+                            var vc = AliasFormat(splitOverride[0].Replace("{v}", v), "vcEx", syllable.tone, prevV);
+                            cv = AliasFormat(splitOverride[1].Replace("{v}", v), "vv", syllable.vowelTone, "");
+                            TryAddPhoneme(phonemes, syllable.tone, vc, ValidateAlias(vc));
+                        } 
+                        else {
+                            var tail = diphthongTails[prevV]; // gets e.g., "ay-"
+                            var vcSpace = $"{prevV} {tail}";
+                            var vcNoSpace = $"{prevV}{tail}";
+                            var vcMix = AliasFormat(tail, "diph_mix", syllable.vowelTone, "");
+
+                            if (HasOto(vcSpace, syllable.vowelTone) || HasOto(ValidateAlias(vcSpace), syllable.vowelTone)) {
+                                TryAddPhoneme(phonemes, syllable.tone, vcSpace, ValidateAlias(vcSpace));
+                            } else if (HasOto(vcNoSpace, syllable.vowelTone) || HasOto(ValidateAlias(vcNoSpace), syllable.vowelTone)) {
+                                TryAddPhoneme(phonemes, syllable.tone, vcNoSpace, ValidateAlias(vcNoSpace));
                             } else {
-                                basePhoneme = $"{prevV} {v}";
+                                TryAddPhoneme(phonemes, syllable.tone, vcMix, ValidateAlias(vcMix));
                             }
+                            cv = AliasFormat(v, "vv", syllable.vowelTone, "");
+                        }
+
+                        if (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv), syllable.vowelTone)) {
+                            basePhoneme = cv;
+                        } else if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
+                            basePhoneme = v;
+                        } else {
+                            basePhoneme = AliasFormat(v, "vv", syllable.vowelTone, "");
+                        }
+                    } 
+                    else {
+                        if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
+                            basePhoneme = v;
+                        } else {
+                            basePhoneme = AliasFormat(v, "vv", syllable.vowelTone, "");
                         }
                     }
-                } else {
+                } 
+                else {
                     basePhoneme = null;
                 }
-
             } else if (syllable.IsStartingCVWithOneConsonant) {
                 /// [- C/-C/C]
                 basePhoneme = AliasFormat(v, "cv", syllable.vowelTone, "");
@@ -362,13 +377,13 @@ namespace OpenUtau.Plugin.Builtin {
                         TryAddPhoneme(phonemes, syllable.tone, AliasFormat($"{cc[0]}", "cc", syllable.tone, ""));
                         break;
                         /// use vowel ending
-                    } else if (DiphthongExceptions.ContainsKey(prevV) && ((HasOto(vr, syllable.tone) || HasOto(ValidateAlias(vr), syllable.tone) || (HasOto(vr1, syllable.tone) || HasOto(ValidateAlias(vr1), syllable.tone)) && !HasOto(vc, syllable.tone)))) {
-                        TryAddPhoneme(phonemes, syllable.vowelTone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", syllable.vowelTone, ""));
+                    } else if (diphthongTails.ContainsKey(prevV) && ((HasOto(vr, syllable.tone) || HasOto(ValidateAlias(vr), syllable.tone) || (HasOto(vr1, syllable.tone) || HasOto(ValidateAlias(vr1), syllable.tone)) && !HasOto(vc, syllable.tone)))) {
+                        TryAddPhoneme(phonemes, syllable.vowelTone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", syllable.vowelTone, ""));
                         TryAddPhoneme(phonemes, syllable.tone, AliasFormat($"{cc[0]}", "cc", syllable.tone, ""));
                         break;
                         /// use consonants for diphthongs if the vb doesn't have vowel endings
-                    } else if (DiphthongExceptions.ContainsKey(prevV) && (!(HasOto(vr, syllable.tone) || HasOto(ValidateAlias(vr), syllable.tone) || (HasOto(vr1, syllable.tone) || HasOto(ValidateAlias(vr1), syllable.tone)) && !HasOto(vc, syllable.tone)))) {
-                        TryAddPhoneme(phonemes, syllable.vowelTone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", syllable.vowelTone, ""));
+                    } else if (diphthongTails.ContainsKey(prevV) && (!(HasOto(vr, syllable.tone) || HasOto(ValidateAlias(vr), syllable.tone) || (HasOto(vr1, syllable.tone) || HasOto(ValidateAlias(vr1), syllable.tone)) && !HasOto(vc, syllable.tone)))) {
+                        TryAddPhoneme(phonemes, syllable.vowelTone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", syllable.vowelTone, ""));
                         TryAddPhoneme(phonemes, syllable.tone, AliasFormat($"{cc[0]}", "cc", syllable.tone, ""));
 
                         break;
@@ -493,8 +508,8 @@ namespace OpenUtau.Plugin.Builtin {
                 if (HasOto(vR, ending.tone) || HasOto(ValidateAlias(vR), ending.tone) || (HasOto(vR2, ending.tone) || HasOto(ValidateAlias(vR2), ending.tone))) {
                     TryAddPhoneme(phonemes, ending.tone, AliasFormat(v, "ending", ending.tone, "", t));
                     /// split diphthong vowels
-                } else if (DiphthongExceptions.ContainsKey(prevV) && !(HasOto(vR, ending.tone) && HasOto(ValidateAlias(vR), ending.tone) && (HasOto(vR2, ending.tone) || HasOto(ValidateAlias(vR2), ending.tone)))) {
-                    TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{DiphthongExceptions[prevV]}", "cv", ending.tone, "", t));
+                } else if (diphthongTails.ContainsKey(prevV) && !(HasOto(vR, ending.tone) && HasOto(ValidateAlias(vR), ending.tone) && (HasOto(vR2, ending.tone) || HasOto(ValidateAlias(vR2), ending.tone)))) {
+                    TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{diphthongTails[prevV]}", "cv", ending.tone, "", t));
                 }
             } else if (ending.IsEndingVCWithOneConsonant) {
                 var vc = $"{v} {cc[0]}";
@@ -508,17 +523,17 @@ namespace OpenUtau.Plugin.Builtin {
                     } else if (!HasOto(vcr, ending.tone) && !HasOto(ValidateAlias(vcr), ending.tone) && (HasOto(vcr2, ending.tone) || HasOto(ValidateAlias(vcr2), ending.tone))) {
                         TryAddPhoneme(phonemes, ending.tone, vcr2);
                         // double the consonants if has [C -]/[C-]
-                    } else if (DiphthongExceptions.ContainsKey(prevV) && (c_cR.Contains(cc.Last())) && ((HasOto(AliasFormat(v, "ending_mix", ending.tone, ""), ending.tone) && (HasOto($"{c_cR[0]} {t}", ending.tone) || (HasOto($"{c_cR[0]}{t}", ending.tone)))))) {
+                    } else if (diphthongTails.ContainsKey(prevV) && (c_cR.Contains(cc.Last())) && ((HasOto(AliasFormat(v, "ending_mix", ending.tone, ""), ending.tone) && (HasOto($"{c_cR[0]} {t}", ending.tone) || (HasOto($"{c_cR[0]}{t}", ending.tone)))))) {
                         // ex: [ow][ow-][z][z -]
-                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", ending.tone, "", t));
+                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", ending.tone, "", t));
                         TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{cc[0]}", "cc1_mix", ending.tone, "", t));
                         TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{cc[0]}", "cc_mix", ending.tone, "", t));
-                    } else if (DiphthongExceptions.ContainsKey(prevV) && ((HasOto(AliasFormat(v, "ending_mix", ending.tone, ""), ending.tone)) && !HasOto(vc, ending.tone))) {
-                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", ending.tone, "", t));
+                    } else if (diphthongTails.ContainsKey(prevV) && ((HasOto(AliasFormat(v, "ending_mix", ending.tone, ""), ending.tone)) && !HasOto(vc, ending.tone))) {
+                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", ending.tone, "", t));
                         TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{cc[0]}", "cc_mix", ending.tone, "", t));
                         /// use consonants for diphthongs if the vb doesn't have vowel endings
-                    } else if (DiphthongExceptions.ContainsKey(prevV) && (!(HasOto(AliasFormat(v, "ending_mix", ending.tone, "", t), ending.tone) && !HasOto(vc, ending.tone)))) {
-                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", ending.tone, "", t));
+                    } else if (diphthongTails.ContainsKey(prevV) && (!(HasOto(AliasFormat(v, "ending_mix", ending.tone, "", t), ending.tone) && !HasOto(vc, ending.tone)))) {
+                        TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", ending.tone, "", t));
                         if (c_cR.Contains(cc.Last())) {
                             if (HasOto(AliasFormat($"{c_cR[0]}", "cc_mix", ending.tone, ""), ending.tone)) {
                                 TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{cc[0]}", "cc1_mix", ending.tone, "", t));
@@ -601,12 +616,12 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                             firstC = 1;
                             break;
-                        } else if (DiphthongExceptions.ContainsKey(prevV) && (HasOto(vr, ending.tone) || HasOto(ValidateAlias(vr), ending.tone)) || (HasOto(vr1, ending.tone) || HasOto(ValidateAlias(vr1), ending.tone)) && !HasOto(vc, ending.tone)) {
+                        } else if (diphthongTails.ContainsKey(prevV) && (HasOto(vr, ending.tone) || HasOto(ValidateAlias(vr), ending.tone)) || (HasOto(vr1, ending.tone) || HasOto(ValidateAlias(vr1), ending.tone)) && !HasOto(vc, ending.tone)) {
                             TryAddPhoneme(phonemes, ending.tone, vr1, vr);
                             break;
                             /// use consonants for diphthongs if the vb doesn't have vowel endings
-                        } else if (DiphthongExceptions.ContainsKey(prevV) && (!(HasOto(vr, ending.tone) || HasOto(ValidateAlias(vr), ending.tone) || (HasOto(vr1, ending.tone) || HasOto(ValidateAlias(vr1), ending.tone)) && !HasOto(vc, ending.tone)))) {
-                            TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{DiphthongExceptions[prevV]}", "diph_mix", ending.tone, "", t));
+                        } else if (diphthongTails.ContainsKey(prevV) && (!(HasOto(vr, ending.tone) || HasOto(ValidateAlias(vr), ending.tone) || (HasOto(vr1, ending.tone) || HasOto(ValidateAlias(vr1), ending.tone)) && !HasOto(vc, ending.tone)))) {
+                            TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{diphthongTails[prevV]}", "diph_mix", ending.tone, "", t));
                             break;
                         } else {
                             TryAddPhoneme(phonemes, ending.tone, vc);

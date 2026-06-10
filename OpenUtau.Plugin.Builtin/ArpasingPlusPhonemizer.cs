@@ -31,6 +31,15 @@ namespace OpenUtau.Plugin.Builtin {
                 "eu", "oe", "yw", "yx", "wx", "ox", "ex", "ea", "ia", "oa", "ua", "ean", "eam", "eang"
             };
             this.consonants = "b,ch,d,dh,dr,dx,f,g,hh,jh,k,l,m,n,ng,p,q,r,s,sh,t,th,tr,v,w,y,z".Split(',');
+            this.diphthongTails = new Dictionary<string, string>() {
+                { "ay", "y" },
+                { "ey", "y" },
+                { "oy", "y" },
+                { "aw", "w" },
+                { "ow", "w" },
+                { "er", "r" },
+                { "iy", "y" },
+            };
         }
         
         protected override string[] GetVowels() => vowels;
@@ -70,28 +79,6 @@ namespace OpenUtau.Plugin.Builtin {
                 {"ao","ah"},
                 //{"eh","ah"},
                 //{"er","ah"},
-            };
-
-        private readonly Dictionary<string, string> vvDiphthongExceptions =
-            new Dictionary<string, string>() {
-                {"aw","ah"},
-                {"ow","ao"},
-                {"uw","uh"},
-                {"ay","ah"},
-                {"ey","eh"},
-                {"oy","ao"},
-            };
-        
-        private readonly Dictionary<string, string> vvExceptions =
-            new Dictionary<string, string>() {
-                {"aw","w"},
-                {"ow","w"},
-                {"uw","w"},
-                {"ay","y"},
-                {"ey","y"},
-                {"oy","y"},
-                {"iy","y"},
-                {"er","r"},
             };
 
         private readonly string[] ccvException = { "ng", "dh" };
@@ -278,38 +265,50 @@ namespace OpenUtau.Plugin.Builtin {
             }
             // [V V] or [V C][C V]/[V]
             else if (syllable.IsVV) {
-                if (!CanMakeAliasExtension(syllable)) {
-                    basePhoneme = $"{prevV} {v}";
-                    if (!HasOto(basePhoneme, syllable.vowelTone) && !HasOto(ValidateAlias(basePhoneme), syllable.vowelTone) && vvExceptions.ContainsKey(prevV) && prevV != v) {
-                        // VV IS NOT PRESENT, CHECKS VVEXCEPTIONS LOGIC
-                        //var vc = $"{prevV}{vvExceptions[prevV]}";
-                        var vc = AliasFormat($"{vvExceptions[prevV]}", "vcEx", syllable.vowelTone, prevV);
-                        phonemes.Add(vc);
-                        basePhoneme = ValidateAlias(AliasFormat($"{vvExceptions[prevV]} {v}", "dynMid", syllable.vowelTone, ""));
+                if (CanMakeAliasExtension(syllable)) {
+                    if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
+                        basePhoneme = $"{prevV} {v}";
+                    } else if (HasOto($"{prevV}{v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV}{v}"), syllable.vowelTone)) {
+                        basePhoneme = $"{prevV}{v}";
+                    } 
+                    
+                    // Diphthong Fallbacks
+                    else if (diphthongSplits.ContainsKey(prevV) || diphthongTails.ContainsKey(prevV)) {
+                        string cv = "";
+                        if (diphthongSplits.ContainsKey(prevV)) {
+                            var splitOverride = diphthongSplits[prevV];
+                            var vc = AliasFormat(splitOverride[0].Replace("{v}", v), "vcEx", syllable.tone, prevV);
+                            cv = AliasFormat(splitOverride[1].Replace("{v}", v), "dynMid", syllable.vowelTone, "");
+                            TryAddPhoneme(phonemes, syllable.tone, vc, ValidateAlias(vc));
+                        } 
+                        else { // Default YAML diphthong logic
+                            var tail = diphthongTails[prevV];
+                            var vcSpace = AliasFormat($"{prevV} {tail}", "vcEx", syllable.tone, prevV);
+                            var vcNoSpace = AliasFormat($"{prevV}{tail}", "vcEx", syllable.tone, prevV);
+                            cv = AliasFormat($"{tail} {v}", "dynMid", syllable.vowelTone, "");
+                            TryAddPhoneme(phonemes, syllable.tone, vcSpace, ValidateAlias(vcSpace), vcNoSpace, ValidateAlias(vcNoSpace));
+                        }
+
+                        if (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv), syllable.vowelTone)) {
+                            basePhoneme = cv;
+                        } else if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
+                            basePhoneme = v;
+                        } else {
+                            basePhoneme = ValidateAlias(AliasFormat($"- {v}", "dynMid", syllable.vowelTone, ""));
+                            phonemes.Add(AliasFormat($"{prevV} -", "dynMid", syllable.tone, ""));
+                        }
                     } else {
-                        {
-                            if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
-                                basePhoneme = $"{prevV} {v}";
-                            } else if (HasOto($"{prevV}{v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV}{v}"), syllable.vowelTone)) {
-                                basePhoneme = $"{prevV}{v}";
-                            } else if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
-                                basePhoneme = v;
-                            } else {
-                                basePhoneme = AliasFormat($"- {v}", "dynMid", syllable.vowelTone, "");
-                                phonemes.Add(AliasFormat($"{prevV} -", "dynMid", syllable.vowelTone, ""));
-                            }
+                        if (HasOto(v, syllable.vowelTone) || HasOto(ValidateAlias(v), syllable.vowelTone)) {
+                            basePhoneme = v;
+                        } else {
+                            basePhoneme = ValidateAlias(AliasFormat($"- {v}", "dynMid", syllable.vowelTone, ""));
+                            phonemes.Add(AliasFormat($"{prevV} -", "dynMid", syllable.tone, ""));
                         }
                     }
-                    // EXTEND AS [V]
-                } else if (HasOto($"{v}", syllable.vowelTone) && HasOto(ValidateAlias($"{v}"), syllable.vowelTone) || missingVphonemes.ContainsKey(prevV)) {
-                    basePhoneme = v;
-                } else if (!HasOto(v, syllable.vowelTone) && !HasOto(ValidateAlias(v), syllable.vowelTone) && vvDiphthongExceptions.ContainsKey(prevV)) {
-                    basePhoneme = $"{vvDiphthongExceptions[prevV]} {vvDiphthongExceptions[prevV]}";
-                } else {
-                    // PREVIOUS ALIAS WILL EXTEND as [V V]
+                } 
+                else {
                     basePhoneme = null;
                 }
-
                 // [- CV/C V] or [- C][CV/C V]
             } else if (syllable.IsStartingCVWithOneConsonant) {
                 var rcv = $"- {cc[0]} {v}";
