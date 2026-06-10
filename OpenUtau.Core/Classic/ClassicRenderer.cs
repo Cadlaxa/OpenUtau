@@ -928,7 +928,14 @@ namespace OpenUtau.Classic {
             if (activeParts.Count > 0) {
                 double phraseStartMs = phrase.positionMs - phrase.leadingMs;
                 int phraseStartTick = project.timeAxis.MsPosToTickPos(phraseStartMs);
-                int phraseEndTick = phrase.position + phrase.duration;
+
+                double phraseEndMs = phrase.positionMs + phrase.durationMs;
+                if (phrase.phones != null && phrase.phones.Length > 0) {
+                    phraseEndMs = Math.Max(phraseEndMs, phrase.phones.Max(p => p.endMs));
+                } else {
+                    phraseEndMs += 200.0;
+                }
+                int phraseEndTick = project.timeAxis.MsPosToTickPos(phraseEndMs);
                 
                 for (int absoluteTick = phraseStartTick; absoluteTick <= phraseEndTick; absoluteTick += 15) {
                     var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
@@ -952,8 +959,16 @@ namespace OpenUtau.Classic {
 
             double phraseStartMs = phrase.positionMs - phrase.leadingMs;
             int phraseStartTick = project.timeAxis.MsPosToTickPos(phraseStartMs);
-            int phraseEndTick = phrase.position + phrase.duration;
-            int sampleCount = (int)((phrase.positionMs + phrase.durationMs + 200.0 - phraseStartMs) / 5.0) + 1;
+
+            double phraseEndMs = phrase.positionMs + phrase.durationMs;
+            if (phrase.phones != null && phrase.phones.Length > 0) {
+                phraseEndMs = Math.Max(phraseEndMs, phrase.phones.Max(p => p.endMs));
+            } else {
+                phraseEndMs += 200.0;
+            }
+
+            int phraseEndTick = project.timeAxis.MsPosToTickPos(phraseEndMs);
+            int sampleCount = (int)((phraseEndMs - phraseStartMs) / 5.0) + 1;
 
             var morphingExps = project.expressions.Values.Where(exp => exp.type == UExpressionType.MorphingCurve);
             var dynamicExps = new List<(UExpressionDescriptor exp, float cMin, float cMax, string color)>();
@@ -1104,7 +1119,7 @@ namespace OpenUtau.Classic {
             baseFlag = ""; tracks = new List<MorphTrack>(); baseHash = 17;
             var project = DocManager.Inst.Project;
             int phoneAbsoluteTick = phrase.position + phone.position;
-            int phoneEndTick = phoneAbsoluteTick + phone.duration;
+            int phoneEndTick = project.timeAxis.MsPosToTickPos(phone.endMs);
             
             activeParts = project.parts.OfType<UVoicePart>().Where(p => p.trackNo == trackNo && p.position < phoneEndTick && p.End > phoneAbsoluteTick).ToList();
             if (activeParts.Count == 0) return false;
