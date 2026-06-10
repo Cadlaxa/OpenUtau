@@ -168,23 +168,29 @@ namespace OpenUtau.Plugin.Builtin {
             base.SetSinger(singer);
 
             if (this.singer != null && this.singer.Loaded) {
-                string file = Path.Combine(this.singer.Location, YamlFileName);
-                if (!File.Exists(file)) {
-                    file = Path.Combine(PluginDir, YamlFileName);
-                }
+                
+                string globalFile = Path.Combine(PluginDir, YamlFileName);
+                string singerFile = Path.Combine(this.singer.Location, YamlFileName);
 
-                if (File.Exists(file)) {
+                var filesToParse = new List<string>();
+                if (File.Exists(globalFile)) filesToParse.Add(globalFile);
+                if (File.Exists(singerFile) && globalFile != singerFile) filesToParse.Add(singerFile);
+
+                c_cR = Array.Empty<string>();
+
+                foreach (var file in filesToParse) {
                     try {
                         var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
 
                         if (data?.symbols != null) {
                             
                             string[] targetTypes = { "nasal", "liquid", "semivowel", "fricative", "aspirate" };
-                            c_cR = data.symbols
+                            var newCcR = data.symbols
                                 .Where(s => targetTypes.Contains(s.type?.ToLower()))
                                 .Select(s => s.symbol)
-                                .Distinct()
                                 .ToArray();
+                                
+                            c_cR = c_cR.Concat(newCcR).Distinct().ToArray();
 
                             var yamlDiphthongs = data.symbols
                                 .Where(s => s.type?.ToLower() == "diphthong")
@@ -194,13 +200,13 @@ namespace OpenUtau.Plugin.Builtin {
 
                             foreach (var d in yamlDiphthongs) {
                                 if (!diphthongSplits.ContainsKey(d)) {
-                                    diphthongTails[d] = d + "-"; // Overwrites SBP's consonant guess with the C+V format
+                                    diphthongTails[d] = d + "-";
                                 }
                             }
                         }
                         
                     } catch (Exception ex) {
-                        Log.Error($"Failed to parse symbols from {YamlFileName}: {ex.Message}");
+                        Log.Error($"Failed to parse symbols from {file}: {ex.Message}");
                     }
                 }
             }
