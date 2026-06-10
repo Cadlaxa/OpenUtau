@@ -302,21 +302,21 @@ namespace OpenUtau.Plugin.Builtin {
                     return; 
                 }
 
-                string file = null;
-                if (singer != null && singer.Found && singer.Loaded && !string.IsNullOrEmpty(singer.Location)) {
-                    file = Path.Combine(singer.Location, YamlFileName);
-                } else if (!string.IsNullOrEmpty(PluginDir)) {
-                    file = Path.Combine(PluginDir, YamlFileName);
-                }
+                // file paths
+                string globalFile = Path.Combine(PluginDir, YamlFileName);
+                string singerFile = (singer != null && singer.Found && singer.Loaded && !string.IsNullOrEmpty(singer.Location)) 
+                    ? Path.Combine(singer.Location, YamlFileName) 
+                    : null;
 
-                if (!string.IsNullOrEmpty(file)) {
+                // template creation/backup for the Global File ONLY
+                if (!string.IsNullOrEmpty(globalFile)) {
                     bool shouldWriteTemplate = false;
                     bool shouldBackupOldFile = false;
 
-                    if (File.Exists(file)) {
+                    if (File.Exists(globalFile)) {
                         if (YamlTemplate != null && !string.IsNullOrEmpty(YamlVersion)) {
                             try {
-                                var checkData = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                                var checkData = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(globalFile));
                                 string currentVersion = checkData?.version?.Trim() ?? "";
 
                                 if (string.IsNullOrEmpty(currentVersion) || currentVersion != YamlVersion) {
@@ -324,7 +324,7 @@ namespace OpenUtau.Plugin.Builtin {
                                     shouldBackupOldFile = true;
                                 }
                             } catch (Exception ex) {
-                                Log.Error(ex, $"Failed to read version from '{file}'. Backing up and resetting to template...");
+                                Log.Error(ex, $"Failed to read version from '{globalFile}'. Backing up and resetting to template...");
                                 shouldWriteTemplate = true;
                                 shouldBackupOldFile = true;
                             }
@@ -333,11 +333,11 @@ namespace OpenUtau.Plugin.Builtin {
                         shouldWriteTemplate = true;
                     }
 
-                    if (shouldBackupOldFile && File.Exists(file)) {
+                    if (shouldBackupOldFile && File.Exists(globalFile)) {
                         try {
-                            string backupFile = Path.Combine(Path.GetDirectoryName(file), $"{Path.GetFileNameWithoutExtension(YamlFileName)}_backup{Path.GetExtension(YamlFileName)}");
+                            string backupFile = Path.Combine(Path.GetDirectoryName(globalFile), $"{Path.GetFileNameWithoutExtension(YamlFileName)}_backup{Path.GetExtension(YamlFileName)}");
                             if (File.Exists(backupFile)) File.Delete(backupFile);
-                            File.Move(file, backupFile);
+                            File.Move(globalFile, backupFile);
                             Log.Information($"Old {YamlFileName} backed up to {backupFile}");
                         } catch (Exception e) {
                             Log.Error(e, $"Failed to back up {YamlFileName}");
@@ -346,116 +346,130 @@ namespace OpenUtau.Plugin.Builtin {
 
                     if (shouldWriteTemplate) {
                         try {
-                            File.WriteAllBytes(file, YamlTemplate);
-                            Log.Information($"'{file}' created or updated to version {YamlVersion ?? "default"}");
+                            File.WriteAllBytes(globalFile, YamlTemplate);
+                            Log.Information($"'{globalFile}' created or updated to version {YamlVersion ?? "default"}");
                         } catch (Exception e) {
-                            Log.Error(e, $"Failed to write template to {file}");
+                            Log.Error(e, $"Failed to write template to {globalFile}");
                         }
                     }
+                }
 
-                    if (File.Exists(file)) {
-                        try {
-                            var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
-                            
-                            if (backupVowels == null) backupVowels = GetVowels() ?? Array.Empty<string>();
-                            if (backupConsonants == null) backupConsonants = GetConsonants() ?? Array.Empty<string>();
+                // add to parsing list (Global first, Singer second)
+                var filesToParse = new List<string>();
+                if (File.Exists(globalFile)) filesToParse.Add(globalFile);
+                if (!string.IsNullOrEmpty(singerFile) && File.Exists(singerFile)) filesToParse.Add(singerFile);
 
-                            var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                            vowels = backupVowels.Concat(yamlVowels).Distinct().ToArray();
+                // backups of hardcoded defaults exist
+                if (backupVowels == null) backupVowels = GetVowels() ?? Array.Empty<string>();
+                if (backupConsonants == null) backupConsonants = GetConsonants() ?? Array.Empty<string>();
+                if (backupDictionaryReplacements == null) backupDictionaryReplacements = new Dictionary<string, string>(dictionaryReplacements);
+                if (backupDiphthongTails == null) backupDiphthongTails = new Dictionary<string, string>(diphthongTails);
+                if (backupDiphthongSplits == null) backupDiphthongSplits = new Dictionary<string, string[]>(diphthongSplits);
 
-                            tails = (tails ?? Array.Empty<string>()).Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                            enableGlides = data?.isglides ?? true;
-                            var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
+                // reset live arrays/lists back to defaults before stacking
+                vowels = backupVowels;
+                consonants = backupConsonants;
+                tails = "-,R".Split(','); 
 
-                            var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
-                            foreach (var d in yamlDiphthongs) {
-                                // Only auto-assign if the child constructor or user YAML hasn't explicitly set it
-                                if (!diphthongTails.ContainsKey(d) && !diphthongSplits.ContainsKey(d)) {
-                                    foreach (var tail in dynamicTails) {
-                                        if (d.EndsWith(tail) && d != tail) {
-                                            diphthongTails[d] = tail; // Auto-assigns things like "eang" -> "ng"
-                                            break;
-                                        }
+                fricative = Array.Empty<string>();
+                aspirate = Array.Empty<string>();
+                semivowel = Array.Empty<string>();
+                liquid = Array.Empty<string>();
+                nasal = Array.Empty<string>();
+                stop = Array.Empty<string>();
+                tap = Array.Empty<string>();
+                affricate = Array.Empty<string>();
+
+                dictionaryReplacements.Clear();
+                foreach (var kvp in backupDictionaryReplacements) dictionaryReplacements[kvp.Key] = kvp.Value;
+
+                diphthongTails.Clear();
+                foreach (var kvp in backupDiphthongTails) diphthongTails[kvp.Key] = kvp.Value;
+
+                diphthongSplits.Clear();
+                foreach (var kvp in backupDiphthongSplits) diphthongSplits[kvp.Key] = kvp.Value;
+
+                mergingReplacements.Clear();
+                splittingReplacements.Clear();
+                yamlFallbacks.Clear();
+                PhonemeOverrides.Clear();
+
+                // parse the files sequentially (Singer configs seamlessly overwrite global configs)
+                foreach (var file in filesToParse) {
+                    try {
+                        var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                        
+                        // SYMBOLS
+                        var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        vowels = vowels.Concat(yamlVowels).Distinct().ToArray();
+
+                        tails = tails.Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        if (data?.isglides != null) enableGlides = data.isglides.Value; 
+                        
+                        fricative = fricative.Concat(data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        aspirate = aspirate.Concat(data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        semivowel = semivowel.Concat(data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        liquid = liquid.Concat(data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        nasal = nasal.Concat(data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        stop = stop.Concat(data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        tap = tap.Concat(data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        affricate = affricate.Concat(data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+
+                        var yamlConsonants = fricative.Concat(aspirate).Concat(semivowel).Concat(liquid).Concat(nasal).Concat(stop).Concat(tap).Concat(affricate).ToArray();
+                        consonants = consonants.Concat(yamlConsonants).Distinct().ToArray();
+
+                        // DIPHTHONG AUTO-TAIL DETECTION
+                        var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
+                        var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
+
+                        foreach (var d in yamlDiphthongs) {
+                            if (!diphthongTails.ContainsKey(d) && !diphthongSplits.ContainsKey(d)) {
+                                foreach (var tail in dynamicTails) {
+                                    if (d.EndsWith(tail) && d != tail) {
+                                        diphthongTails[d] = tail;
+                                        break;
                                     }
                                 }
                             }
-                            
-                            fricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            aspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            semivowel = data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            liquid = data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            nasal = data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            stop = data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            tap = data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                            affricate = data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-
-                            var yamlConsonants = fricative.Concat(aspirate).Concat(semivowel).Concat(liquid).Concat(nasal).Concat(stop).Concat(tap).Concat(affricate).ToArray();
-                            consonants = backupConsonants.Concat(yamlConsonants).Distinct().ToArray();
-
-                            PhonemeOverrides = data.timings?.GroupBy(t => t.symbol).ToDictionary(g => g.Key, g => g.First().value) ?? new Dictionary<string, double>();
-                            if (backupDictionaryReplacements == null) {
-                                backupDictionaryReplacements = new Dictionary<string, string>(dictionaryReplacements);
-                            }
-                            dictionaryReplacements.Clear();
-                            foreach (var kvp in backupDictionaryReplacements) {
-                                dictionaryReplacements[kvp.Key] = kvp.Value;
-                            }
-
-                            mergingReplacements.Clear();
-                            splittingReplacements.Clear();
-
-                            if (data?.replacements != null && data.replacements.Any()) {
-                                foreach (var replacement in data.replacements) {
-                                    string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
-                                    if (replacement.from is IEnumerable<object> fromList) {
-                                        string[] fromArray = fromList.Select(item => item.ToString() ?? "null").ToArray();
-                                        if (replacement.to is string toString) mergingReplacements.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
-                                        else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                    } else if (replacement.from is string fromString) {
-                                        if (replacement.to is string toString) dictionaryReplacements[fromString] = toString;
-                                        else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                    }
-                                }
-                            }
-
-                            if (data?.fallbacks != null) {
-                                yamlFallbacks.Clear();
-                                foreach (var df in data.fallbacks) {
-                                    if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
-                                        // Prevent duplicates: only use the first instance found
-                                        if (!yamlFallbacks.ContainsKey(df.from)) {
-                                            yamlFallbacks[df.from] = df.to;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (backupDiphthongTails == null) {
-                                backupDiphthongTails = new Dictionary<string, string>(diphthongTails);
-                            }
-                            if (backupDiphthongSplits == null) {
-                                backupDiphthongSplits = new Dictionary<string, string[]>(diphthongSplits);
-                            }
-                            diphthongTails.Clear();
-                            foreach (var kvp in backupDiphthongTails) {
-                                diphthongTails[kvp.Key] = kvp.Value;
-                            }
-                            diphthongSplits.Clear();
-                            foreach (var kvp in backupDiphthongSplits) {
-                                diphthongSplits[kvp.Key] = kvp.Value;
-                            }
-                            if (data?.diphthongs != null) {
-                                foreach (var d in data.diphthongs) {
-                                    if (!string.IsNullOrEmpty(d.from) && !string.IsNullOrEmpty(d.to)) {
-                                        if (!diphthongTails.ContainsKey(d.from)) {
-                                            diphthongTails[d.from] = d.to;
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to parse {YamlFileName}: {ex.Message}");
                         }
+
+                        // OVERRIDES & DICTIONARIES (Singer keys overwrite global keys)
+                        if (data?.timings != null) {
+                            foreach (var t in data.timings) PhonemeOverrides[t.symbol] = t.value;
+                        }
+
+                        if (data?.replacements != null) {
+                            foreach (var replacement in data.replacements) {
+                                string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
+                                if (replacement.from is IEnumerable<object> fromList) {
+                                    string[] fromArray = fromList.Select(item => item.ToString() ?? "null").ToArray();
+                                    if (replacement.to is string toString) mergingReplacements.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
+                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                                } else if (replacement.from is string fromString) {
+                                    if (replacement.to is string toString) dictionaryReplacements[fromString] = toString;
+                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                                }
+                            }
+                        }
+
+                        if (data?.fallbacks != null) {
+                            foreach (var df in data.fallbacks) {
+                                if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
+                                    yamlFallbacks[df.from] = df.to; 
+                                }
+                            }
+                        }
+
+                        if (data?.diphthongs != null) {
+                            foreach (var d in data.diphthongs) {
+                                if (!string.IsNullOrEmpty(d.from) && !string.IsNullOrEmpty(d.to)) {
+                                    diphthongTails[d.from] = d.to; 
+                                }
+                            }
+                        }
+
+                    } catch (Exception ex) {
+                        Log.Error($"Failed to parse {file}: {ex.Message}");
                     }
                 }
 
@@ -877,22 +891,68 @@ namespace OpenUtau.Plugin.Builtin {
             return (300 - Math.Clamp(bpm, 90, 300)) / (300 - 90) / 3 + 0.33;
         }
 
+        protected virtual IG2p[] GetBaseG2ps() {
+            return Array.Empty<IG2p>();
+        }
+
         protected virtual IG2p LoadBaseDictionary() {
-            var dictionaryName = GetDictionaryName();
-            var filename = Path.Combine(DictionariesPath, dictionaryName);
-            var dictionaryText = File.ReadAllText(filename);
-            var builder = G2pDictionary.NewBuilder();
-            var vowels = GetVowels();
-            foreach (var vowel in vowels) {
-                builder.AddSymbol(vowel, true);
+            var g2ps = new List<IG2p>();
+
+            // Native YAML Dictionary Logic
+            if (!string.IsNullOrEmpty(YamlFileName)) {
+                string path = Path.Combine(PluginDir, YamlFileName);
+                
+                // Write template if missing
+                if (!File.Exists(path) && YamlTemplate != null) {
+                    Directory.CreateDirectory(PluginDir);
+                    File.WriteAllBytes(path, YamlTemplate);
+                }
+
+                // Load dictionary from Singer Folder (Highest Priority)
+                if (singer != null && singer.Found && singer.Loaded) {
+                    string file = Path.Combine(singer.Location, YamlFileName);
+                    if (File.Exists(file)) {
+                        try {
+                            g2ps.Add(G2pDictionary.NewBuilder().Load(File.ReadAllText(file)).Build());
+                        } catch (Exception e) {
+                            Log.Error(e, $"Failed to load {file}");
+                        }
+                    }
+                }
+
+                // Load dictionary from Plugin Folder (Fallback Priority)
+                if (File.Exists(path)) {
+                    try {
+                        g2ps.Add(G2pDictionary.NewBuilder().Load(File.ReadAllText(path)).Build());
+                    } catch (Exception e) {
+                        Log.Error(e, $"Failed to load {path}");
+                    }
+                }
+            } 
+            // Legacy Text Dictionary Logic (if child uses GetDictionaryName instead of YAML)
+            else {
+                var dictionaryName = GetDictionaryName();
+                if (!string.IsNullOrEmpty(dictionaryName)) {
+                    var filename = Path.Combine(DictionariesPath, dictionaryName);
+                    if (File.Exists(filename)) {
+                        var dictionaryText = File.ReadAllText(filename);
+                        var builder = G2pDictionary.NewBuilder();
+                        foreach (var vowel in GetVowels()) builder.AddSymbol(vowel, true);
+                        foreach (var consonant in GetConsonants()) builder.AddSymbol(consonant, false);
+                        builder.AddEntry("a", new string[] { "a" });
+                        ParseDictionary(dictionaryText, builder);
+                        g2ps.Add(builder.Build());
+                    }
+                }
             }
-            var consonants = GetConsonants();
-            foreach (var consonant in consonants) {
-                builder.AddSymbol(consonant, false);
+
+            // Append the Child-Specific G2P Models (e.g., ArpabetPlusG2p)
+            var childG2ps = GetBaseG2ps();
+            if (childG2ps != null && childG2ps.Any()) {
+                g2ps.AddRange(childG2ps);
             }
-            builder.AddEntry("a", new string[] { "a" });
-            ParseDictionary(dictionaryText, builder);
-            return builder.Build();
+
+            return new G2pFallbacks(g2ps.ToArray());
         }
 
         /// <summary>
