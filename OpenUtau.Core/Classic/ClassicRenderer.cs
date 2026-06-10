@@ -79,16 +79,27 @@ namespace OpenUtau.Classic {
                 
                 lock (Renderers.GetCacheLock(wavPath)) {
                     if (File.Exists(wavPath)) {
-                        try { using (var waveStream = Wave.OpenFile(wavPath)) { result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); return result; } } catch { }
+                        try { 
+                            using (var waveStream = Wave.OpenFile(wavPath)) { 
+                                result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); 
+                            } 
+                        } catch { }
                     }
                 }
 
+                // FIX: Apply dynamics if pulled successfully from cache
+                if (result.samples != null) {
+                    Renderers.ApplyDynamics(phrase, result);
+                    return result;
+                }
+
                 var wavtool = new SharpWavtool(true);
+
                 var otoField = typeof(RenderPhone).GetField("oto", BindingFlags.Public | BindingFlags.Instance);
                 var baseOtos = new Dictionary<RenderPhone, UOto>();
                 foreach (var phone in phrase.phones) baseOtos[phone] = phone.oto;
 
-                if (TryGetMatrixData(phrase, trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash)) {
+                if (TryGetMatrixData(phrase, trackNo, out string baseFlag, out List<MorphTrack> tracks, out var activePart, out int baseHash)) {
                     
                     var morphingFlags = new HashSet<string>();
                     foreach (var t in tracks) if (DocManager.Inst.Project.expressions.TryGetValue(t.Abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) morphingFlags.Add(exp.flag);
@@ -101,9 +112,8 @@ namespace OpenUtau.Classic {
                     var singer = DocManager.Inst.Project.tracks[trackNo].Singer;
 
                     foreach (var phone in phrase.phones) {
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
-                        int centerTick = currentPart != null ? (absoluteTick - currentPart.position) + (phone.duration / 2) : 0;
+                        int relativeStartTick = (phrase.position + phone.position) - activePart.position;
+                        int centerTick = relativeStartTick + (phone.duration / 2);
 
                         otoField.SetValue(phone, baseOtos[phone]);
                         var itemBase = new ResamplerItem(phrase, phone);
@@ -114,11 +124,9 @@ namespace OpenUtau.Classic {
                             staticFlags = string.Join("", filteredFlags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : "")));
                         }
                         
-                        if (currentPart != null) {
-                            foreach (var c in currentPart.curves) {
-                                if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
-                                    if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
-                                }
+                        foreach (var c in activePart.curves) {
+                            if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
+                                if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                             }
                         }
 
@@ -197,21 +205,21 @@ namespace OpenUtau.Classic {
 
                     if (basePhraseSamples != null) {
                         result.samples = SpectralMorpher.MorphN(basePhraseSamples, colorAudios, colorCurves, 44100);
-                        WriteFloatsToWav(result.samples, wavPath);
+                        WriteFloatsToWav(result.samples, wavPath); 
                     }
                 } else {
                     var standardItems = new List<ResamplerItem>();
                     var project = DocManager.Inst.Project;
+                    var part = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phrase.position && p.End >= phrase.position);
 
                     foreach (var phone in phrase.phones) {
                         var item = new ResamplerItem(phrase, phone);
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
 
                         string staticFlags = item.flags != null ? string.Join("", item.flags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : ""))) : "";
-                        if (currentPart != null) {
-                            int centerTick = (absoluteTick - currentPart.position) + (phone.duration / 2);
-                            foreach (var c in currentPart.curves) {
+                        if (part != null) {
+                            int relativeStartTick = (phrase.position + phone.position) - part.position;
+                            int centerTick = relativeStartTick + (phone.duration / 2);
+                            foreach (var c in part.curves) {
                                 if (!c.IsEmpty && project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag) && !staticFlags.Contains(exp.flag)) {
                                     staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                                 }
@@ -240,7 +248,7 @@ namespace OpenUtau.Classic {
                     
                     result.samples = wavtool.Concatenate(standardItems, string.Empty, cancellation);
                     if (result.samples != null) {
-                        WriteFloatsToWav(result.samples, wavPath);
+                        WriteFloatsToWav(result.samples, wavPath); 
                     }
                 }
 
@@ -260,8 +268,18 @@ namespace OpenUtau.Classic {
                 
                 lock (Renderers.GetCacheLock(wavPath)) {
                     if (File.Exists(wavPath)) {
-                        try { using (var waveStream = Wave.OpenFile(wavPath)) { result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); return result; } } catch { }
+                        try { 
+                            using (var waveStream = Wave.OpenFile(wavPath)) { 
+                                result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); 
+                            } 
+                        } catch { }
                     }
+                }
+
+                // FIX: Apply dynamics if pulled successfully from cache
+                if (result.samples != null) {
+                    Renderers.ApplyDynamics(phrase, result);
+                    return result;
                 }
                 
                 var wavtool = ToolsManager.Inst.GetWavtool(phrase.wavtool);
@@ -269,7 +287,7 @@ namespace OpenUtau.Classic {
                 var baseOtos = new Dictionary<RenderPhone, UOto>();
                 foreach (var phone in phrase.phones) baseOtos[phone] = phone.oto;
 
-                if (TryGetMatrixData(phrase, trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash)) {
+                if (TryGetMatrixData(phrase, trackNo, out string baseFlag, out List<MorphTrack> tracks, out var activePart, out int baseHash)) {
                     
                     var morphingFlags = new HashSet<string>();
                     foreach (var t in tracks) if (DocManager.Inst.Project.expressions.TryGetValue(t.Abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) morphingFlags.Add(exp.flag);
@@ -282,9 +300,8 @@ namespace OpenUtau.Classic {
                     var singer = DocManager.Inst.Project.tracks[trackNo].Singer;
 
                     foreach (var phone in phrase.phones) {
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
-                        int centerTick = currentPart != null ? (absoluteTick - currentPart.position) + (phone.duration / 2) : 0;
+                        int relativeStartTick = (phrase.position + phone.position) - activePart.position;
+                        int centerTick = relativeStartTick + (phone.duration / 2);
 
                         otoField.SetValue(phone, baseOtos[phone]);
                         var itemBase = new ResamplerItem(phrase, phone);
@@ -295,11 +312,9 @@ namespace OpenUtau.Classic {
                             staticFlags = string.Join("", filteredFlags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : "")));
                         }
 
-                        if (currentPart != null) {
-                            foreach (var c in currentPart.curves) {
-                                if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
-                                    if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
-                                }
+                        foreach (var c in activePart.curves) {
+                            if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
+                                if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                             }
                         }
 
@@ -408,16 +423,16 @@ namespace OpenUtau.Classic {
                 } else {
                     var standardItems = new List<ResamplerItem>();
                     var project = DocManager.Inst.Project;
+                    var part = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phrase.position && p.End >= phrase.position);
 
                     foreach (var phone in phrase.phones) {
                         var item = new ResamplerItem(phrase, phone);
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
                         
                         string staticFlags = item.flags != null ? string.Join("", item.flags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : ""))) : "";
-                        if (currentPart != null) {
-                            int centerTick = (absoluteTick - currentPart.position) + (phone.duration / 2);
-                            foreach (var c in currentPart.curves) {
+                        if (part != null) {
+                            int relativeStartTick = (phrase.position + phone.position) - part.position;
+                            int centerTick = relativeStartTick + (phone.duration / 2);
+                            foreach (var c in part.curves) {
                                 if (!c.IsEmpty && project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag) && !staticFlags.Contains(exp.flag)) {
                                     staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                                 }
@@ -452,11 +467,21 @@ namespace OpenUtau.Classic {
                 var wavPath = Path.Join(PathManager.Inst.CachePath, $"cat-{phrase.hash:x16}_{universalHash:X}.wav");
                 phrase.AddCacheFile(wavPath);
                 var result = Layout(phrase);
-                
+
                 lock (Renderers.GetCacheLock(wavPath)) {
                     if (File.Exists(wavPath)) {
-                        try { using (var waveStream = Wave.OpenFile(wavPath)) { result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); return result; } } catch { }
+                        try { 
+                            using (var waveStream = Wave.OpenFile(wavPath)) { 
+                                result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); 
+                            } 
+                        } catch { }
                     }
+                }
+
+                // FIX: Apply dynamics if pulled successfully from cache
+                if (result.samples != null) {
+                    Renderers.ApplyDynamics(phrase, result);
+                    return result;
                 }
 
                 var otoField = typeof(RenderPhone).GetField("oto", BindingFlags.Public | BindingFlags.Instance);
@@ -468,14 +493,13 @@ namespace OpenUtau.Classic {
                 Parallel.ForEach(phrase.phones, new ParallelOptions() { MaxDegreeOfParallelism = Preferences.Default.NumRenderThreads }, phone => {
                     if (cancellation.IsCancellationRequested) return;
                     
-                    if (TryGetMatrixDataAlias(phrase, phone, trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash)) {
+                    if (TryGetMatrixDataAlias(phrase, phone, trackNo, out string baseFlag, out List<MorphTrack> tracks, out var activePart, out int baseHash)) {
                         
                         var morphingFlags = new HashSet<string>();
                         foreach (var t in tracks) if (DocManager.Inst.Project.expressions.TryGetValue(t.Abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) morphingFlags.Add(exp.flag);
 
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
-                        int centerTick = currentPart != null ? (absoluteTick - currentPart.position) + (phone.duration / 2) : 0;
+                        int relativeStartTick = (phrase.position + phone.position) - activePart.position;
+                        int centerTick = relativeStartTick + (phone.duration / 2);
 
                         otoField.SetValue(phone, baseOtos[phone]);
                         var itemBase = new ResamplerItem(phrase, phone);
@@ -484,11 +508,9 @@ namespace OpenUtau.Classic {
                             var filteredFlags = itemBase.flags.Where(f => !morphingFlags.Any(mf => f.Item1.StartsWith(mf)));
                             staticFlags = string.Join("", filteredFlags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : "")));
                         }
-                        if (currentPart != null) {
-                            foreach (var c in currentPart.curves) {
-                                if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
-                                    if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
-                                }
+                        foreach (var c in activePart.curves) {
+                            if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
+                                if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                             }
                         }
 
@@ -553,15 +575,16 @@ namespace OpenUtau.Classic {
                     } else {
                         otoField.SetValue(phone, baseOtos[phone]);
                         var item = new ResamplerItem(phrase, phone);
+                        
                         var project = DocManager.Inst.Project;
-
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
+                        int phoneAbsoluteTick = phrase.position + phone.position;
+                        var part = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phoneAbsoluteTick && p.End >= phoneAbsoluteTick);
                         string staticFlags = item.flags != null ? string.Join("", item.flags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : ""))) : "";
                         
-                        if (currentPart != null) {
-                            int centerTick = (absoluteTick - currentPart.position) + (phone.duration / 2);
-                            foreach (var c in currentPart.curves) {
+                        if (part != null) {
+                            int relativeStartTick = phoneAbsoluteTick - part.position;
+                            int centerTick = relativeStartTick + (phone.duration / 2);
+                            foreach (var c in part.curves) {
                                 if (!c.IsEmpty && project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag) && !staticFlags.Contains(exp.flag)) {
                                     staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                                 }
@@ -591,8 +614,9 @@ namespace OpenUtau.Classic {
                 finalItems = finalItems.OrderBy(i => i.phone.position).ToList();
                 
                 result.samples = new SharpWavtool(true).Concatenate(finalItems, string.Empty, cancellation);
+                
                 if (result.samples != null) {
-                    WriteFloatsToWav(result.samples, wavPath);
+                    WriteFloatsToWav(result.samples, wavPath); 
                     Renderers.ApplyDynamics(phrase, result);
                 }
                 return result;
@@ -607,12 +631,23 @@ namespace OpenUtau.Classic {
             return Task.Run(() => {
                 var wavPath = Path.Join(PathManager.Inst.CachePath, $"cat-{phrase.hash:x16}_{universalHash:X}.wav");
                 phrase.AddCacheFile(wavPath);
+                
                 var result = Layout(phrase);
                 
                 lock (Renderers.GetCacheLock(wavPath)) {
                     if (File.Exists(wavPath)) {
-                        try { using (var waveStream = Wave.OpenFile(wavPath)) { result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); return result; } } catch { }
+                        try { 
+                            using (var waveStream = Wave.OpenFile(wavPath)) { 
+                                result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0)); 
+                            } 
+                        } catch { }
                     }
+                }
+
+                // FIX: Apply dynamics if pulled successfully from cache
+                if (result.samples != null) {
+                    Renderers.ApplyDynamics(phrase, result);
+                    return result;
                 }
 
                 var otoField = typeof(RenderPhone).GetField("oto", BindingFlags.Public | BindingFlags.Instance);
@@ -624,14 +659,13 @@ namespace OpenUtau.Classic {
                 Parallel.ForEach(phrase.phones, new ParallelOptions() { MaxDegreeOfParallelism = Preferences.Default.NumRenderThreads }, phone => {
                     if (cancellation.IsCancellationRequested) return;
 
-                    if (TryGetMatrixDataAlias(phrase, phone, trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash)) {
+                    if (TryGetMatrixDataAlias(phrase, phone, trackNo, out string baseFlag, out List<MorphTrack> tracks, out var activePart, out int baseHash)) {
                         
                         var morphingFlags = new HashSet<string>();
                         foreach (var t in tracks) if (DocManager.Inst.Project.expressions.TryGetValue(t.Abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) morphingFlags.Add(exp.flag);
 
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
-                        int centerTick = currentPart != null ? (absoluteTick - currentPart.position) + (phone.duration / 2) : 0;
+                        int relativeStartTick = (phrase.position + phone.position) - activePart.position;
+                        int centerTick = relativeStartTick + (phone.duration / 2);
 
                         otoField.SetValue(phone, baseOtos[phone]);
                         var itemBase = new ResamplerItem(phrase, phone);
@@ -640,11 +674,9 @@ namespace OpenUtau.Classic {
                             var filteredFlags = itemBase.flags.Where(f => !morphingFlags.Any(mf => f.Item1.StartsWith(mf)));
                             staticFlags = string.Join("", filteredFlags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : "")));
                         }
-                        if (currentPart != null) {
-                            foreach (var c in currentPart.curves) {
-                                if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
-                                    if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
-                                }
+                        foreach (var c in activePart.curves) {
+                            if (!c.IsEmpty && DocManager.Inst.Project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag)) {
+                                if (!tracks.Any(t => t.Abbr == exp.abbr) && !staticFlags.Contains(exp.flag)) staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                             }
                         }
 
@@ -709,15 +741,16 @@ namespace OpenUtau.Classic {
                     } else {
                         otoField.SetValue(phone, baseOtos[phone]);
                         var item = new ResamplerItem(phrase, phone);
+                        
                         var project = DocManager.Inst.Project;
-
-                        int absoluteTick = phrase.position + phone.position;
-                        var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
+                        int phoneAbsoluteTick = phrase.position + phone.position;
+                        var part = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phoneAbsoluteTick && p.End >= phoneAbsoluteTick);
                         string staticFlags = item.flags != null ? string.Join("", item.flags.Select(f => f.Item1 + (f.Item2.HasValue ? f.Item2.Value.ToString() : ""))) : "";
                         
-                        if (currentPart != null) {
-                            int centerTick = (absoluteTick - currentPart.position) + (phone.duration / 2);
-                            foreach (var c in currentPart.curves) {
+                        if (part != null) {
+                            int relativeStartTick = phoneAbsoluteTick - part.position;
+                            int centerTick = relativeStartTick + (phone.duration / 2);
+                            foreach (var c in part.curves) {
                                 if (!c.IsEmpty && project.expressions.TryGetValue(c.abbr, out var exp) && !string.IsNullOrEmpty(exp.flag) && !staticFlags.Contains(exp.flag)) {
                                     staticFlags += $"{exp.flag}{(int)Math.Round((double)c.Sample(centerTick))}";
                                 }
@@ -922,85 +955,54 @@ namespace OpenUtau.Classic {
 
         private int GetUniversalCurveHash(RenderPhrase phrase, int trackNo) {
             int hash = 17;
-            var project = DocManager.Inst.Project;
-            var activeParts = project.parts.OfType<UVoicePart>().Where(p => p.trackNo == trackNo && p.position < phrase.position + phrase.duration && p.End > phrase.position).ToList();
-            
-            if (activeParts.Count > 0) {
-                double phraseStartMs = phrase.positionMs - phrase.leadingMs;
-                int phraseStartTick = project.timeAxis.MsPosToTickPos(phraseStartMs);
-
-                double phraseEndMs = phrase.positionMs + phrase.durationMs;
-                if (phrase.phones != null && phrase.phones.Length > 0) {
-                    phraseEndMs = Math.Max(phraseEndMs, phrase.phones.Max(p => p.endMs));
-                } else {
-                    phraseEndMs += 200.0;
-                }
-                int phraseEndTick = project.timeAxis.MsPosToTickPos(phraseEndMs);
-                
-                for (int absoluteTick = phraseStartTick; absoluteTick <= phraseEndTick; absoluteTick += 15) {
-                    var currentPart = activeParts.FirstOrDefault(p => p.position <= absoluteTick && p.End > absoluteTick);
-                    if (currentPart != null) {
-                        int partTick = absoluteTick - currentPart.position;
-                        foreach (var c in currentPart.curves) if (!c.IsEmpty) {
-                            hash = unchecked(hash * 31 + HashString(c.abbr)); 
-                            hash = unchecked(hash * 31 + (int)Math.Round((double)c.Sample(partTick)));
-                        }
+            var part = DocManager.Inst.Project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phrase.position && p.End >= phrase.position);
+            if (part != null) {
+                int startTick = phrase.position - part.position;
+                int endTick = startTick + phrase.duration;
+                for (int tick = startTick; tick <= endTick; tick += 15) {
+                    foreach (var c in part.curves) if (!c.IsEmpty) {
+                        hash = unchecked(hash * 31 + HashString(c.abbr)); 
+                        hash = unchecked(hash * 31 + (int)Math.Round((double)c.Sample(tick)));
                     }
                 }
             }
             return hash;
         }
 
-        private bool TryGetMatrixData(RenderPhrase phrase, int trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash) {
+        private bool TryGetMatrixData(RenderPhrase phrase, int trackNo, out string baseFlag, out List<MorphTrack> tracks, out UVoicePart activePart, out int baseHash) {
             baseFlag = ""; tracks = new List<MorphTrack>(); baseHash = 17;
             var project = DocManager.Inst.Project;
-            activeParts = project.parts.OfType<UVoicePart>().Where(p => p.trackNo == trackNo && p.position < phrase.position + phrase.duration && p.End > phrase.position).ToList();
-            if (activeParts.Count == 0) return false;
+            activePart = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phrase.position && p.End >= phrase.position);
+            if (activePart == null) return false;
 
+            int startTick = phrase.position - activePart.position;
+            int endTick = startTick + phrase.duration;
             double phraseStartMs = phrase.positionMs - phrase.leadingMs;
-            int phraseStartTick = project.timeAxis.MsPosToTickPos(phraseStartMs);
-
-            double phraseEndMs = phrase.positionMs + phrase.durationMs;
-            if (phrase.phones != null && phrase.phones.Length > 0) {
-                phraseEndMs = Math.Max(phraseEndMs, phrase.phones.Max(p => p.endMs));
-            } else {
-                phraseEndMs += 200.0;
-            }
-
-            int phraseEndTick = project.timeAxis.MsPosToTickPos(phraseEndMs);
-            int sampleCount = (int)((phraseEndMs - phraseStartMs) / 5.0) + 1;
+            int sampleCount = (int)((phrase.positionMs + phrase.durationMs + 200.0 - phraseStartMs) / 5.0) + 1;
 
             var morphingExps = project.expressions.Values.Where(exp => exp.type == UExpressionType.MorphingCurve);
-            var dynamicExps = new List<(UExpressionDescriptor exp, float cMin, float cMax, string color)>();
+            var dynamicExps = new List<(UExpressionDescriptor exp, UCurve c, float cMin, float cMax, string color)>();
 
             foreach (var exp in morphingExps) {
+                var c = activePart.curves.FirstOrDefault(x => x.abbr == exp.abbr);
+                if (c == null || c.IsEmpty) continue;
+
                 float cMin = float.MaxValue, cMax = float.MinValue;
-                bool hasData = false;
-
-                for (int tick = phraseStartTick; tick <= phraseEndTick; tick += 15) {
-                    var p = activeParts.FirstOrDefault(x => x.position <= tick && x.End > tick);
-                    if (p != null) {
-                        var c = p.curves.FirstOrDefault(x => x.abbr == exp.abbr);
-                        if (c != null && !c.IsEmpty) {
-                            hasData = true;
-                            float v = c.Sample(tick - p.position);
-                            if (v < cMin) cMin = v;
-                            if (v > cMax) cMax = v;
-                        }
-                    }
+                for (int tick = startTick; tick <= endTick; tick += 15) {
+                    float v = c.Sample(tick);
+                    if (v < cMin) cMin = v;
+                    if (v > cMax) cMax = v;
                 }
-
-                if (!hasData) continue;
 
                 var singer = project.tracks[trackNo].Singer;
                 string matchedColor = GetMatchedColor(singer, exp);
-                float defVal = exp.defaultValue;
 
                 if (matchedColor != null) {
-                    if (cMax > 0.05f) dynamicExps.Add((exp, cMin, cMax, matchedColor));
+                    if (cMax > 0.05f) dynamicExps.Add((exp, c, cMin, cMax, matchedColor));
                 } else {
+                    float defVal = exp.defaultValue;
                     if (cMax > defVal + 0.1f || cMin < defVal - 0.1f) {
-                        dynamicExps.Add((exp, cMin, cMax, null));
+                        dynamicExps.Add((exp, c, cMin, cMax, null));
                         string resFlag = string.IsNullOrEmpty(exp.flag) ? exp.abbr : exp.flag;
                         baseFlag += $"{resFlag}{(int)Math.Round((double)defVal)}"; 
                         baseHash = unchecked(baseHash * 31 + HashString(exp.abbr)); 
@@ -1008,7 +1010,6 @@ namespace OpenUtau.Classic {
                 }
             }
 
-            // Protect consonant phase integrity
             bool[] isVoiced = new bool[sampleCount];
             for (int i = 0; i < sampleCount; i++) isVoiced[i] = true;
             foreach (var phone in phrase.phones) {
@@ -1020,25 +1021,16 @@ namespace OpenUtau.Classic {
             }
 
             foreach (var data in dynamicExps) {
-                float defVal = data.exp.defaultValue;
-                float[] rawWeights = new float[sampleCount];
-                float[] finalWeights = new float[sampleCount];
-                int trackHash = 17;
-                string targetColor = data.color;
+                if (data.color != null) {
+                    float[] rawWeights = new float[sampleCount];
+                    float[] finalWeights = new float[sampleCount];
+                    int trackHash = 17;
+                    trackHash = unchecked(trackHash * 31 + HashString(data.color)); 
 
-                if (targetColor != null) {
-                    trackHash = unchecked(trackHash * 31 + HashString(targetColor));
                     for (int i = 0; i < sampleCount; i++) {
-                        int absoluteTick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0));
-                        var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                        float val = defVal;
-                        
-                        if (p != null) {
-                            var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                            if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                        }
-                        val = Math.Clamp(val, 0, 100);
-                        rawWeights[i] = isVoiced[i] ? val : (val > 50f ? 100f : 0f);
+                        int tick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0)) - activePart.position;
+                        float val = Math.Clamp(data.c.Sample(tick), 0, 100);
+                        rawWeights[i] = isVoiced[i] ? val : (val > 50f ? 100f : 0f); 
                     }
                     
                     for (int i = 0; i < sampleCount; i++) {
@@ -1048,19 +1040,19 @@ namespace OpenUtau.Classic {
                     }
 
                     baseHash = unchecked(baseHash * 31 + trackHash);
-                    tracks.Add(new MorphTrack { TargetColor = targetColor, Abbr = data.exp.abbr, Flag = baseFlag, Weights = finalWeights, Hash = trackHash });
+                    tracks.Add(new MorphTrack { TargetColor = data.color, Abbr = data.exp.abbr, Flag = baseFlag, Weights = finalWeights, Hash = trackHash });
                 } else {
+                    float defVal = data.exp.defaultValue;
+
                     if (data.cMax > defVal + 0.1f) {
-                        trackHash = unchecked(17 * 31 + HashString(data.exp.abbr));
+                        float[] rawWeights = new float[sampleCount];
+                        float[] finalWeights = new float[sampleCount];
+                        int trackHash = 17;
+                        trackHash = unchecked(trackHash * 31 + HashString(data.exp.abbr)); 
+
                         for (int i = 0; i < sampleCount; i++) {
-                            int absoluteTick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0));
-                            var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                            float val = defVal;
-                            
-                            if (p != null) {
-                                var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                                if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                            }
+                            int tick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0)) - activePart.position;
+                            float val = data.c.Sample(tick);
                             float rw = val > defVal ? Math.Clamp(((val - defVal) / Math.Max(0.001f, data.exp.max - defVal)) * 100f, 0, 100) : 0;
                             rawWeights[i] = isVoiced[i] ? rw : (rw > 50f ? 100f : 0f);
                         }
@@ -1081,16 +1073,14 @@ namespace OpenUtau.Classic {
                         tracks.Add(new MorphTrack { TargetColor = null, Abbr = data.exp.abbr, Flag = trkFlag, Weights = finalWeights, Hash = trackHash });
                     }
                     if (data.cMin < defVal - 0.1f) {
-                        trackHash = unchecked(17 * 31 + HashString(data.exp.abbr));
+                        float[] rawWeights = new float[sampleCount];
+                        float[] finalWeights = new float[sampleCount];
+                        int trackHash = 17;
+                        trackHash = unchecked(trackHash * 31 + HashString(data.exp.abbr));
+
                         for (int i = 0; i < sampleCount; i++) {
-                            int absoluteTick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0));
-                            var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                            float val = defVal;
-                            
-                            if (p != null) {
-                                var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                                if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                            }
+                            int tick = project.timeAxis.MsPosToTickPos(phraseStartMs + (i * 5.0)) - activePart.position;
+                            float val = data.c.Sample(tick);
                             float rw = val < defVal ? Math.Clamp(((defVal - val) / Math.Max(0.001f, defVal - data.exp.min)) * 100f, 0, 100) : 0;
                             rawWeights[i] = isVoiced[i] ? rw : (rw > 50f ? 100f : 0f);
                         }
@@ -1115,49 +1105,41 @@ namespace OpenUtau.Classic {
             return tracks.Count > 0;
         }
 
-        private bool TryGetMatrixDataAlias(RenderPhrase phrase, RenderPhone phone, int trackNo, out string baseFlag, out List<MorphTrack> tracks, out List<UVoicePart> activeParts, out int baseHash) {
+        private bool TryGetMatrixDataAlias(RenderPhrase phrase, RenderPhone phone, int trackNo, out string baseFlag, out List<MorphTrack> tracks, out UVoicePart activePart, out int baseHash) {
             baseFlag = ""; tracks = new List<MorphTrack>(); baseHash = 17;
             var project = DocManager.Inst.Project;
             int phoneAbsoluteTick = phrase.position + phone.position;
-            int phoneEndTick = project.timeAxis.MsPosToTickPos(phone.endMs);
-            
-            activeParts = project.parts.OfType<UVoicePart>().Where(p => p.trackNo == trackNo && p.position < phoneEndTick && p.End > phoneAbsoluteTick).ToList();
-            if (activeParts.Count == 0) return false;
+            activePart = project.parts.OfType<UVoicePart>().FirstOrDefault(p => p.trackNo == trackNo && p.position <= phoneAbsoluteTick && p.End >= phoneAbsoluteTick);
+            if (activePart == null) return false;
 
+            int startTick = (phrase.position + phone.position) - activePart.position;
+            int endTick = startTick + phone.duration;
             double phonePosMs = phone.positionMs - phone.leadingMs; 
             int sampleCount = (int)((phone.endMs - phonePosMs) / 5.0) + 1;
 
             var morphingExps = project.expressions.Values.Where(exp => exp.type == UExpressionType.MorphingCurve);
-            var dynamicExps = new List<(UExpressionDescriptor exp, float cMin, float cMax, string color)>();
+            var dynamicExps = new List<(UExpressionDescriptor exp, UCurve c, float cMin, float cMax, string color)>();
 
             foreach (var exp in morphingExps) {
+                var c = activePart.curves.FirstOrDefault(x => x.abbr == exp.abbr);
+                if (c == null || c.IsEmpty) continue;
+
                 float cMin = float.MaxValue, cMax = float.MinValue;
-                bool hasData = false;
-
-                for (int tick = project.timeAxis.MsPosToTickPos(phonePosMs); tick <= phoneEndTick; tick += 15) {
-                    var p = activeParts.FirstOrDefault(x => x.position <= tick && x.End > tick);
-                    if (p != null) {
-                        var c = p.curves.FirstOrDefault(x => x.abbr == exp.abbr);
-                        if (c != null && !c.IsEmpty) {
-                            hasData = true;
-                            float v = c.Sample(tick - p.position);
-                            if (v < cMin) cMin = v;
-                            if (v > cMax) cMax = v;
-                        }
-                    }
+                for (int tick = startTick; tick <= endTick; tick += 15) {
+                    float v = c.Sample(tick);
+                    if (v < cMin) cMin = v;
+                    if (v > cMax) cMax = v;
                 }
-
-                if (!hasData) continue;
 
                 var singer = project.tracks[trackNo].Singer;
                 string matchedColor = GetMatchedColor(singer, exp);
-                float defVal = exp.defaultValue;
 
                 if (matchedColor != null) {
-                    if (cMax > 0.05f) dynamicExps.Add((exp, cMin, cMax, matchedColor));
+                    if (cMax > 0.05f) dynamicExps.Add((exp, c, cMin, cMax, matchedColor));
                 } else {
+                    float defVal = exp.defaultValue;
                     if (cMax > defVal + 0.1f || cMin < defVal - 0.1f) {
-                        dynamicExps.Add((exp, cMin, cMax, null));
+                        dynamicExps.Add((exp, c, cMin, cMax, null));
                         string resFlag = string.IsNullOrEmpty(exp.flag) ? exp.abbr : exp.flag;
                         baseFlag += $"{resFlag}{(int)Math.Round((double)defVal)}";
                         baseHash = unchecked(baseHash * 31 + HashString(exp.abbr)); 
@@ -1174,24 +1156,15 @@ namespace OpenUtau.Classic {
             for (int i = startIdx; i <= endIdx; i++) isVoiced[i] = false;
 
             foreach (var data in dynamicExps) {
-                float defVal = data.exp.defaultValue;
-                float[] rawWeights = new float[sampleCount];
-                float[] finalWeights = new float[sampleCount];
-                int trackHash = 17;
-                string targetColor = data.color;
+                if (data.color != null) {
+                    float[] rawWeights = new float[sampleCount];
+                    float[] finalWeights = new float[sampleCount];
+                    int trackHash = 17;
+                    trackHash = unchecked(trackHash * 31 + HashString(data.color)); 
 
-                if (targetColor != null) {
-                    trackHash = unchecked(trackHash * 31 + HashString(targetColor));
                     for (int i = 0; i < sampleCount; i++) {
-                        int absoluteTick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0));
-                        var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                        float val = defVal;
-
-                        if (p != null) {
-                            var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                            if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                        }
-                        val = Math.Clamp(val, 0, 100);
+                        int tick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0)) - activePart.position;
+                        float val = Math.Clamp(data.c.Sample(tick), 0, 100);
                         rawWeights[i] = isVoiced[i] ? val : (val > 50f ? 100f : 0f);
                     }
 
@@ -1202,19 +1175,19 @@ namespace OpenUtau.Classic {
                     }
 
                     baseHash = unchecked(baseHash * 31 + trackHash);
-                    tracks.Add(new MorphTrack { TargetColor = targetColor, Abbr = data.exp.abbr, Flag = baseFlag, Weights = finalWeights, Hash = trackHash });
+                    tracks.Add(new MorphTrack { TargetColor = data.color, Abbr = data.exp.abbr, Flag = baseFlag, Weights = finalWeights, Hash = trackHash });
                 } else {
-                    if (data.cMax > defVal + 0.1f) { 
-                        trackHash = unchecked(17 * 31 + HashString(data.exp.abbr));
-                        for (int i = 0; i < sampleCount; i++) {
-                            int absoluteTick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0));
-                            var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                            float val = defVal;
+                    float defVal = data.exp.defaultValue;
 
-                            if (p != null) {
-                                var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                                if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                            }
+                    if (data.cMax > defVal + 0.1f) { 
+                        float[] rawWeights = new float[sampleCount];
+                        float[] finalWeights = new float[sampleCount];
+                        int trackHash = 17;
+                        trackHash = unchecked(trackHash * 31 + HashString(data.exp.abbr)); 
+
+                        for (int i = 0; i < sampleCount; i++) {
+                            int tick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0)) - activePart.position;
+                            float val = data.c.Sample(tick);
                             float rw = val > defVal ? Math.Clamp(((val - defVal) / Math.Max(0.001f, data.exp.max - defVal)) * 100f, 0, 100) : 0;
                             rawWeights[i] = isVoiced[i] ? rw : (rw > 50f ? 100f : 0f);
                         }
@@ -1235,16 +1208,14 @@ namespace OpenUtau.Classic {
                         tracks.Add(new MorphTrack { TargetColor = null, Abbr = data.exp.abbr, Flag = trkFlag, Weights = finalWeights, Hash = trackHash });
                     }
                     if (data.cMin < defVal - 0.1f) { 
-                        trackHash = unchecked(17 * 31 + HashString(data.exp.abbr));
-                        for (int i = 0; i < sampleCount; i++) {
-                            int absoluteTick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0));
-                            var p = activeParts.FirstOrDefault(x => x.position <= absoluteTick && x.End > absoluteTick);
-                            float val = defVal;
+                        float[] rawWeights = new float[sampleCount];
+                        float[] finalWeights = new float[sampleCount];
+                        int trackHash = 17;
+                        trackHash = unchecked(trackHash * 31 + HashString(data.exp.abbr)); 
 
-                            if (p != null) {
-                                var c = p.curves.FirstOrDefault(x => x.abbr == data.exp.abbr);
-                                if (c != null && !c.IsEmpty) val = c.Sample(absoluteTick - p.position);
-                            }
+                        for (int i = 0; i < sampleCount; i++) {
+                            int tick = project.timeAxis.MsPosToTickPos(phonePosMs + (i * 5.0)) - activePart.position;
+                            float val = data.c.Sample(tick);
                             float rw = val < defVal ? Math.Clamp(((defVal - val) / Math.Max(0.001f, defVal - data.exp.min)) * 100f, 0, 100) : 0;
                             rawWeights[i] = isVoiced[i] ? rw : (rw > 50f ? 100f : 0f);
                         }
