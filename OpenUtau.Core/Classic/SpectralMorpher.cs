@@ -21,6 +21,11 @@ namespace OpenUtau.Core.Render {
             Complex[][] stftMorphed = new Complex[numFrames][];
             int numColors = colorAudios.Count;
 
+            double[] targetMags = new double[N_FFT];
+            Complex[] targetComplexes = new Complex[N_FFT];
+            double[] rawCoherence = new double[N_FFT];
+            double[] smoothCoherence = new double[N_FFT];
+
             for (int i = 0; i < numFrames; i++) {
                 stftMorphed[i] = new Complex[N_FFT];
                 double timeMs = (i * HOP_LENGTH / (double)sampleRate) * 1000.0;
@@ -42,7 +47,53 @@ namespace OpenUtau.Core.Render {
                 bool usePhaseLocked = Preferences.Default.PhaseLocked; 
 
                 if (usePhaseLocked) {
-                    // Phase-Locked (Stable volume, better for smooth vowels)
+                    // AUTO MODE: Dynamic Per-Bin Adaptive Blend (Optimized for Organic Transitions)
+                    // raw processing vectors and basic vector coherence metrics
+                    for (int bin = 0; bin < N_FFT; bin++) {
+                        double targetMag = baseWeight * stftBase[i][bin].Magnitude;
+                        for (int c = 0; c < numColors; c++) {
+                            var frameColor = (i < stftColors[c].Length) ? stftColors[c][i] : stftBase[i];
+                            targetMag += weights[c] * frameColor[bin].Magnitude;
+                        }
+                        targetMags[bin] = targetMag;
+
+                        Complex targetComplex = stftBase[i][bin] * baseWeight;
+                        for (int c = 0; c < numColors; c++) {
+                            var frameColor = (i < stftColors[c].Length) ? stftColors[c][i] : stftBase[i];
+                            targetComplex += frameColor[bin] * weights[c];
+                        }
+                        targetComplexes[bin] = targetComplex;
+
+                        double complexMag = targetComplex.Magnitude;
+                        rawCoherence[bin] = (targetMag > 1e-8) ? Math.Clamp(complexMag / targetMag, 0.0, 1.0) : 1.0;
+                    }
+
+                    // Smooth coherence across the frequency axis via a localized 5-tap filter.
+                    for (int bin = 0; bin < N_FFT; bin++) {
+                        double sum = 0;
+                        double weightSum = 0;
+
+                        for (int k = -2; k <= 2; k++) {
+                            int neighbor = bin + k;
+                            if (neighbor >= 0 && neighbor < N_FFT) {
+                                // Smooth bell curve distribution weights
+                                double w = (k == 0) ? 0.40 : (Math.Abs(k) == 1 ? 0.25 : 0.05);
+                                sum += rawCoherence[neighbor] * w;
+                                weightSum += w;
+                            }
+                        }
+                        smoothCoherence[bin] = sum / weightSum;
+                    }
+
+                    for (int bin = 0; bin < N_FFT; bin++) {
+                        Complex purePhaseLocked = Complex.FromPolarCoordinates(targetMags[bin], stftBase[i][bin].Phase);
+                        double c = smoothCoherence[bin];
+                        double blendFactor = c * c * (3.0 - 2.0 * c);
+
+                        stftMorphed[i][bin] = (purePhaseLocked * (1.0 - blendFactor)) + (targetComplexes[bin] * blendFactor);
+                    }
+                } else {
+                    // Force Pure Phase-Locked (Stable volume, better for smooth vowels)
                     for (int bin = 0; bin < N_FFT; bin++) {
                         double targetMag = baseWeight * stftBase[i][bin].Magnitude;
 
@@ -52,18 +103,6 @@ namespace OpenUtau.Core.Render {
                         }
 
                         stftMorphed[i][bin] = Complex.FromPolarCoordinates(targetMag, stftBase[i][bin].Phase);
-                    }
-                } else {
-                    // Complex Addition (Rich texture, better for growl/breath)
-                    for (int bin = 0; bin < N_FFT; bin++) {
-                        Complex targetComplex = stftBase[i][bin] * baseWeight;
-
-                        for (int c = 0; c < numColors; c++) {
-                            var frameColor = (i < stftColors[c].Length) ? stftColors[c][i] : stftBase[i];
-                            targetComplex += frameColor[bin] * weights[c];
-                        }
-
-                        stftMorphed[i][bin] = targetComplex;
                     }
                 }
             }
