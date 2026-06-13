@@ -206,7 +206,7 @@ namespace OpenUtau.Plugin.Builtin {
             }
             // [V V] or [V C][C V]/[V]
             else if (syllable.IsVV) {
-                if (CanMakeAliasExtension(syllable)) {
+                if (!CanMakeAliasExtension(syllable)) {
                     if (HasOto($"{prevV} {v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV} {v}"), syllable.vowelTone)) {
                         basePhoneme = $"{prevV} {v}";
                     } else if (HasOto($"{prevV}{v}", syllable.vowelTone) || HasOto(ValidateAlias($"{prevV}{v}"), syllable.vowelTone)) {
