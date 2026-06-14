@@ -515,7 +515,7 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="pianoroll.toggle.vibrato">View Vibrato (U)</system:String>
   <system:String x:Key="pianoroll.toggle.waveform">View Waveform (W)</system:String>
   <system:String x:Key="pianoroll.toggle.expressions">View Expressions (L)</system:String>
-  <system:String x:Key="pianoroll.tool.drawlinepitch">Line Draw Pitch Tool (Shift + 4)
+  <system:String x:Key="pianoroll.tool.drawlinepitch">Line Draw Pitch Tool (5)
     Left click to draw (draw straight line)
     Right click to reset
     Hold Ctrl to select
@@ -527,13 +527,12 @@ Warning: this option removes custom presets.</system:String>
     Hold Alt to smoothen</system:String>
   <system:String x:Key="pianoroll.tool.eraser">Eraser Tool (3)</system:String>
   <system:String x:Key="pianoroll.tool.knife">Knife Tool (5)</system:String>
-  <system:String x:Key="pianoroll.tool.overwritepitch">Overwrite Pitch Tool (Ctrl + 4)
+  <system:String x:Key="pianoroll.tool.overwritepitch">Overwrite Pitch Tool (4)
     Left click to draw (overwrites vibrato or mod+)
     Right click to reset
     Hold Ctrl to select
     Hold Alt to smoothen</system:String>
-  <system:String x:Key="pianoroll.tool.overwritelinepitch">
-    Line Draw Pitch Tool (Ctrl + Shift + 4)
+  <system:String x:Key="pianoroll.tool.overwritelinepitch">Overwrite Line Pitch Tool (5)
     Left click to draw 
     (draw straight line overwrites the vibrato or mod+)
     Hold Ctrl to draw sine curve
@@ -541,8 +540,7 @@ Warning: this option removes custom presets.</system:String>
     Hold Alt to draw S-curve
     Right click to reset
     Hold Ctrl to select
-    Hold Alt to smoothen
-  </system:String>
+    Hold Alt to smoothen</system:String>
   <system:String x:Key="pianoroll.tool.penplus">Pen Plus Tool (Ctrl + 2)
     Left click to draw
     Right click to delete
@@ -551,6 +549,10 @@ Warning: this option removes custom presets.</system:String>
     Left click to draw
     Hold Ctrl to select</system:String>
   <system:String x:Key="pianoroll.tool.selectionv2">Selection Tool (1)</system:String>
+  <system:String x:Key="pianoroll.tooltip.attack">Attack time delta</system:String>
+  <system:String x:Key="pianoroll.tooltip.overlap">Overlap</system:String>
+  <system:String x:Key="pianoroll.tooltip.preutter">Preutter</system:String>
+  <system:String x:Key="pianoroll.tooltip.release">Release time delta</system:String>
 
   <system:String x:Key="prefs.advanced">Advanced</system:String>
   <system:String x:Key="prefs.advanced.beta">Beta</system:String>
@@ -605,7 +607,6 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="prefs.paths.reset">Reset</system:String>
   <system:String x:Key="prefs.paths.select">Select</system:String>
   <system:String x:Key="prefs.paths.singer">Singer Path</system:String>
-  <system:String x:Key="prefs.penplus">Set Pen Plus Tool as Default</system:String>
   <system:String x:Key="prefs.playback">Playback</system:String>
   <system:String x:Key="prefs.playback.autoscroll">Auto-Scroll</system:String>
   <system:String x:Key="prefs.playback.autoscrollmode">Auto-Scroll Mode</system:String>
@@ -901,4 +902,18 @@ General
   <system:String x:Key="dict.menu.cut">Cut</system:String>
   <system:String x:Key="dict.menu.copy">Copy</system:String>
   <system:String x:Key="dict.menu.paste">Paste</system:String>
+
+  <!-- Mix Effects (post-processing) -->
+  <system:String x:Key="mixfx.caption">Track Polish</system:String>
+  <system:String x:Key="mixfx.enabled">Enable on this track</system:String>
+  <system:String x:Key="mixfx.preset">Preset</system:String>
+  <system:String x:Key="mixfx.recommended">Apply Default Settings</system:String>
+  <system:String x:Key="mixfx.recommended.tip">Vocal Air + Gentle compression + Small Room</system:String>
+  <system:String x:Key="mixfx.applyonexport">Apply when exporting mixdown</system:String>
+  <system:String x:Key="mixfx.library">Library</system:String>
+  <system:String x:Key="mixfx.library.placeholder">Select a saved preset...</system:String>
+  <system:String x:Key="mixfx.library.save">Save...</system:String>
+  <system:String x:Key="mixfx.library.delete">Delete</system:String>
+  <system:String x:Key="mixfx.library.default">Default</system:String>
+  <system:String x:Key="tracks.mixfx">Track Polish...</system:String>
 </ResourceDictionary>
