@@ -465,15 +465,27 @@ namespace OpenUtau.App.ViewModels {
             SelectedRow = newRow;
             RefreshIndices?.Invoke(); 
         }
-
-        public void SetSingerContext(string dir, Dictionary<string, string> fileMap) {
+        public void SetSingerContext(string dir, Dictionary<string, string> fileMap, string targetFileName = "") {
             _currentDirectory = dir;
             _filePaths = fileMap;
             AvailableFiles.Clear();
             foreach (var name in fileMap.Keys) {
                 AvailableFiles.Add(name);
             }
-            if (AvailableFiles.Count > 0) SelectedFile = AvailableFiles[0];
+            
+            if (AvailableFiles.Count > 0) {
+                if (!string.IsNullOrEmpty(targetFileName)) {
+                    string? match = AvailableFiles.FirstOrDefault(f => 
+                        f.Equals(targetFileName, StringComparison.OrdinalIgnoreCase) || 
+                        f.StartsWith(targetFileName + " ", StringComparison.OrdinalIgnoreCase));
+                    
+                    if (match != null) {
+                        SelectedFile = match;
+                        return;
+                    }
+                }
+                SelectedFile = AvailableFiles[0];
+            }
         }
         public void ClearContext() {
             _currentDirectory = string.Empty;

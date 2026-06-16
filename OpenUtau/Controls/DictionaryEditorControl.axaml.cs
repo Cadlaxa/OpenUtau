@@ -304,7 +304,13 @@ namespace OpenUtau.App.Controls {
 
             Log.Information($"DictionaryEditor: Found singer '{singer.Name}'. Location path is: '{singer.Location}'");
 
-            var allFiles = Directory.GetFiles(singer.Location, "*.*", SearchOption.AllDirectories);
+            var allFiles = new List<string>(Directory.GetFiles(singer.Location, "*.*", SearchOption.AllDirectories));
+            
+            string pluginsDir = OpenUtau.Core.PathManager.Inst.PluginsPath;
+            if (Directory.Exists(pluginsDir)) {
+                allFiles.AddRange(Directory.GetFiles(pluginsDir, "*.*", SearchOption.AllDirectories));
+            }
+
             var excludedFiles = new HashSet<string> { "character.yaml", "dsconfig.yaml", "vocoder.yaml" };
 
             var validFiles = allFiles
@@ -321,36 +327,65 @@ namespace OpenUtau.App.Controls {
             var displayNames = new List<string>();
             var fileMap = new Dictionary<string, string>();
 
-            foreach (var group in groupedFiles) {
-                if (group.Count() == 1) {
-                    var filePath = group.First();
-                    var fileName = Path.GetFileName(filePath);
-                    var relativePath = Path.GetRelativePath(singer.Location, filePath);
-
-                    displayNames.Add(fileName);
-                    fileMap[fileName] = relativePath;
-                } else {
+            void ProcessGroup(List<string> files, bool isPlugin) {
+                var grouped = files.GroupBy(f => Path.GetFileName(f).ToLower());
+                foreach (var group in grouped) {
                     foreach (var filePath in group) {
-                        var fileName = Path.GetFileName(filePath);
-                        var folderName = Path.GetFileName(Path.GetDirectoryName(filePath));
-                        var isRoot = Path.GetFullPath(Path.GetDirectoryName(filePath)!) == Path.GetFullPath(singer.Location);
+                        string fileName = Path.GetFileName(filePath);
+                        string displayName = isPlugin ? $"{fileName} (plugins)" : fileName;
 
-                        string displayName = isRoot ? $"{fileName}" : $"{fileName} ({folderName})";
-
-                        int counter = 1;
                         string finalName = displayName;
+                        int counter = 1;
                         while (fileMap.ContainsKey(finalName)) {
                             finalName = $"{displayName} ({counter++})";
                         }
 
                         displayNames.Add(finalName);
-                        fileMap[finalName] = Path.GetRelativePath(singer.Location, filePath);
+                        fileMap[finalName] = filePath;
                     }
                 }
             }
 
+            var singerFilesList = validFiles.Where(f => !f.StartsWith(pluginsDir)).ToList();
+            var pluginFilesList = validFiles.Where(f => f.StartsWith(pluginsDir)).ToList();
+            ProcessGroup(singerFilesList, false);
+            ProcessGroup(pluginFilesList, true);
             Log.Information($"DictionaryEditor: Found {displayNames.Count} valid dictionary/presamp files.");
-            ViewModel.SetSingerContext(singer.Location, fileMap);
+            
+            string targetFileName = "";
+            var currentPhonemizer = track.Phonemizer; 
+            
+            if (currentPhonemizer != null) {
+                string phonemizerName = currentPhonemizer.GetType().Name;
+                
+                try {
+                    if (phonemizerName.ToLower().Contains("presamp")) {
+                        targetFileName = "presamp.ini";
+                    } else {
+                        var type = currentPhonemizer.GetType();
+                        var flags = System.Reflection.BindingFlags.Instance | 
+                                    System.Reflection.BindingFlags.Public | 
+                                    System.Reflection.BindingFlags.NonPublic;
+
+                        var prop = type.GetProperty("YamlFileName", flags);
+                        if (prop != null) {
+                            targetFileName = prop.GetValue(currentPhonemizer) as string ?? "";
+                        }
+                        if (string.IsNullOrEmpty(targetFileName)) {
+                            var method = type.GetMethod("GetDictionaryName", flags);
+                            if (method != null) {
+                                targetFileName = method.Invoke(currentPhonemizer, null) as string ?? "";
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    Log.Warning(ex, $"DictionaryEditor: Could not extract target file name from phonemizer '{phonemizerName}'");
+                }
+                if (!string.IsNullOrEmpty(targetFileName)) {
+                    Log.Information($"DictionaryEditor: Auto-detected target dictionary '{targetFileName}' for phonemizer '{phonemizerName}'");
+                }
+            }
+            ViewModel.SetSingerContext(singer.Location, fileMap, targetFileName);
         }
 
         private async System.Threading.Tasks.Task DoShowParseErrorAsync(ReactiveUI.IInteractionContext<OpenUtau.App.ViewModels.DictionaryErrorWindowViewModel, bool> interaction) {
