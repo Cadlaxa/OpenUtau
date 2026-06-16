@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
+using System.Reactive.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
@@ -63,7 +64,12 @@ namespace OpenUtau.App.ViewModels {
 
         public Dictionary<string, string> GetData() => _data;
     }
-
+    public class PresampSyntaxException : System.Exception {
+        public int LineNumber { get; }
+        public PresampSyntaxException(string message, int lineNumber) : base(message) {
+            LineNumber = lineNumber;
+        }
+    }
     public class YamlCategory : ReactiveObject {
         public string Name { get; set; } = string.Empty;
         public List<string> Columns { get; set; } = new();
@@ -72,7 +78,6 @@ namespace OpenUtau.App.ViewModels {
         public bool IsRootScalars { get; set; } = false;
         public ObservableCollection<DynamicYamlRow> Rows { get; } = new();
     }
-
     public class DictionaryEditorViewModel : ViewModelBase {
         private string _currentDirectory = string.Empty;
         private System.Text.Encoding _currentPresampEncoding = System.Text.Encoding.UTF8;
@@ -478,10 +483,9 @@ namespace OpenUtau.App.ViewModels {
 
         public void LoadPresamp(string filePath) {
             Categories.Clear();
-            if (!File.Exists(filePath)) return;
-            
+            if (!System.IO.File.Exists(filePath)) return;
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-            byte[] rawBytes = File.ReadAllBytes(filePath);
+            byte[] rawBytes = System.IO.File.ReadAllBytes(filePath);
             var strictUtf8 = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
             try {
@@ -491,58 +495,91 @@ namespace OpenUtau.App.ViewModels {
             catch (System.Text.DecoderFallbackException) {
                 _currentPresampEncoding = System.Text.Encoding.GetEncoding("shift_jis");
             }
-            string[] lines = File.ReadAllLines(filePath, _currentPresampEncoding);
+            string[] lines = System.IO.File.ReadAllLines(filePath, _currentPresampEncoding);
             YamlCategory? currentCategory = null;
+            int currentLineNumber = 0;
+            try {
+                foreach (var rawLine in lines) {
+                    currentLineNumber++;
+                    string lineToProcess = rawLine.TrimEnd('\r', '\n');
+                    if (string.IsNullOrEmpty(lineToProcess)) continue;
+                    if (lineToProcess.TrimStart().StartsWith(";") || lineToProcess.TrimStart().StartsWith("#")) continue; 
 
-            foreach (var rawLine in lines) {
-                string lineToProcess = rawLine.TrimEnd('\r', '\n');
-                if (string.IsNullOrEmpty(lineToProcess)) continue;
+                    string headerCheck = lineToProcess.Trim();
+                    if (headerCheck.StartsWith("[") && headerCheck.EndsWith("]")) {
+                        string sectionName = headerCheck.Substring(1, headerCheck.Length - 2);
+                        currentCategory = Categories.FirstOrDefault(c => c.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (currentCategory == null) {
+                            currentCategory = new YamlCategory { Name = sectionName };
+                            Categories.Add(currentCategory);
+                            if (sectionName == "VOWEL") currentCategory.Columns = new System.Collections.Generic.List<string> { "ID", "Base", "Phonemes", "Vol" };
+                            else if (sectionName == "CONSONANT") currentCategory.Columns = new System.Collections.Generic.List<string> { "ID", "Phonemes", "Crossfade" };
+                            else if (sectionName == "REPLACE" || sectionName == "ALIAS") currentCategory.Columns = new System.Collections.Generic.List<string> { "Key", "Value" };
+                            else currentCategory.Columns = new System.Collections.Generic.List<string> { "Value" };
+                        }
+                        continue;
+                    }
 
-                string headerCheck = lineToProcess.Trim();
+                    if (currentCategory == null) {
+                        throw new PresampSyntaxException("Data row found before any [Category] header was declared.", currentLineNumber);
+                    }
+                    string firstCol = currentCategory.Columns.FirstOrDefault() ?? "Key";
+                    string rowKey = "";
+                    var rowData = new Dictionary<string, string>();
 
-                if (headerCheck.StartsWith("[") && headerCheck.EndsWith("]")) {
-                    string sectionName = headerCheck.Substring(1, headerCheck.Length - 2);
-                    currentCategory = new YamlCategory { Name = sectionName };
-                    Categories.Add(currentCategory);
-
-                    if (sectionName == "VOWEL") currentCategory.Columns = new List<string> { "ID", "Base", "Phonemes", "Vol" };
-                    else if (sectionName == "CONSONANT") currentCategory.Columns = new List<string> { "ID", "Phonemes", "Crossfade" };
-                    else if (sectionName == "REPLACE" || sectionName == "ALIAS") currentCategory.Columns = new List<string> { "Key", "Value" };
-                    else currentCategory.Columns = new List<string> { "Value" };
-                    continue;
+                    if (currentCategory.Name == "VOWEL") {
+                        var parts = lineToProcess.Split('=');
+                        if (parts.Length < 4) throw new PresampSyntaxException("Malformed VOWEL entry. Expected format: ID=Base=Phonemes=Vol", currentLineNumber);
+                        rowKey = parts[0];
+                        rowData["ID"] = parts[0];
+                        rowData["Base"] = parts[1];
+                        rowData["Phonemes"] = parts[2];
+                        rowData["Vol"] = parts[3];
+                    } 
+                    else if (currentCategory.Name == "CONSONANT") {
+                        var parts = lineToProcess.Split('=');
+                        if (parts.Length < 3) throw new PresampSyntaxException("Malformed CONSONANT entry. Expected format: ID=Phonemes=Crossfade", currentLineNumber);
+                        rowKey = parts[0];
+                        rowData["ID"] = parts[0];
+                        rowData["Phonemes"] = parts[1];
+                        rowData["Crossfade"] = parts[2];
+                    } 
+                    else if (currentCategory.Name == "REPLACE" || currentCategory.Name == "ALIAS") {
+                        var parts = lineToProcess.Split(new[] { '=' }, 2);
+                        if (parts.Length < 2) throw new PresampSyntaxException($"Malformed {currentCategory.Name} entry. Expected format: Key=Value", currentLineNumber);
+                        rowKey = parts[0].TrimEnd();
+                        rowData["Key"] = rowKey;
+                        rowData["Value"] = parts[1];
+                    } 
+                    else {
+                        rowKey = lineToProcess;
+                        rowData["Value"] = lineToProcess;
+                    }
+                    var existingRow = currentCategory.Rows.FirstOrDefault(r => r.IsNotComment && r[firstCol] == rowKey);
+                    if (existingRow != null) {
+                        throw new PresampSyntaxException($"Duplicate entry found for ID/Key: '{rowKey}'. Each entry must be unique.", currentLineNumber);
+                    } 
+                    var newRow = new DynamicYamlRow(firstCol);
+                    foreach (var kvp in rowData) {
+                        newRow[kvp.Key] = kvp.Value;
+                    }
+                    currentCategory.Rows.Add(newRow);
                 }
-
-                if (currentCategory == null) continue;
-                string firstCol = currentCategory.Columns.FirstOrDefault() ?? "Key";
-                var newRow = new DynamicYamlRow(firstCol);
                 
-                if (currentCategory.Name == "VOWEL") {
-                    var parts = lineToProcess.Split('=');
-                    newRow["ID"] = parts.Length > 0 ? parts[0] : "";
-                    newRow["Base"] = parts.Length > 1 ? parts[1] : "";
-                    newRow["Phonemes"] = parts.Length > 2 ? parts[2] : "";
-                    newRow["Vol"] = parts.Length > 3 ? parts[3] : "";
-                } 
-                else if (currentCategory.Name == "CONSONANT") {
-                    var parts = lineToProcess.Split('=');
-                    newRow["ID"] = parts.Length > 0 ? parts[0] : "";
-                    newRow["Phonemes"] = parts.Length > 1 ? parts[1] : "";
-                    newRow["Crossfade"] = parts.Length > 2 ? parts[2] : "";
-                } 
-                else if (currentCategory.Name == "REPLACE" || currentCategory.Name == "ALIAS") {
-                    var parts = lineToProcess.Split(new[] { '=' }, 2);
-                    newRow["Key"] = parts.Length > 0 ? parts[0].TrimEnd() : "";
-                    newRow["Value"] = parts.Length > 1 ? parts[1] : "";
-                } 
-                else {
-                    newRow["Value"] = lineToProcess;
-                }
-
-                currentCategory.Rows.Add(newRow);
+                if (Categories.Count > 0) SelectedCategory = Categories[0];
+                ColumnsChanged?.Invoke(); 
+                
+            } catch (PresampSyntaxException preEx) {
+                Serilog.Log.Error(preEx, $"Presamp Syntax Error in: {filePath}");
+                Categories.Clear();
+                ProcessParseError("Presamp INI", preEx.Message, preEx.LineNumber, filePath);
+                
+            } catch (System.Exception ex) {
+                Serilog.Log.Error(ex, $"Failed to parse Presamp: {filePath}");
+                Categories.Clear();
+                ProcessParseError("Presamp INI", $"A fatal parsing error occurred: {ex.Message}", currentLineNumber, filePath);
             }
-
-            if (Categories.Count > 0) SelectedCategory = Categories[0];
-            ColumnsChanged?.Invoke(); 
         }
 
         public void SavePresamp(string filePath) {
@@ -771,11 +808,32 @@ namespace OpenUtau.App.ViewModels {
                         }
                     }
                 }
-                
                 if (Categories.Count > 0) SelectedCategory = Categories[0];
-            } catch (Exception ex) {
-                Serilog.Log.Error(ex, $"Failed to parse YAML: {filePath}");
+            } catch (YamlDotNet.Core.YamlException yamlEx) {
+                Serilog.Log.Error(yamlEx, $"YAML Syntax Error in: {filePath}");
                 Categories.Clear();
+                string msg = yamlEx.InnerException?.Message ?? yamlEx.Message;
+                ProcessParseError("YAML", msg, yamlEx.Start.Line, filePath);
+            } catch (System.Exception ex) {
+                Serilog.Log.Error(ex, $"Fatal YAML Parsing Error in: {filePath}");
+                Categories.Clear();
+                int errorLine = 1;
+                string customMessage = ex.Message;
+                try {
+                    string[] fileLines = System.IO.File.ReadAllLines(filePath);
+                    for (int i = 0; i < fileLines.Length; i++) {
+                        string l = fileLines[i];
+                        if (l.TrimStart().StartsWith("#")) continue;
+                        int curly = l.Count(c => c == '{') - l.Count(c => c == '}');
+                        int square = l.Count(c => c == '[') - l.Count(c => c == ']');
+                        if (curly != 0 || square != 0) {
+                            errorLine = i + 1;
+                            customMessage = "Mismatched brackets detected ('{', '}', '[', or ']').";
+                            break;
+                        }
+                    }
+                } catch { }
+                ProcessParseError("YAML", $"Fatal Parser Error: {customMessage}", errorLine, filePath);
             }
         }
 
@@ -910,8 +968,53 @@ namespace OpenUtau.App.ViewModels {
                 File.WriteAllText(Path.Combine(_currentDirectory, relativePath), rawYaml);
             }
         }
-    }
+        public Interaction<DictionaryErrorWindowViewModel, bool> ShowParseError { get; } = new();
+        private void ProcessParseError(string formatName, string detailedMessage, int errorLineNumber, string filePath) {
+            
+            var targetEncoding = filePath.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) 
+                ? _currentPresampEncoding 
+                : System.Text.Encoding.UTF8;
 
+            var errorVm = new DictionaryErrorWindowViewModel {
+                ErrorTitle = $"{formatName} {ThemeManager.GetString("dict.error.syntax")}",
+                ErrorMessage = $"{ThemeManager.GetString("dict.error.line.error")} {errorLineNumber}:\n{detailedMessage}",
+                FilePath = filePath,
+                FileEncoding = targetEncoding
+            };
+            
+            try {
+                string[] lines = System.IO.File.ReadAllLines(filePath, targetEncoding);
+                errorVm.FullFileLines = lines;
+                
+                int errLineIdx = errorLineNumber - 1; 
+                
+                for (int i = 0; i < lines.Length; i++) {
+                    errorVm.ErrorContextLines.Add(new ParseErrorLineContext {
+                        LineNumber = i + 1,
+                        ActualLineIndex = i,
+                        Text = lines[i],
+                        IsErrorLine = (i == errLineIdx)
+                    });
+                }
+            } catch {
+                errorVm.ErrorContextLines.Add(new ParseErrorLineContext { 
+                    LineNumber = errorLineNumber, 
+                    Text = $"{ThemeManager.GetString("dict.error.could.not.load.context")}", 
+                    IsErrorLine = true 
+                });
+            }
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                ShowParseError.Handle(errorVm)
+                    .Subscribe(didSave => {
+                        if (didSave) {
+                            LoadSelectedFile();
+                        }
+                    });
+            }, Avalonia.Threading.DispatcherPriority.Normal);
+        }
+    }
+    
     public class BracketStyleEmitter : ChainedEventEmitter {
         private int _depth = 0;
         public BracketStyleEmitter(IEventEmitter nextEmitter) : base(nextEmitter) { }

@@ -902,6 +902,11 @@ General
   <system:String x:Key="dict.menu.cut">Cut</system:String>
   <system:String x:Key="dict.menu.copy">Copy</system:String>
   <system:String x:Key="dict.menu.paste">Paste</system:String>
+  <system:String x:Key="dict.error.syntax">Syntax Error</system:String>
+  <system:String x:Key="dict.error.line.error">Error at Line</system:String>
+  <system:String x:Key="dict.error.error.loading">Could not load file context to display the exact line.</system:String>
+  <system:String x:Key="dict.error.save.reload">Save and Reload</system:String>
+
 
   <!-- Mix Effects (post-processing) -->
   <system:String x:Key="mixfx.caption">Track Polish</system:String>

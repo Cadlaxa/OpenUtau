@@ -15,6 +15,7 @@ using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 using Serilog;
 using System.Diagnostics;
+using OpenUtau.App.Views;
 
 namespace OpenUtau.App.Controls {
     public partial class DictionaryEditorControl : UserControl {
@@ -29,27 +30,32 @@ namespace OpenUtau.App.Controls {
         }
         public DictionaryEditorControl() {
             InitializeComponent();
+            ViewModel.ShowParseError.RegisterHandler(DoShowParseErrorAsync);
 
             ViewModel.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ViewModel.SelectedCategory)) {
-                    RebuildGridColumns(ViewModel.SelectedCategory);
-                    
-                    if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
-                        ViewModel.ReplaceColumn = ViewModel.SelectedCategory.Columns[0];
-                    }
+                    Dispatcher.UIThread.Post(() => {
+                        RebuildGridColumns(ViewModel.SelectedCategory);
+                        
+                        if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
+                            ViewModel.ReplaceColumn = ViewModel.SelectedCategory.Columns[0];
+                        }
+                    }, DispatcherPriority.Normal);
                 }
             };
             
             ViewModel.ColumnsChanged += () => {
-                RebuildGridColumns(ViewModel.SelectedCategory);
-                
-                if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
-                    if (string.IsNullOrEmpty(ViewModel.ReplaceColumn) || !ViewModel.SelectedCategory.Columns.Contains(ViewModel.ReplaceColumn)) {
-                        ViewModel.ReplaceColumn = ViewModel.SelectedCategory.Columns[0];
+                Dispatcher.UIThread.Post(() => {
+                    RebuildGridColumns(ViewModel.SelectedCategory);
+                    
+                    if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
+                        if (string.IsNullOrEmpty(ViewModel.ReplaceColumn) || !ViewModel.SelectedCategory.Columns.Contains(ViewModel.ReplaceColumn)) {
+                            ViewModel.ReplaceColumn = ViewModel.SelectedCategory.Columns[0];
+                        }
+                    } else {
+                        ViewModel.ReplaceColumn = null;
                     }
-                } else {
-                    ViewModel.ReplaceColumn = null;
-                }
+                }, DispatcherPriority.Normal);
             };
 
             this.Loaded += (s, e) => LoadDictionaryForPart(Part);
@@ -345,6 +351,22 @@ namespace OpenUtau.App.Controls {
 
             Log.Information($"DictionaryEditor: Found {displayNames.Count} valid dictionary/presamp files.");
             ViewModel.SetSingerContext(singer.Location, fileMap);
+        }
+
+        private async System.Threading.Tasks.Task DoShowParseErrorAsync(ReactiveUI.IInteractionContext<OpenUtau.App.ViewModels.DictionaryErrorWindowViewModel, bool> interaction) {
+            var dialog = new DictionaryErrorWindow {
+                DataContext = interaction.Input
+            };
+
+            bool userSavedEdits = false;
+            var topLevelWindow = Avalonia.Controls.TopLevel.GetTopLevel(this) as Window;
+            
+            if (topLevelWindow != null) {
+                userSavedEdits = await dialog.ShowDialog<bool>(topLevelWindow);
+            } else {
+                dialog.Show();
+            }
+            interaction.SetOutput(userSavedEdits);
         }
     }
 }
