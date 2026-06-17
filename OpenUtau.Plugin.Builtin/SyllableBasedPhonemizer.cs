@@ -326,8 +326,8 @@ namespace OpenUtau.Plugin.Builtin {
                                 if (string.IsNullOrEmpty(currentVersion)) {
                                     shouldWriteTemplate = true;
                                     shouldBackupOldFile = true;
-                                } else if (double.TryParse(currentVersion, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double currV) && 
-                                        double.TryParse(YamlVersion, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double targetV)) {
+                                } else if (Version.TryParse(currentVersion, out Version currV) && 
+                                        Version.TryParse(YamlVersion, out Version targetV)) {
                                     if (currV < targetV) {
                                         shouldWriteTemplate = true;
                                         shouldBackupOldFile = true;
