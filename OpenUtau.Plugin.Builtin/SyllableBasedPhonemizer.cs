@@ -308,51 +308,73 @@ namespace OpenUtau.Plugin.Builtin {
                     ? Path.Combine(singer.Location, YamlFileName) 
                     : null;
 
-                // template creation/backup for the Global File ONLY
-                if (!string.IsNullOrEmpty(globalFile)) {
+                // Local helper function to update and backup YAML files safely
+                void UpdateYamlIfNeeded(string filePath, bool isGlobal) {
+                    if (string.IsNullOrEmpty(filePath)) return;
+
                     bool shouldWriteTemplate = false;
                     bool shouldBackupOldFile = false;
+                    string currentVersion = "unknown";
 
-                    if (File.Exists(globalFile)) {
+                    if (File.Exists(filePath)) {
                         if (YamlTemplate != null && !string.IsNullOrEmpty(YamlVersion)) {
                             try {
-                                var checkData = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(globalFile));
-                                string currentVersion = checkData?.version?.Trim() ?? "";
+                                var checkData = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(filePath));
+                                currentVersion = checkData?.version?.Trim() ?? "";
 
-                                if (string.IsNullOrEmpty(currentVersion) || currentVersion != YamlVersion) {
+                                // Update if missing, or if the parsed decimal is strictly lower than the target YamlVersion
+                                if (string.IsNullOrEmpty(currentVersion)) {
+                                    shouldWriteTemplate = true;
+                                    shouldBackupOldFile = true;
+                                } else if (double.TryParse(currentVersion, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double currV) && 
+                                        double.TryParse(YamlVersion, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double targetV)) {
+                                    if (currV < targetV) {
+                                        shouldWriteTemplate = true;
+                                        shouldBackupOldFile = true;
+                                    }
+                                } else if (currentVersion != YamlVersion && !double.TryParse(currentVersion, out _)) {
+                                    // Fallback string check if version formats aren't purely numeric (e.g., "1.3b")
                                     shouldWriteTemplate = true;
                                     shouldBackupOldFile = true;
                                 }
                             } catch (Exception ex) {
-                                Log.Error(ex, $"Failed to read version from '{globalFile}'. Backing up and resetting to template...");
-                                shouldWriteTemplate = true;
-                                shouldBackupOldFile = true;
+                                Log.Error(ex, $"Syntax error detected in '{filePath}'. Skipping template update to protect data.");
+                                return; 
                             }
                         }
-                    } else if (YamlTemplate != null) {
+                    } else if (isGlobal && YamlTemplate != null) {
+                        // ONLY auto-create from scratch if it's the global plugin file.
+                        // If it's a voicebank folder (isGlobal = false) and the file doesn't exist, this safely does nothing.
                         shouldWriteTemplate = true;
                     }
 
-                    if (shouldBackupOldFile && File.Exists(globalFile)) {
+                    if (shouldBackupOldFile && File.Exists(filePath)) {
                         try {
-                            string backupFile = Path.Combine(Path.GetDirectoryName(globalFile), $"{Path.GetFileNameWithoutExtension(YamlFileName)}_backup{Path.GetExtension(YamlFileName)}");
+                            // Include the version in the backup file name, e.g., arpa_backup(1.2).yaml
+                            string safeVersion = string.IsNullOrEmpty(currentVersion) ? "unknown" : currentVersion;
+                            string backupFile = Path.Combine(Path.GetDirectoryName(filePath), $"{Path.GetFileNameWithoutExtension(YamlFileName)}_backup({safeVersion}){Path.GetExtension(YamlFileName)}");
+                            
                             if (File.Exists(backupFile)) File.Delete(backupFile);
-                            File.Move(globalFile, backupFile);
+                            File.Move(filePath, backupFile);
                             Log.Information($"Old {YamlFileName} backed up to {backupFile}");
                         } catch (Exception e) {
-                            Log.Error(e, $"Failed to back up {YamlFileName}");
+                            Log.Error(e, $"Failed to back up {filePath}. Aborting overwrite.");
+                            return;
                         }
                     }
 
                     if (shouldWriteTemplate) {
                         try {
-                            File.WriteAllBytes(globalFile, YamlTemplate);
-                            Log.Information($"'{globalFile}' created or updated to version {YamlVersion ?? "default"}");
+                            File.WriteAllBytes(filePath, YamlTemplate);
+                            Log.Information($"'{filePath}' created or updated to version {YamlVersion ?? "default"}");
                         } catch (Exception e) {
-                            Log.Error(e, $"Failed to write template to {globalFile}");
+                            Log.Error(e, $"Failed to write template to {filePath}");
                         }
                     }
                 }
+
+                UpdateYamlIfNeeded(globalFile, true);
+                UpdateYamlIfNeeded(singerFile, false);
 
                 // add to parsing list (Global first, Singer second)
                 var filesToParse = new List<string>();
@@ -1596,22 +1618,22 @@ namespace OpenUtau.Plugin.Builtin {
                             double overrideRatio = phonemes[phonemeI].phoneme != null ? GetTransitionMultiplier(phonemes[phonemeI].phoneme) : 1.0;
 
                             if (overrideRatio != 1.0) {
+                                // YAML Override active: Use the multiplier and bypass NoGap entirely
                                 baseLengthMs = GetTransitionBasicLengthMsByConstant();
-                                stretch *= overrideRatio;
+                                phonemes[phonemeI].position = MsToTick(baseLengthMs * stretch * overrideRatio);
                             } else {
+                                // Default behavior
                                 baseLengthMs = GetTransitionBasicLengthMsByOto(phonemes[phonemeI].phoneme, tone, pAttr);
-                            }
 
-                            phonemes[phonemeI].position = MsToTick(baseLengthMs * stretch);
-
-                            if (NoGap) {
-                                // Snapped mode: Use a visible 50-tick anchor capped at 1/3 of the note
-                                int targetTicks = 50; 
-                                int maxAllowed = containerLength / 3;
-                                phonemes[phonemeI].position = System.Math.Min(targetTicks, maxAllowed);
-                            } else {
-                                // Natural mode: Use the full Preutterance
-                                phonemes[phonemeI].position = MsToTick(baseLengthMs);
+                                if (NoGap) {
+                                    // Snapped mode: Use a visible 50-tick anchor capped at 1/3 of the note
+                                    int targetTicks = 50; 
+                                    int maxAllowed = containerLength / 3;
+                                    phonemes[phonemeI].position = System.Math.Min(targetTicks, maxAllowed);
+                                } else {
+                                    // Natural mode: Use the full Preutterance
+                                    phonemes[phonemeI].position = MsToTick(baseLengthMs);
+                                }
                             }
                         } else {
                             int sum = 0;
