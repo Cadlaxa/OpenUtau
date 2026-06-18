@@ -413,7 +413,8 @@ namespace OpenUtau.Plugin.Builtin {
                     if (HasOto(AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, ""), syllable.vowelTone)) {
                         cc1 = AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, "");
                     }
-                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                        || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                         glides(cc1);
                     }
                     // CV
@@ -448,7 +449,8 @@ namespace OpenUtau.Plugin.Builtin {
                         if (HasOto(AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, ""), syllable.vowelTone)) {
                             cc1 = AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, "");
                         }
-                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                            || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                             glides(cc1);
                         }
                         // CV

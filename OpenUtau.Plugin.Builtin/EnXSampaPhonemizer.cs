@@ -483,7 +483,8 @@ namespace OpenUtau.Plugin.Builtin {
                     cc1 = $"{string.Join("", cc.Skip(i))}";
                 }
                 if (CurrentWordCc.Length >= 2) {
-                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                        || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                         glides(cc1);
                     }
                 }
@@ -521,7 +522,8 @@ namespace OpenUtau.Plugin.Builtin {
                         cc2 = ValidateAlias(cc2);
                     }
                     if (CurrentWordCc.Length >= 2) {
-                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                            || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                             glides(cc1);
                         }
                     }
