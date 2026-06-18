@@ -197,24 +197,20 @@ namespace OpenUtau.Plugin.Builtin {
                 var madePhonemes = MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex).ToList();
                 int currentSyllablePhonemeCount = syllablePhonemes.Count;
 
-                if (vowelSustains.TryGetValue(modifiedSyllable.v, out var sustainData)) {
+                var basePhoneme = madePhonemes.LastOrDefault();
+                string baseAlias = basePhoneme.phoneme ?? "";
+                if (vowelSustains.TryGetValue(baseAlias, out var sustainData) || 
+                    vowelSustains.TryGetValue(modifiedSyllable.v, out sustainData)) {
+                    
                     string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, modifiedSyllable.tone);
                     if (HasOto(mappedSustain, modifiedSyllable.tone) || HasOto(sustainData.sustain, modifiedSyllable.tone)) {
-                        
-                        var basePhoneme = madePhonemes.LastOrDefault();
-                        if (basePhoneme.phoneme != null) {
-                            int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
-                            
-                            // Ensure the sustain doesn't push past the note's maximum duration limit
-                            if (modifiedSyllable.duration == -1 || offsetTicks < modifiedSyllable.duration) {
-                                madePhonemes.Add(new Phoneme {
-                                    phoneme = sustainData.sustain,
-                                    position = basePhoneme.position + offsetTicks,
-                                    index = globalPhonemeIndex + currentSyllablePhonemeCount
-                                });
-                                currentSyllablePhonemeCount++;
-                            }
-                        }
+                        int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
+                        madePhonemes.Add(new Phoneme {
+                            phoneme = sustainData.sustain,
+                            position = basePhoneme.position + offsetTicks,
+                            index = globalPhonemeIndex + currentSyllablePhonemeCount
+                        });
+                        currentSyllablePhonemeCount++;
                     }
                 }
                 phonemes.AddRange(madePhonemes);
