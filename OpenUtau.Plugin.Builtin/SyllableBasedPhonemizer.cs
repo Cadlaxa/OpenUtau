@@ -194,8 +194,31 @@ namespace OpenUtau.Plugin.Builtin {
                 }
                 
                 var syllablePhonemes = ProcessSyllable(modifiedSyllable);
-                phonemes.AddRange(MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex));
-                globalPhonemeIndex += syllablePhonemes.Count;
+                var madePhonemes = MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex).ToList();
+                int currentSyllablePhonemeCount = syllablePhonemes.Count;
+
+                if (vowelSustains.TryGetValue(modifiedSyllable.v, out var sustainData)) {
+                    string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, modifiedSyllable.tone);
+                    if (HasOto(mappedSustain, modifiedSyllable.tone) || HasOto(sustainData.sustain, modifiedSyllable.tone)) {
+                        
+                        var basePhoneme = madePhonemes.LastOrDefault();
+                        if (basePhoneme.phoneme != null) {
+                            int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
+                            
+                            // Ensure the sustain doesn't push past the note's maximum duration limit
+                            if (modifiedSyllable.duration == -1 || offsetTicks < modifiedSyllable.duration) {
+                                madePhonemes.Add(new Phoneme {
+                                    phoneme = sustainData.sustain,
+                                    position = basePhoneme.position + offsetTicks,
+                                    index = globalPhonemeIndex + currentSyllablePhonemeCount
+                                });
+                                currentSyllablePhonemeCount++;
+                            }
+                        }
+                    }
+                }
+                phonemes.AddRange(madePhonemes);
+                globalPhonemeIndex += currentSyllablePhonemeCount;
             }
 
             if (!nextNeighbour.HasValue) {
@@ -391,7 +414,7 @@ namespace OpenUtau.Plugin.Builtin {
                 // reset live arrays/lists back to defaults before stacking
                 vowels = backupVowels;
                 consonants = backupConsonants;
-                tails = "-,R".Split(','); 
+                tails = "-".Split(','); 
 
                 fricative = Array.Empty<string>();
                 aspirate = Array.Empty<string>();
@@ -415,6 +438,9 @@ namespace OpenUtau.Plugin.Builtin {
                 splittingReplacements.Clear();
                 yamlFallbacks.Clear();
                 PhonemeOverrides.Clear();
+                if (backupVowelSustains == null) backupVowelSustains = new Dictionary<string, (string, double)>(vowelSustains);
+                vowelSustains.Clear();
+                foreach (var kvp in backupVowelSustains) vowelSustains[kvp.Key] = kvp.Value;
 
                 // parse the files sequentially (Singer configs seamlessly overwrite global configs)
                 foreach (var file in filesToParse) {
@@ -486,6 +512,14 @@ namespace OpenUtau.Plugin.Builtin {
                             foreach (var d in data.diphthongs) {
                                 if (!string.IsNullOrEmpty(d.from) && !string.IsNullOrEmpty(d.to)) {
                                     diphthongTails[d.from] = d.to; 
+                                }
+                            }
+                        }
+
+                        if (data?.vowelsustains != null) {
+                            foreach (var v in data.vowelsustains) {
+                                if (!string.IsNullOrEmpty(v.symbol) && !string.IsNullOrEmpty(v.sustain)) {
+                                    vowelSustains[v.symbol] = (v.sustain, v.offset);
                                 }
                             }
                         }
@@ -643,6 +677,8 @@ namespace OpenUtau.Plugin.Builtin {
         private Dictionary<string, string> backupDiphthongTails = null;
         private Dictionary<string, string[]> backupDiphthongSplits = null;
         private Dictionary<string, string> backupDictionaryReplacements = null;
+        protected Dictionary<string, (string sustain, double offset)> vowelSustains = new Dictionary<string, (string, double)>();
+        private Dictionary<string, (string sustain, double offset)> backupVowelSustains = null;
 
         /// <summary>
         /// separates symbols to syllables, without an ending.
@@ -1133,11 +1169,13 @@ namespace OpenUtau.Plugin.Builtin {
             public Fallbacks[] fallbacks { get; set; } = Array.Empty<Fallbacks>();
             public Timings[] timings { get; set; } = Array.Empty<Timings>();
             public DiphthongData[] diphthongs { get; set; } = Array.Empty<DiphthongData>();
+            public VowelSustainData[] vowelsustains { get; set; } = Array.Empty<VowelSustainData>();
 
             public struct SymbolData { public string symbol { get; set; } public string type { get; set; } }
             public struct Fallbacks { public string from { get; set; } public string to { get; set; } }
             public struct Timings { public string symbol { get; set; } public double value { get; set; } }
             public struct DiphthongData { public string from { get; set; } public string to { get; set; } }
+            public struct VowelSustainData { public string symbol { get; set; } public string sustain { get; set; } public double offset { get; set; } }
         }
 
         public class Replacement {
