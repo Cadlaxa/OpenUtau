@@ -292,9 +292,16 @@ namespace OpenUtau.Plugin.Builtin {
             };
         }
 
+        protected static readonly YamlDotNet.Serialization.IDeserializer TolerantDeserializer = 
+            new YamlDotNet.Serialization.DeserializerBuilder()
+            .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+
         public override void SetSinger(USinger singer) {
             if (this.singer != singer) {
                 this.singer = singer;
+                dictionaries.Clear();
 
                 if (this.singer == null || !this.singer.Loaded) {
                     return;
@@ -362,8 +369,6 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                         }
                     } else if (isGlobal && YamlTemplate != null) {
-                        // ONLY auto-create from scratch if it's the global plugin file.
-                        // If it's a voicebank folder (isGlobal = false) and the file doesn't exist, this safely does nothing.
                         shouldWriteTemplate = true;
                     }
 
@@ -441,33 +446,43 @@ namespace OpenUtau.Plugin.Builtin {
                 // parse the files sequentially (Singer configs seamlessly overwrite global configs)
                 foreach (var file in filesToParse) {
                     try {
-                        var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                        var data = TolerantDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
                         
-                        // SYMBOLS
                         var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        vowels = vowels.Concat(yamlVowels).Distinct().ToArray();
+                        vowels = yamlVowels.Concat(vowels).Distinct().ToArray();
 
-                        tails = tails.Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        var yamlTails = data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        tails = yamlTails.Concat(tails).Distinct().ToArray();
+                        
                         if (data?.isglides != null) enableGlides = data.isglides.Value; 
                         
-                        fricative = fricative.Concat(data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        aspirate = aspirate.Concat(data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        semivowel = semivowel.Concat(data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        liquid = liquid.Concat(data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        nasal = nasal.Concat(data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        stop = stop.Concat(data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        tap = tap.Concat(data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        affricate = affricate.Concat(data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        var yFricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        fricative = yFricative.Concat(fricative).Distinct().ToArray();
+                        var yAspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        aspirate = yAspirate.Concat(aspirate).Distinct().ToArray();
+                        var ySemivowel = data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        semivowel = ySemivowel.Concat(semivowel).Distinct().ToArray();
+                        var yLiquid = data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        liquid = yLiquid.Concat(liquid).Distinct().ToArray();
+                        var yNasal = data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        nasal = yNasal.Concat(nasal).Distinct().ToArray();
+                        var yStop = data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        stop = yStop.Concat(stop).Distinct().ToArray();
+                        var yTap = data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        tap = yTap.Concat(tap).Distinct().ToArray();
+                        var yAffricate = data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        affricate = yAffricate.Concat(affricate).Distinct().ToArray();
 
-                        var yamlConsonants = fricative.Concat(aspirate).Concat(semivowel).Concat(liquid).Concat(nasal).Concat(stop).Concat(tap).Concat(affricate).ToArray();
-                        consonants = consonants.Concat(yamlConsonants).Distinct().ToArray();
+                        var yamlConsonants = yFricative.Concat(yAspirate).Concat(ySemivowel).Concat(yLiquid)
+                            .Concat(yNasal).Concat(yStop).Concat(yTap).Concat(yAffricate).ToArray();
+                        consonants = yamlConsonants.Concat(consonants).Distinct().ToArray();
 
                         // DIPHTHONG AUTO-TAIL DETECTION
                         var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
                         var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
 
                         foreach (var d in yamlDiphthongs) {
-                            if (!diphthongTails.ContainsKey(d) && !diphthongSplits.ContainsKey(d)) {
+                            if (!diphthongSplits.ContainsKey(d)) {
                                 foreach (var tail in dynamicTails) {
                                     if (d.EndsWith(tail) && d != tail) {
                                         diphthongTails[d] = tail;
@@ -483,17 +498,22 @@ namespace OpenUtau.Plugin.Builtin {
                         }
 
                         if (data?.replacements != null) {
+                            var localMerge = new List<Replacement>();
+                            var localSplit = new List<Replacement>();
+
                             foreach (var replacement in data.replacements) {
                                 string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
                                 if (replacement.from is IEnumerable<object> fromList) {
                                     string[] fromArray = fromList.Select(item => item.ToString() ?? "null").ToArray();
-                                    if (replacement.to is string toString) mergingReplacements.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
-                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                                    if (replacement.to is string toString) localMerge.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
+                                    else if (replacement.to is IEnumerable<object> toList) localSplit.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
                                 } else if (replacement.from is string fromString) {
                                     if (replacement.to is string toString) dictionaryReplacements[fromString] = toString;
-                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                                    else if (replacement.to is IEnumerable<object> toList) localSplit.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
                                 }
                             }
+                            mergingReplacements.InsertRange(0, localMerge);
+                            splittingReplacements.InsertRange(0, localSplit);
                         }
 
                         if (data?.fallbacks != null) {
