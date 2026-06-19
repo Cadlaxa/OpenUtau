@@ -500,16 +500,47 @@ namespace OpenUtau.Plugin.Builtin {
                         if (data?.replacements != null) {
                             var localMerge = new List<Replacement>();
                             var localSplit = new List<Replacement>();
+                            string GetFromKey(object fromObj) {
+                                if (fromObj is string s) return s;
+                                if (fromObj is System.Collections.IEnumerable e) {
+                                    return string.Join(",", e.Cast<object>().Select(x => x?.ToString() ?? ""));
+                                }
+                                return "";
+                            }
 
-                            foreach (var replacement in data.replacements) {
-                                string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
-                                if (replacement.from is IEnumerable<object> fromList) {
-                                    string[] fromArray = fromList.Select(item => item.ToString() ?? "null").ToArray();
-                                    if (replacement.to is string toString) localMerge.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
-                                    else if (replacement.to is IEnumerable<object> toList) localSplit.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                } else if (replacement.from is string fromString) {
-                                    if (replacement.to is string toString) dictionaryReplacements[fromString] = toString;
-                                    else if (replacement.to is IEnumerable<object> toList) localSplit.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                            foreach (var rawReplacement in data.replacements) {
+                                string fromKey = GetFromKey(rawReplacement.from);
+                                mergingReplacements.RemoveAll(r => GetFromKey(r.from) == fromKey);
+                                splittingReplacements.RemoveAll(r => GetFromKey(r.from) == fromKey);
+                                
+                                if (rawReplacement.from is string fromStr) {
+                                    dictionaryReplacements.Remove(fromStr);
+                                    dictionaryReplacements.Remove(fromStr.ToLower());
+                                    dictionaryReplacements.Remove(fromStr.ToUpper());
+                                }
+
+                                List<string> fromList = rawReplacement.FromList;
+                                List<string> toList = rawReplacement.ToList;
+                                object parsedFrom = fromList.Count == 1 ? fromList[0] : fromList.ToArray();
+                                object parsedTo = toList.Count == 1 ? toList[0] : toList.ToArray();
+
+                                var cleanReplacement = new Replacement {
+                                    from = parsedFrom,
+                                    to = parsedTo,
+                                    where = rawReplacement.where
+                                };
+
+                                if (parsedFrom is string fromString) {
+                                    if (parsedTo is string toString) {
+                                        // Dictionary handles simple 1-to-1 replacements
+                                        dictionaryReplacements[fromString] = toString;
+                                    } else {
+                                        // 1-to-Many goes to Split
+                                        localSplit.Add(cleanReplacement);
+                                    }
+                                } else {
+                                    // Many-to-Any goes to Merge
+                                    localMerge.Add(cleanReplacement);
                                 }
                             }
                             mergingReplacements.InsertRange(0, localMerge);
