@@ -1659,12 +1659,10 @@ namespace OpenUtau.Plugin.Builtin {
                 double overrideRatio = currentAlias != null ? GetTransitionMultiplier(currentAlias) : 1.0;
 
                 if (overrideRatio != 1.0) {
-                    // If there's a custom multiplier, use the Constant length to prevent giant envelopes
                     baseLengthMs = GetTransitionBasicLengthMsByConstant();
                     stretch *= overrideRatio; 
                 } else {
-                    // Default behavior: use OTO preutterance
-                    baseLengthMs = GetTransitionBasicLengthMsByOto(nextAlias, tone, nextPAttr);
+                    baseLengthMs = GetTransitionBasicLengthMs(nextAlias, tone, nextPAttr);
                 }
                 
                 trueLengths[i] = MsToTick(baseLengthMs * stretch);
