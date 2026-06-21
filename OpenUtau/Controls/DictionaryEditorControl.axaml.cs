@@ -59,6 +59,9 @@ namespace OpenUtau.App.Controls {
             };
 
             this.Loaded += (s, e) => LoadDictionaryForPart(Part);
+            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, EditorGrid_PointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, EditorGrid_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, EditorGrid_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         }
         private void EditorGrid_LoadingRow(object? sender, Avalonia.Controls.DataGridRowEventArgs e) {
             e.Row.Header = (e.Row.Index + 1).ToString();
@@ -212,20 +215,49 @@ namespace OpenUtau.App.Controls {
         }
 
         private void EditorGrid_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
-            // Left intentionally blank to allow standard DataGrid right-clicks
+            var point = e.GetCurrentPoint(this);
+            
+            // Only prepare for drag if it's a left click
+            if (point.Properties.IsLeftButtonPressed) {
+                _dragStartPoint = point.Position;
+                _isDragging = false;
+                var visual = e.Source as Avalonia.Visual;
+                while (visual != null && !(visual is DataGridRow)) {
+                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                }
+                
+                // save its data context as the drag target
+                if (visual is DataGridRow row && row.DataContext is DynamicYamlRow dataRow) {
+                    _draggedRow = dataRow;
+                } else {
+                    _draggedRow = null;
+                }
+            }
+        }
+
+        private void EditorGrid_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
+            _isDragging = false;
+            _draggedRow = null;
         }
         
         protected override void OnDataContextChanged(EventArgs e) {
             base.OnDataContextChanged(e);
-            
-            if (this.DataContext is DictionaryEditorViewModel vm) {
+            if (DataContext is DictionaryEditorViewModel vm) {
                 vm.RefreshIndices = () => {
+                    var grid = this.FindControl < DataGrid > ("EditorGrid");
+                    if (grid == null || vm.SelectedCategory == null) return;
+
                     Dispatcher.UIThread.Post(() => {
-                        var rows = EditorGrid.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRow>();
-                        foreach (var row in rows) {
-                            row.Header = (row.Index + 1).ToString();
+                        foreach(var row in grid.GetVisualDescendants().OfType < DataGridRow > ()) {
+                            if (row.DataContext is DynamicYamlRow item) {
+                                int realIndex = vm.SelectedCategory.Rows.IndexOf(item);
+
+                                if (realIndex >= 0) {
+                                    row.Header = (realIndex + 1).ToString();
+                                }
+                            }
                         }
-                    }, DispatcherPriority.Background);
+                    }, DispatcherPriority.Loaded);
                 };
             }
         }
@@ -402,6 +434,59 @@ namespace OpenUtau.App.Controls {
                 dialog.Show();
             }
             interaction.SetOutput(userSavedEdits);
+        }
+
+        private bool _isDragging = false;
+        private Point _dragStartPoint;
+        private DynamicYamlRow? _draggedRow;
+
+        private async void EditorGrid_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
+            if (_draggedRow == null || ViewModel.SelectedCategory == null) return;
+            
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsLeftButtonPressed && !_isDragging) {
+                if (Math.Abs(point.Position.X - _dragStartPoint.X) > 3 || 
+                    Math.Abs(point.Position.Y - _dragStartPoint.Y) > 3) {
+                    _isDragging = true;
+                    var dragData = new DataObject();
+                    dragData.Set("RowData", _draggedRow);
+                    var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    _isDragging = false;
+                    _draggedRow = null;
+                }
+            }
+        }
+        private void EditorGrid_DragOver(object? sender, DragEventArgs e) {
+            if (e.Data.Contains("RowData")) {
+                e.DragEffects = DragDropEffects.Move;
+            } else {
+                e.DragEffects = DragDropEffects.None;
+            }
+        }
+        private void EditorGrid_Drop(object? sender, DragEventArgs e) {
+            if (e.Data.Contains("RowData") && e.Data.Get("RowData") is DynamicYamlRow draggedRow) {
+                var visual = e.Source as Avalonia.Visual;
+                while (visual != null && !(visual is DataGridRow)) {
+                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                }
+                
+                if (visual is DataGridRow targetRow && targetRow.DataContext is DynamicYamlRow targetDataRow) {
+                    var rows = ViewModel.SelectedCategory?.Rows;
+                    if (rows == null) return;
+
+                    int oldIndex = rows.IndexOf(draggedRow);
+                    int newIndex = rows.IndexOf(targetDataRow);
+
+                    if (oldIndex != -1 && newIndex != -1 && oldIndex != newIndex) {
+                        rows.RemoveAt(oldIndex);
+                        rows.Insert(newIndex, draggedRow);
+                        EditorGrid.SelectedItem = draggedRow;
+                        ViewModel.RefreshIndices?.Invoke();
+                    }
+                }
+            }
+            _isDragging = false;
+            _draggedRow = null;
         }
     }
 }

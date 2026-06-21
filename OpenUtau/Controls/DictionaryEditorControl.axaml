@@ -172,7 +172,11 @@
                   RowDetailsVisibilityMode="Visible"
                   LoadingRow="EditorGrid_LoadingRow"
                   CellEditEnded="EditorGrid_CellEditEnded"
-                  SelectionChanged="EditorGrid_SelectionChanged">
+                  SelectionChanged="EditorGrid_SelectionChanged"
+                  
+                  DragDrop.AllowDrop="True"
+                  DragDrop.DragOver="EditorGrid_DragOver"
+                  DragDrop.Drop="EditorGrid_Drop">
                   
           <DataGrid.Styles>
             <Style Selector="DataGridColumnHeader">
