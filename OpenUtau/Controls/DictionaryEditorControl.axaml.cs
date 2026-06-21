@@ -445,8 +445,7 @@ namespace OpenUtau.App.Controls {
             
             var point = e.GetCurrentPoint(this);
             if (point.Properties.IsLeftButtonPressed && !_isDragging) {
-                if (Math.Abs(point.Position.X - _dragStartPoint.X) > 3 || 
-                    Math.Abs(point.Position.Y - _dragStartPoint.Y) > 3) {
+                if (Math.Abs(point.Position.Y - _dragStartPoint.Y) > 10) {
                     _isDragging = true;
                     var dragData = new DataObject();
                     dragData.Set("RowData", _draggedRow);
