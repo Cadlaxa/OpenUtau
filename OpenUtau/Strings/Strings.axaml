@@ -840,10 +840,12 @@ General
   <system:String x:Key="dict.file.new.create">Create File</system:String>
   <system:String x:Key="dict.file.new.create.tooltip">Creates a new blank YAML file</system:String>
   <system:String x:Key="dict.file.delete.title">Delete File?</system:String>
+  <system:String x:Key="dict.object.delete.title">Delete Object?</system:String>
   <system:String x:Key="dict.file.delete.confirm">Are you sure you want to permanently delete:</system:String>
   <system:String x:Key="dict.cancel">Cancel</system:String>
   <system:String x:Key="dict.delete">Delete</system:String>
   <system:String x:Key="dict.object">Object</system:String>
+  <system:String x:Key="dict.manage.object">Manage Objects (Drag to reorder)</system:String>
   <system:String x:Key="dict.object.delete.tooltip">Delete Object</system:String>
   <system:String x:Key="dict.object.new.tooltip">Adds new Object</system:String>
   <system:String x:Key="dict.cols.manage">cols</system:String>
@@ -855,6 +857,9 @@ General
   <system:String x:Key="dict.object.new.create.tooltip">Generates the new object category</system:String>
   <system:String x:Key="dict.cols.manage.title">Manage Columns</system:String>
   <system:String x:Key="dict.cols.manage.name">Target Column Name (e.g., where)</system:String>
+
+  <system:String x:Key="dict.objs.manage">objs</system:String>
+  <system:String x:Key="dict.objs.manage.tooltip">Manage Objects</system:String>
   <system:String x:Key="dict.add">Add</system:String>
   <system:String x:Key="dict.add.tooltip">Adds the column to the grid</system:String>
   <system:String x:Key="dict.remove">Remove</system:String>

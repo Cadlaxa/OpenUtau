@@ -58,7 +58,15 @@ namespace OpenUtau.App.Controls {
                 }, DispatcherPriority.Normal);
             };
 
-            this.Loaded += (s, e) => LoadDictionaryForPart(Part);
+            this.Loaded += (s, e) => {
+                LoadDictionaryForPart(Part);
+                var objectsListBox = this.FindControl<ListBox>("ObjectsListBox");
+                if (objectsListBox != null) {
+                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, ObjectsList_PointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, ObjectsList_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, ObjectsList_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+                }
+            };
             EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, EditorGrid_PointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
             EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, EditorGrid_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
             EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, EditorGrid_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -217,27 +225,32 @@ namespace OpenUtau.App.Controls {
         private void EditorGrid_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
             var point = e.GetCurrentPoint(this);
             
-            // Only prepare for drag if it's a left click
             if (point.Properties.IsLeftButtonPressed) {
                 _dragStartPoint = point.Position;
                 _isDragging = false;
+                
                 var visual = e.Source as Avalonia.Visual;
                 while (visual != null && !(visual is DataGridRow)) {
                     visual = visual.GetVisualParent() as Avalonia.Visual;
                 }
                 
-                // save its data context as the drag target
                 if (visual is DataGridRow row && row.DataContext is DynamicYamlRow dataRow) {
-                    _draggedRow = dataRow;
+                    // multi-selection
+                    if (EditorGrid.SelectedItems.Contains(dataRow)) {
+                        _draggedRows = EditorGrid.SelectedItems.Cast<DynamicYamlRow>().ToList();
+                    } else {
+                        // single row we clicked
+                        _draggedRows = new List<DynamicYamlRow> { dataRow };
+                    }
                 } else {
-                    _draggedRow = null;
+                    _draggedRows = null;
                 }
             }
         }
 
         private void EditorGrid_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
             _isDragging = false;
-            _draggedRow = null;
+            _draggedRows = null;
         }
         
         protected override void OnDataContextChanged(EventArgs e) {
@@ -328,23 +341,30 @@ namespace OpenUtau.App.Controls {
 
             var track = project.tracks[part.trackNo];
             var singer = track.Singer;
+            
+            var allFiles = new List<string>();
+            string singerLoc = singer?.Location ?? "";
 
-            if (singer == null || string.IsNullOrEmpty(singer.Location) || !Directory.Exists(singer.Location)) {
-                ViewModel.ClearContext();
-                return;
+            // inger Directory
+            if (!string.IsNullOrEmpty(singerLoc) && Directory.Exists(singerLoc)) {
+                Log.Information($"DictionaryEditor: Found singer '{singer?.Name}'. Location path is: '{singerLoc}'");
+                allFiles.AddRange(Directory.GetFiles(singerLoc, "*.*", SearchOption.AllDirectories));
+            } else {
+                Log.Information("DictionaryEditor: No singer loaded on track. Searching plugins folder only.");
             }
 
-            Log.Information($"DictionaryEditor: Found singer '{singer.Name}'. Location path is: '{singer.Location}'");
-
-            var allFiles = new List<string>(Directory.GetFiles(singer.Location, "*.*", SearchOption.AllDirectories));
-            
+            // Plugins Directory
             string pluginsDir = OpenUtau.Core.PathManager.Inst.PluginsPath;
             if (Directory.Exists(pluginsDir)) {
                 allFiles.AddRange(Directory.GetFiles(pluginsDir, "*.*", SearchOption.AllDirectories));
             }
 
-            var excludedFiles = new HashSet<string> { "character.yaml", "dsconfig.yaml", "vocoder.yaml" };
+            if (allFiles.Count == 0) {
+                ViewModel.ClearContext();
+                return;
+            }
 
+            var excludedFiles = new HashSet<string> { "character.yaml", "dsconfig.yaml", "vocoder.yaml" };
             var validFiles = allFiles
                 .Where(f => {
                     string fileName = Path.GetFileName(f).ToLower();
@@ -355,33 +375,56 @@ namespace OpenUtau.App.Controls {
                 })
                 .ToList();
 
-            var groupedFiles = validFiles.GroupBy(f => Path.GetFileName(f).ToLower()).ToList();
             var displayNames = new List<string>();
             var fileMap = new Dictionary<string, string>();
 
             void ProcessGroup(List<string> files, bool isPlugin) {
                 var grouped = files.GroupBy(f => Path.GetFileName(f).ToLower());
+                
                 foreach (var group in grouped) {
-                    foreach (var filePath in group) {
+                    if (group.Count() == 1) {
+                        var filePath = group.First();
                         string fileName = Path.GetFileName(filePath);
                         string displayName = isPlugin ? $"{fileName} (plugins)" : fileName;
+                        
+                        displayNames.Add(displayName);
+                        fileMap[displayName] = filePath;
+                    } else {
+                        foreach (var filePath in group) {
+                            string fileName = Path.GetFileName(filePath);
+                            string folderName = Path.GetFileName(Path.GetDirectoryName(filePath)) ?? "Unknown";
+                            
+                            string displayName;
+                            if (isPlugin) {
+                                displayName = $"{fileName} ({folderName} plugin)";
+                            } else {
+                                bool isRoot = false;
+                                try {
+                                    isRoot = !string.IsNullOrEmpty(singerLoc) && Path.GetFullPath(Path.GetDirectoryName(filePath)!) == Path.GetFullPath(singerLoc);
+                                } catch { }
+                                
+                                displayName = isRoot ? fileName : $"{fileName} ({folderName})";
+                            }
 
-                        string finalName = displayName;
-                        int counter = 1;
-                        while (fileMap.ContainsKey(finalName)) {
-                            finalName = $"{displayName} ({counter++})";
+                            string finalName = displayName;
+                            int counter = 1;
+                            while (fileMap.ContainsKey(finalName)) {
+                                finalName = $"{displayName} ({counter++})";
+                            }
+
+                            displayNames.Add(finalName);
+                            fileMap[finalName] = filePath;
                         }
-
-                        displayNames.Add(finalName);
-                        fileMap[finalName] = filePath;
                     }
                 }
             }
 
             var singerFilesList = validFiles.Where(f => !f.StartsWith(pluginsDir)).ToList();
             var pluginFilesList = validFiles.Where(f => f.StartsWith(pluginsDir)).ToList();
+            
             ProcessGroup(singerFilesList, false);
             ProcessGroup(pluginFilesList, true);
+            
             Log.Information($"DictionaryEditor: Found {displayNames.Count} valid dictionary/presamp files.");
             
             string targetFileName = "";
@@ -389,7 +432,6 @@ namespace OpenUtau.App.Controls {
             
             if (currentPhonemizer != null) {
                 string phonemizerName = currentPhonemizer.GetType().Name;
-                
                 try {
                     if (phonemizerName.ToLower().Contains("presamp")) {
                         targetFileName = "presamp.ini";
@@ -417,7 +459,8 @@ namespace OpenUtau.App.Controls {
                     Log.Information($"DictionaryEditor: Auto-detected target dictionary '{targetFileName}' for phonemizer '{phonemizerName}'");
                 }
             }
-            ViewModel.SetSingerContext(singer.Location, fileMap, targetFileName);
+            
+            ViewModel.SetSingerContext(singerLoc, fileMap, targetFileName);
         }
 
         private async System.Threading.Tasks.Task DoShowParseErrorAsync(ReactiveUI.IInteractionContext<OpenUtau.App.ViewModels.DictionaryErrorWindowViewModel, bool> interaction) {
@@ -438,20 +481,23 @@ namespace OpenUtau.App.Controls {
 
         private bool _isDragging = false;
         private Point _dragStartPoint;
-        private DynamicYamlRow? _draggedRow;
+        private List<DynamicYamlRow>? _draggedRows;
 
         private async void EditorGrid_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
-            if (_draggedRow == null || ViewModel.SelectedCategory == null) return;
-            
+            if (_draggedRows == null || _draggedRows.Count == 0 || ViewModel.SelectedCategory == null) return;
             var point = e.GetCurrentPoint(this);
+            
             if (point.Properties.IsLeftButtonPressed && !_isDragging) {
                 if (Math.Abs(point.Position.Y - _dragStartPoint.Y) > 10) {
                     _isDragging = true;
+                    
                     var dragData = new DataObject();
-                    dragData.Set("RowData", _draggedRow);
-                    var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    dragData.Set("RowData", _draggedRows);
+                    
+                    await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    
                     _isDragging = false;
-                    _draggedRow = null;
+                    _draggedRows = null;
                 }
             }
         }
@@ -463,7 +509,7 @@ namespace OpenUtau.App.Controls {
             }
         }
         private void EditorGrid_Drop(object? sender, DragEventArgs e) {
-            if (e.Data.Contains("RowData") && e.Data.Get("RowData") is DynamicYamlRow draggedRow) {
+            if (e.Data.Contains("RowData") && e.Data.Get("RowData") is List<DynamicYamlRow> draggedRows) {
                 var visual = e.Source as Avalonia.Visual;
                 while (visual != null && !(visual is DataGridRow)) {
                     visual = visual.GetVisualParent() as Avalonia.Visual;
@@ -473,19 +519,108 @@ namespace OpenUtau.App.Controls {
                     var rows = ViewModel.SelectedCategory?.Rows;
                     if (rows == null) return;
 
-                    int oldIndex = rows.IndexOf(draggedRow);
-                    int newIndex = rows.IndexOf(targetDataRow);
+                    int targetIndex = rows.IndexOf(targetDataRow);
+                    if (targetIndex != -1) {
+                        foreach (var row in draggedRows) {
+                            rows.Remove(row);
+                        }
+                        
+                        targetIndex = rows.IndexOf(targetDataRow);
+                        if (targetIndex == -1) targetIndex = rows.Count;
 
-                    if (oldIndex != -1 && newIndex != -1 && oldIndex != newIndex) {
-                        rows.RemoveAt(oldIndex);
-                        rows.Insert(newIndex, draggedRow);
-                        EditorGrid.SelectedItem = draggedRow;
+                        for (int i = 0; i < draggedRows.Count; i++) {
+                            rows.Insert(targetIndex + i, draggedRows[i]);
+                        }
+                        
+                        EditorGrid.SelectedItems.Clear();
+                        foreach (var row in draggedRows) {
+                            EditorGrid.SelectedItems.Add(row);
+                        }
+                        
+                        if (draggedRows.Count > 0) {
+                            EditorGrid.ScrollIntoView(draggedRows[0], null); 
+                        }
+                        EditorGrid.Focus();
                         ViewModel.RefreshIndices?.Invoke();
                     }
                 }
             }
             _isDragging = false;
-            _draggedRow = null;
+            _draggedRows = null;
+        }
+
+        private bool _isDraggingObj = false;
+        private Point _dragStartPointObj;
+        private YamlCategory? _draggedObj;
+
+        private void ObjectsList_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsLeftButtonPressed) {
+                _dragStartPointObj = point.Position;
+                _isDraggingObj = false;
+                
+                var visual = e.Source as Avalonia.Visual;
+                while (visual != null && !(visual is ListBoxItem)) {
+                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                }
+                
+                if (visual is ListBoxItem item && item.DataContext is YamlCategory cat) {
+                    _draggedObj = cat;
+                } else {
+                    _draggedObj = null;
+                }
+            }
+        }
+        private async void ObjectsList_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
+            if (_draggedObj == null) return;
+            var point = e.GetCurrentPoint(this);
+            
+            if (point.Properties.IsLeftButtonPressed && !_isDraggingObj) {
+                if (Math.Abs(point.Position.X - _dragStartPointObj.X) > 3 || Math.Abs(point.Position.Y - _dragStartPointObj.Y) > 3) {
+                    _isDraggingObj = true;
+                    var dragData = new DataObject();
+                    dragData.Set("CategoryData", _draggedObj);
+                    await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    _isDraggingObj = false;
+                    _draggedObj = null;
+                }
+            }
+        }
+
+        private void ObjectsList_DragOver(object? sender, DragEventArgs e) {
+            if (e.Data.Contains("CategoryData")) {
+                e.DragEffects = DragDropEffects.Move;
+            } else {
+                e.DragEffects = DragDropEffects.None;
+            }
+        }
+
+        private void ObjectsList_Drop(object? sender, DragEventArgs e) {
+            if (e.Data.Contains("CategoryData") && e.Data.Get("CategoryData") is YamlCategory draggedCat) {
+                var visual = e.Source as Avalonia.Visual;
+                while (visual != null && !(visual is ListBoxItem)) {
+                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                }
+                
+                if (visual is ListBoxItem targetItem && targetItem.DataContext is YamlCategory targetCat) {
+                    var categories = ViewModel.Categories;
+                    int oldIndex = categories.IndexOf(draggedCat);
+                    int newIndex = categories.IndexOf(targetCat);
+                    if (oldIndex != -1 && newIndex != -1 && oldIndex != newIndex) {
+                        categories.RemoveAt(oldIndex);
+                        categories.Insert(newIndex, draggedCat);
+                        
+                        ViewModel.SelectedCategory = draggedCat;
+                    }
+                }
+            }
+            _isDraggingObj = false;
+            _draggedObj = null;
+        }
+
+        private void ObjectsList_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
+            _isDraggingObj = false;
+            _draggedObj = null;
         }
     }
 }

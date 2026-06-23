@@ -104,6 +104,35 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public string ReplaceText { get; set; } = string.Empty;
         [Reactive] public bool UseRegex { get; set; } = false;
         private List<DynamicYamlRow> _internalClipboard = new();
+        [Reactive] public bool IsManagingObjects { get; set; } = false;
+        private bool _isConfirmingDeleteCategory;
+        public bool IsConfirmingDeleteCategory {
+            get => _isConfirmingDeleteCategory;
+            set => this.RaiseAndSetIfChanged(ref _isConfirmingDeleteCategory, value);
+        }
+        public void ToggleConfirmDeleteCategoryPanel() {
+            if (SelectedCategory == null) return;
+            
+            IsConfirmingDeleteCategory = !IsConfirmingDeleteCategory;
+            if (IsConfirmingDeleteCategory) {
+                IsCreatingNewCategory = false;
+                IsManagingColumns = false;
+                IsManagingObjects = false;
+                IsCreatingNewFile = false;
+                IsConfirmingDelete = false;
+            }
+        }
+        public void ConfirmDeleteCategory() {
+            DeleteSelectedCategory(); 
+            IsConfirmingDeleteCategory = false;
+        }
+        public void ToggleManageObjectsPanel() {
+            IsManagingObjects = !IsManagingObjects;
+            IsCreatingNewFile = false;
+            IsCreatingNewCategory = false;
+            IsConfirmingDelete = false;
+            IsManagingColumns = false;
+        }
 
         public void DeselectAll() {
             SelectedRow = null;
@@ -177,7 +206,7 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(x => x.SelectedFile)
                 .Subscribe(file => {
                     this.RaisePropertyChanged(nameof(CurrentFileType)); 
-                    if (!string.IsNullOrEmpty(file) && !string.IsNullOrEmpty(_currentDirectory)) {
+                    if (!string.IsNullOrEmpty(file)) {
                         LoadSelectedFile(); 
                     }
                 });
@@ -466,7 +495,7 @@ namespace OpenUtau.App.ViewModels {
             RefreshIndices?.Invoke(); 
         }
         public void SetSingerContext(string dir, Dictionary<string, string> fileMap, string targetFileName = "") {
-            _currentDirectory = dir;
+            _currentDirectory = dir; 
             _filePaths = fileMap;
             AvailableFiles.Clear();
             foreach (var name in fileMap.Keys) {
@@ -615,11 +644,19 @@ namespace OpenUtau.App.ViewModels {
         }
 
         public void LoadSelectedFile() {
-            if (string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(_currentDirectory)) return;
-            if (_filePaths.TryGetValue(SelectedFile, out string? relativePath) && relativePath != null) {
-                string targetPath = Path.Combine(_currentDirectory, relativePath);
-                if (SelectedFile.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) LoadPresamp(targetPath);
-                else LoadYaml(targetPath);
+            if (string.IsNullOrEmpty(SelectedFile) || !_filePaths.ContainsKey(SelectedFile)) {
+                Categories.Clear();
+                return;
+            }
+            string fullPath = _filePaths[SelectedFile];
+            if (!System.IO.File.Exists(fullPath)) {
+                Categories.Clear();
+                return;
+            }
+            if (fullPath.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) {
+                LoadPresamp(fullPath);
+            } else {
+                LoadYaml(fullPath);
             }
         }
 
