@@ -28,9 +28,21 @@ namespace OpenUtau.App.Controls {
             get => GetValue(PartProperty);
             set => SetValue(PartProperty, value);
         }
+
+        private System.Collections.Specialized.INotifyCollectionChanged? _trackedRows;
+        private bool _isInternalMove = false;
+        private DispatcherTimer _autoScrollTimer;
+        private double _scrollVelocityY = 0;
+        private ScrollViewer? _activeScrollViewer;
+        private ScrollViewer? _gridScrollViewer;
+        private ScrollViewer? _objectsScrollViewer;
+
         public DictionaryEditorControl() {
             InitializeComponent();
             ViewModel.ShowParseError.RegisterHandler(DoShowParseErrorAsync);
+
+            _autoScrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _autoScrollTimer.Tick += AutoScrollTimer_Tick;
 
             ViewModel.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ViewModel.SelectedCategory)) {
@@ -39,6 +51,14 @@ namespace OpenUtau.App.Controls {
                         
                         if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
                             ViewModel.ReplaceColumn = ViewModel.SelectedCategory.Columns[0];
+                        }
+
+                        if (_trackedRows != null) {
+                            _trackedRows.CollectionChanged -= Rows_CollectionChanged;
+                        }
+                        if (ViewModel.SelectedCategory != null) {
+                            _trackedRows = ViewModel.SelectedCategory.Rows;
+                            _trackedRows.CollectionChanged += Rows_CollectionChanged;
                         }
                     }, DispatcherPriority.Normal);
                 }
@@ -71,6 +91,47 @@ namespace OpenUtau.App.Controls {
             EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, EditorGrid_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
             EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, EditorGrid_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
         }
+
+        private void AutoScrollTimer_Tick(object? sender, EventArgs e) {
+            if (_activeScrollViewer != null && _scrollVelocityY != 0) {
+                double maxScroll = Math.Max(0, _activeScrollViewer.Extent.Height - _activeScrollViewer.Viewport.Height);
+                if (maxScroll > 0) {
+                    double newY = Math.Max(0, Math.Min(_activeScrollViewer.Offset.Y + _scrollVelocityY, maxScroll));
+                    if (_activeScrollViewer.Offset.Y != newY) {
+                        _activeScrollViewer.Offset = new Vector(_activeScrollViewer.Offset.X, newY);
+                    }
+                }
+            }
+        }
+
+        private void Rows_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) {
+            if (_isInternalMove) return;
+
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null && e.NewItems.Count == 1) {
+                var newRow = e.NewItems[0] as DynamicYamlRow;
+                if (newRow == null || newRow.IsComment) return;
+
+                bool isEmpty = true;
+                foreach (var val in newRow.GetData().Values) {
+                    if (!string.IsNullOrWhiteSpace(val)) {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+                if (isEmpty) {
+                    Dispatcher.UIThread.Post(() => {
+                        EditorGrid.SelectedItem = newRow;
+                        EditorGrid.ScrollIntoView(newRow, null);
+                        
+                        if (EditorGrid.Columns.Count > 0) {
+                            EditorGrid.CurrentColumn = EditorGrid.Columns[0];
+                            EditorGrid.BeginEdit();
+                        }
+                    }, DispatcherPriority.Background); 
+                }
+            }
+        }
+
         private void EditorGrid_LoadingRow(object? sender, Avalonia.Controls.DataGridRowEventArgs e) {
             e.Row.Header = (e.Row.Index + 1).ToString();
         }
@@ -251,6 +312,8 @@ namespace OpenUtau.App.Controls {
         private void EditorGrid_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
             _isDragging = false;
             _draggedRows = null;
+            _autoScrollTimer.Stop();
+            _scrollVelocityY = 0;
         }
         
         protected override void OnDataContextChanged(EventArgs e) {
@@ -345,7 +408,7 @@ namespace OpenUtau.App.Controls {
             var allFiles = new List<string>();
             string singerLoc = singer?.Location ?? "";
 
-            // inger Directory
+            // Singer Directory
             if (!string.IsNullOrEmpty(singerLoc) && Directory.Exists(singerLoc)) {
                 Log.Information($"DictionaryEditor: Found singer '{singer?.Name}'. Location path is: '{singerLoc}'");
                 allFiles.AddRange(Directory.GetFiles(singerLoc, "*.*", SearchOption.AllDirectories));
@@ -498,16 +561,52 @@ namespace OpenUtau.App.Controls {
                     
                     _isDragging = false;
                     _draggedRows = null;
+                    _autoScrollTimer.Stop();
+                    _scrollVelocityY = 0;
                 }
             }
         }
+        
         private void EditorGrid_DragOver(object? sender, DragEventArgs e) {
             if (e.Data.Contains("RowData")) {
                 e.DragEffects = DragDropEffects.Move;
+
+                if (_gridScrollViewer == null) {
+                    var rowsPresenter = EditorGrid.GetVisualDescendants()
+                        .OfType<Avalonia.Controls.Primitives.DataGridRowsPresenter>()
+                        .FirstOrDefault();
+                        
+                    if (rowsPresenter != null) {
+                        var parent = rowsPresenter.GetVisualParent();
+                        while (parent != null && !(parent is ScrollViewer)) {
+                            parent = parent.GetVisualParent();
+                        }
+                        _gridScrollViewer = parent as ScrollViewer;
+                    }
+                }
+
+                if (_gridScrollViewer != null) {
+                    var position = e.GetPosition(_gridScrollViewer);
+                    double edgeThreshold = 40.0;
+
+                    if (position.Y < edgeThreshold) {
+                        _scrollVelocityY = -15.0; // Scroll UP
+                        _activeScrollViewer = _gridScrollViewer;
+                        _autoScrollTimer.Start();
+                    } else if (position.Y > _gridScrollViewer.Bounds.Height - edgeThreshold) {
+                        _scrollVelocityY = 15.0; // Scroll DOWN
+                        _activeScrollViewer = _gridScrollViewer;
+                        _autoScrollTimer.Start();
+                    } else {
+                        _scrollVelocityY = 0;
+                        _autoScrollTimer.Stop();
+                    }
+                }
             } else {
                 e.DragEffects = DragDropEffects.None;
             }
         }
+        
         private void EditorGrid_Drop(object? sender, DragEventArgs e) {
             if (e.Data.Contains("RowData") && e.Data.Get("RowData") is List<DynamicYamlRow> draggedRows) {
                 var visual = e.Source as Avalonia.Visual;
@@ -519,19 +618,27 @@ namespace OpenUtau.App.Controls {
                     var rows = ViewModel.SelectedCategory?.Rows;
                     if (rows == null) return;
 
+                    if (draggedRows.Contains(targetDataRow)) {
+                        _isDragging = false;
+                        _draggedRows = null;
+                        _autoScrollTimer.Stop();
+                        _scrollVelocityY = 0;
+                        return;
+                    }
                     int targetIndex = rows.IndexOf(targetDataRow);
                     if (targetIndex != -1) {
+                        _isInternalMove = true; 
+                        
                         foreach (var row in draggedRows) {
                             rows.Remove(row);
                         }
-                        
                         targetIndex = rows.IndexOf(targetDataRow);
                         if (targetIndex == -1) targetIndex = rows.Count;
 
                         for (int i = 0; i < draggedRows.Count; i++) {
                             rows.Insert(targetIndex + i, draggedRows[i]);
                         }
-                        
+                        _isInternalMove = false; 
                         EditorGrid.SelectedItems.Clear();
                         foreach (var row in draggedRows) {
                             EditorGrid.SelectedItems.Add(row);
@@ -547,6 +654,8 @@ namespace OpenUtau.App.Controls {
             }
             _isDragging = false;
             _draggedRows = null;
+            _autoScrollTimer.Stop();
+            _scrollVelocityY = 0;
         }
 
         private bool _isDraggingObj = false;
@@ -571,6 +680,7 @@ namespace OpenUtau.App.Controls {
                 }
             }
         }
+        
         private async void ObjectsList_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
             if (_draggedObj == null) return;
             var point = e.GetCurrentPoint(this);
@@ -580,9 +690,13 @@ namespace OpenUtau.App.Controls {
                     _isDraggingObj = true;
                     var dragData = new DataObject();
                     dragData.Set("CategoryData", _draggedObj);
+                    
                     await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    
                     _isDraggingObj = false;
                     _draggedObj = null;
+                    _autoScrollTimer.Stop();
+                    _scrollVelocityY = 0;
                 }
             }
         }
@@ -590,6 +704,29 @@ namespace OpenUtau.App.Controls {
         private void ObjectsList_DragOver(object? sender, DragEventArgs e) {
             if (e.Data.Contains("CategoryData")) {
                 e.DragEffects = DragDropEffects.Move;
+
+                var listbox = this.FindControl<ListBox>("ObjectsListBox");
+                if (_objectsScrollViewer == null && listbox != null) {
+                    _objectsScrollViewer = listbox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                }
+
+                if (_objectsScrollViewer != null) {
+                    var position = e.GetPosition(_objectsScrollViewer);
+                    double edgeThreshold = 30.0;
+
+                    if (position.Y < edgeThreshold) {
+                        _scrollVelocityY = -10.0; // Scroll UP
+                        _activeScrollViewer = _objectsScrollViewer;
+                        _autoScrollTimer.Start();
+                    } else if (position.Y > _objectsScrollViewer.Bounds.Height - edgeThreshold) {
+                        _scrollVelocityY = 10.0; // Scroll DOWN
+                        _activeScrollViewer = _objectsScrollViewer;
+                        _autoScrollTimer.Start();
+                    } else {
+                        _scrollVelocityY = 0;
+                        _autoScrollTimer.Stop();
+                    }
+                }
             } else {
                 e.DragEffects = DragDropEffects.None;
             }
@@ -616,11 +753,15 @@ namespace OpenUtau.App.Controls {
             }
             _isDraggingObj = false;
             _draggedObj = null;
+            _autoScrollTimer.Stop();
+            _scrollVelocityY = 0;
         }
 
         private void ObjectsList_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
             _isDraggingObj = false;
             _draggedObj = null;
+            _autoScrollTimer.Stop();
+            _scrollVelocityY = 0;
         }
     }
 }
