@@ -395,11 +395,28 @@ namespace OpenUtau.App.ViewModels {
         }
 
         public void ConfirmNewCategory() {
-            if (string.IsNullOrWhiteSpace(NewCategoryName) || string.IsNullOrWhiteSpace(NewCategoryColumns)) return;
-            var columns = NewCategoryColumns.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
-            if (columns.Count == 0) return;
-            var newCat = new YamlCategory { Name = NewCategoryName.Trim(), Columns = columns };
-            Categories.Add(newCat);
+            if (string.IsNullOrWhiteSpace(NewCategoryName)) return;
+            string catName = NewCategoryName.Trim();
+            bool isRoot = catName.Equals("Metadata", StringComparison.OrdinalIgnoreCase);
+            List<string> columns = new List<string>();
+            if (isRoot) {
+                columns = new List<string> { "Key", "Value" };
+            } else {
+                if (string.IsNullOrWhiteSpace(NewCategoryColumns)) return;
+                columns = NewCategoryColumns.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
+                if (columns.Count == 0) return;
+            }
+            var newCat = new YamlCategory { 
+                Name = catName, 
+                Columns = columns,
+                IsRootScalars = isRoot,
+            };
+            // Root scalars (Metadata) should always sit at the very top of the list
+            if (isRoot) {
+                Categories.Insert(0, newCat);
+            } else {
+                Categories.Add(newCat);
+            }
             SelectedCategory = newCat;
             ToggleNewCategoryPanel();
         }
