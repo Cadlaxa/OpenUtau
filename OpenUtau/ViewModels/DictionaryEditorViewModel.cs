@@ -105,6 +105,38 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public bool UseRegex { get; set; } = false;
         private List<DynamicYamlRow> _internalClipboard = new();
         [Reactive] public bool IsManagingObjects { get; set; } = false;
+        [Reactive] public bool CanCopyToVoicebank { get; set; } = false;
+        private void UpdateCopyToVoicebankState() {
+            if (string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(_currentDirectory) || !_filePaths.ContainsKey(SelectedFile)) {
+                CanCopyToVoicebank = false;
+                return;
+            }
+            string absolutePath = _filePaths[SelectedFile];
+            string fileName = Path.GetFileName(absolutePath);
+            string targetPath = Path.Combine(_currentDirectory, fileName);
+            
+            CanCopyToVoicebank = !absolutePath.Equals(targetPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(targetPath);
+        }
+
+        public void CopyToVoicebank() {
+            if (!CanCopyToVoicebank || string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(_currentDirectory)) return;
+            
+            if (_filePaths.TryGetValue(SelectedFile, out string? sourcePath) && sourcePath != null) {
+                string fileName = Path.GetFileName(sourcePath);
+                string targetPath = Path.Combine(_currentDirectory, fileName);
+                
+                try {
+                    File.Copy(sourcePath, targetPath, false);
+                    if (!AvailableFiles.Contains(fileName)) {
+                        AvailableFiles.Add(fileName);
+                    }
+                    _filePaths[fileName] = targetPath;
+                    SelectedFile = fileName;
+                } catch (Exception ex) {
+                    Serilog.Log.Error(ex, $"DictionaryEditor: Failed to copy {sourcePath} to {targetPath}");
+                }
+            }
+        }
         private bool _isConfirmingDeleteCategory;
         public bool IsConfirmingDeleteCategory {
             get => _isConfirmingDeleteCategory;
@@ -209,6 +241,7 @@ namespace OpenUtau.App.ViewModels {
                     if (!string.IsNullOrEmpty(file)) {
                         LoadSelectedFile(); 
                     }
+                    UpdateCopyToVoicebankState();
                 });
         }
         private void Find(bool searchUp) {

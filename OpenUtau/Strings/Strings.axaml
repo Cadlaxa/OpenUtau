@@ -867,6 +867,8 @@ General
   <system:String x:Key="dict.file.open">Open YAML</system:String>
   <system:String x:Key="dict.file.open.tooltip">Open in Text Editor</system:String>
   <system:String x:Key="dict.file.save">Save YAML</system:String>
+  <system:String x:Key="dict.file.copy">Copy to VB</system:String>
+  <system:String x:Key="dict.file.copy.tooltip">Copy the selected plugin file to your Voicebank folder</system:String>
   <system:String x:Key="dict.file.save.tooltip">Saves the YAML file</system:String>
   <system:String x:Key="dict.file.save.ini">Save Presamp</system:String>
   <system:String x:Key="dict.file.save.ini.tooltip">Save changes to presamp.ini</system:String>
