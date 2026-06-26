@@ -103,7 +103,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public string FindText { get; set; } = string.Empty;
         [Reactive] public string ReplaceText { get; set; } = string.Empty;
         [Reactive] public bool UseRegex { get; set; } = false;
-        private List<DynamicYamlRow> _internalClipboard = new();
+        private List<List<string>> _clipboardData = new();
         [Reactive] public bool IsManagingObjects { get; set; } = false;
         [Reactive] public bool CanCopyToVoicebank { get; set; } = false;
         private void UpdateCopyToVoicebankState() {
@@ -180,42 +180,50 @@ namespace OpenUtau.App.ViewModels {
             }
             return clone;
         }
-        public void CopyRow(object? parameter) {
-            _internalClipboard.Clear();
-            if (parameter is System.Collections.IList selectedItems && selectedItems.Count > 0) {
-                foreach (var item in selectedItems.Cast<DynamicYamlRow>()) {
-                    _internalClipboard.Add(CloneRow(item));
+        public void CopyRow(object? itemsObj) {
+            if (itemsObj is System.Collections.IList items && SelectedCategory != null) {
+                _clipboardData.Clear();
+                foreach (var item in items) {
+                    if (item is DynamicYamlRow row) {
+                        var rowData = new List<string>();
+                        if (row.IsComment) {
+                            rowData.Add(row.CommentText ?? "");
+                        } else {
+                            foreach (var col in SelectedCategory.Columns) {
+                                rowData.Add(row[col] ?? "");
+                            }
+                        }
+                        _clipboardData.Add(rowData);
+                    }
                 }
-            } 
-            else if (parameter is DynamicYamlRow singleRow) {
-                _internalClipboard.Add(CloneRow(singleRow));
-            }
-            else if (SelectedRow != null) {
-                _internalClipboard.Add(CloneRow(SelectedRow));
             }
         }
-        public void CutRow(object? parameter) {
-            CopyRow(parameter);
-            DeleteSelectedRow(parameter); 
-        }
-
         public void PasteRow() {
-            var category = SelectedCategory;
-            if (category == null || _internalClipboard.Count == 0) return;
-            int insertIndex = category.Rows.Count;
-            if (SelectedRow != null) {
-                insertIndex = category.Rows.IndexOf(SelectedRow) + 1;
+            if (SelectedCategory == null || _clipboardData.Count == 0) return;
+            foreach (var rowData in _clipboardData) {
+                var newRow = new DynamicYamlRow();
+                if (rowData.Count == 1 && rowData[0].StartsWith("#")) {
+                    newRow.CommentText = rowData[0];
+                } else {
+                    for (int i = 0; i < SelectedCategory.Columns.Count && i < rowData.Count; i++) {
+                        string colName = SelectedCategory.Columns[i];
+                        newRow[colName] = rowData[i];
+                    }
+                }
+                SelectedCategory.Rows.Add(newRow);
             }
-
-            foreach (var copiedItem in _internalClipboard) {
-                var newRow = CloneRow(copiedItem);
-                category.Rows.Insert(insertIndex, newRow);
-                insertIndex++;
-                SelectedRow = newRow;
-            }
-            RefreshIndices?.Invoke(); 
+            RefreshIndices?.Invoke();
         }
-
+        public void CutRow(object? itemsObj) {
+            if (itemsObj is System.Collections.IList items && SelectedCategory != null) {
+                CopyRow(itemsObj);
+                var toRemove = items.Cast<DynamicYamlRow>().ToList();
+                foreach (var row in toRemove) {
+                    SelectedCategory.Rows.Remove(row);
+                }
+                RefreshIndices?.Invoke();
+            }
+        }
         public void DeleteSelectedRow(object? parameter) {
             var category = SelectedCategory;
             if (category == null) return;
@@ -971,10 +979,11 @@ namespace OpenUtau.App.ViewModels {
                             
                             // NEW: Protects fallbacks from being split if it uses the dictionary format
                             bool isFallbacksBlock = cat.Name.Equals("fallbacks", StringComparison.OrdinalIgnoreCase);
+                            bool isTimingsBlock = cat.Name.Equals("timings", StringComparison.OrdinalIgnoreCase);
                             
                             var matches = System.Text.RegularExpressions.Regex.Matches(trimmedVal, @"\""[^\""]*\""|[^ ,]+");
                             
-                            if (isExplicitList || (matches.Count > 1 && !isFallbacksBlock)) {
+                            if (isExplicitList || (matches.Count > 1 && !isFallbacksBlock && !isTimingsBlock)) {
                                 dictNode[key] = matches.Cast<System.Text.RegularExpressions.Match>()
                                                        .Select(m => m.Value.Trim('[', ']'))
                                                        .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -1010,6 +1019,8 @@ namespace OpenUtau.App.ViewModels {
                             bool isGraphemeColumn = col.Equals("grapheme", StringComparison.OrdinalIgnoreCase) || col.Equals("graphemes", StringComparison.OrdinalIgnoreCase);
                             
                             bool isFallbacksBlock = cat.Name.Equals("fallbacks", StringComparison.OrdinalIgnoreCase);
+
+                            bool isTimingsBlock = cat.Name.Equals("timings", StringComparison.OrdinalIgnoreCase);
                             
                             bool isReplacementsBlock = cat.Name.Equals("replacements", StringComparison.OrdinalIgnoreCase) 
                                                        && (col.Equals("from", StringComparison.OrdinalIgnoreCase) || col.Equals("to", StringComparison.OrdinalIgnoreCase));
@@ -1018,7 +1029,7 @@ namespace OpenUtau.App.ViewModels {
                             
                             // It becomes a list IF: explicit brackets, phonemes, replacements... 
                             // OR (multiple items AND it is NOT the grapheme column AND NOT in fallbacks)
-                            if (isExplicitList || isPhonemesColumn || isReplacementsBlock || (matches.Count > 1 && !isGraphemeColumn && !isFallbacksBlock)) {
+                            if (isExplicitList || isPhonemesColumn || isReplacementsBlock || (matches.Count > 1 && !isGraphemeColumn && !isFallbacksBlock && !isTimingsBlock)) {
                                 newRow[col] = matches.Cast<System.Text.RegularExpressions.Match>()
                                                      .Select(m => m.Value.Trim('[', ']'))
                                                      .Where(s => !string.IsNullOrWhiteSpace(s))

@@ -293,11 +293,11 @@
               <MenuItem Header="{DynamicResource dict.menu.deselect}" Command="{Binding DeselectAll}" InputGesture="Escape"/>
               <Separator/>
               <MenuItem Header="{DynamicResource dict.entry.comment}" Command="{Binding AddNewCommentRow}"/>
-              <MenuItem Header="{DynamicResource dict.entry.delete}" Command="{Binding DeleteSelectedRow}" CommandParameter="{Binding #EditorGrid.SelectedItems}"/>
+              <MenuItem Header="{DynamicResource dict.entry.delete}" Command="{Binding DeleteSelectedRow}" CommandParameter="{Binding $parent[DataGrid].SelectedItems}"/>
               <MenuItem Header="{DynamicResource dict.entry.add}" Command="{Binding AddNewRow}"/>
               <Separator/>
-              <MenuItem Header="{DynamicResource dict.menu.cut}" Command="{Binding CutRow}" CommandParameter="{Binding #EditorGrid.SelectedItems}"/>
-              <MenuItem Header="{DynamicResource dict.menu.copy}" Command="{Binding CopyRow}" CommandParameter="{Binding #EditorGrid.SelectedItems}"/>
+              <MenuItem Header="{DynamicResource dict.menu.cut}" Command="{Binding CutRow}" CommandParameter="{Binding $parent[DataGrid].SelectedItems}"/>
+              <MenuItem Header="{DynamicResource dict.menu.copy}" Command="{Binding CopyRow}" CommandParameter="{Binding $parent[DataGrid].SelectedItems}"/>
               <MenuItem Header="{DynamicResource dict.menu.paste}" Command="{Binding PasteRow}"/>
             </ContextMenu>
           </DataGrid.ContextMenu>
