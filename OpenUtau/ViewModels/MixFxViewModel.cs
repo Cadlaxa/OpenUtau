@@ -33,6 +33,11 @@ namespace OpenUtau.App.ViewModels {
         public List<PresetOption> EqPresets { get; }
         public List<PresetOption> CompPresets { get; }
         public List<PresetOption> ReverbPresets { get; }
+        
+        // New Effect Presets
+        public List<PresetOption> DeEsserPresets { get; }
+        public List<PresetOption> DeThumperPresets { get; }
+        public List<PresetOption> SaturationPresets { get; }
 
         public ObservableCollection<Preferences.MixFxUserPreset> UserPresets { get; }
 
@@ -44,21 +49,41 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public PresetOption? SelectedEq { get; set; }
         [Reactive] public PresetOption? SelectedComp { get; set; }
         [Reactive] public PresetOption? SelectedReverb { get; set; }
+        
+        [Reactive] public PresetOption? SelectedDeEsser { get; set; }
+        [Reactive] public PresetOption? SelectedDeThumper { get; set; }
+        [Reactive] public PresetOption? SelectedSaturation { get; set; }
+        
         [Reactive] public Preferences.MixFxUserPreset? SelectedUserPreset { get; set; }
 
+        // EQ
         [Reactive] public double EqLowDb { get; set; }
         [Reactive] public double EqMidFreq { get; set; }
         [Reactive] public double EqMidDb { get; set; }
         [Reactive] public double EqHighDb { get; set; }
 
+        // Compressor
         [Reactive] public double CompThresholdDb { get; set; }
         [Reactive] public double CompRatio { get; set; }
         [Reactive] public double CompMakeupDb { get; set; }
 
+        // Reverb
         [Reactive] public double ReverbSize { get; set; }
         [Reactive] public double ReverbDamp { get; set; }
         [Reactive] public double ReverbWet { get; set; }
         [Reactive] public double ReverbPreDelayMs { get; set; }
+
+        // De-esser
+        [Reactive] public double DeEsserFreq { get; set; }
+        [Reactive] public double DeEsserThresholdDb { get; set; }
+
+        // De-thumper
+        [Reactive] public double DeThumperFreq { get; set; }
+        [Reactive] public double DeThumperReductionDb { get; set; }
+
+        // Saturation
+        [Reactive] public double SaturationDrive { get; set; }
+        [Reactive] public double SaturationMix { get; set; }
 
         [Reactive] public bool ApplyOnExportMixdown { get; set; }
 
@@ -92,6 +117,15 @@ namespace OpenUtau.App.ViewModels {
                 .Select(k => new PresetOption(k, PrettyLabel(k)))
                 .ToList();
 
+            // Build preset lists for new effects
+            var newEffectPresets = new List<PresetOption> {
+                new PresetOption(FxPresets.Off, PrettyLabel(FxPresets.Off)),
+                new PresetOption("standard", "Standard")
+            };
+            DeEsserPresets = newEffectPresets.ToList();
+            DeThumperPresets = newEffectPresets.ToList();
+            SaturationPresets = newEffectPresets.ToList();
+
             defaultPreset = new Preferences.MixFxUserPreset {
                 Name = ThemeManager.GetString("mixfx.library.default"),
                 Fx = BuildDefaultFx(),
@@ -101,39 +135,64 @@ namespace OpenUtau.App.ViewModels {
                 UserPresets.Add(p);
             }
 
-            // Seed dialog state from track's existing FX, or sensible defaults.
-            var fx = track?.MixFx ?? new UMixFx();
-            suspendBindings = true;
-            try {
-                Enabled = track?.MixFx?.Enabled ?? false;
-                SelectedEq = FindOrFirst(EqPresets, fx.EqPreset);
-                SelectedComp = FindOrFirst(CompPresets, fx.CompPreset);
-                SelectedReverb = FindOrFirst(ReverbPresets, fx.ReverbPreset);
-                EqLowDb = fx.EqLowDb;
-                EqMidFreq = fx.EqMidFreq;
-                EqMidDb = fx.EqMidDb;
-                EqHighDb = fx.EqHighDb;
-                CompThresholdDb = fx.CompThresholdDb;
-                CompRatio = fx.CompRatio;
-                CompMakeupDb = fx.CompMakeupDb;
-                ReverbSize = fx.ReverbSize;
-                ReverbDamp = fx.ReverbDamp;
-                ReverbWet = fx.ReverbWet;
-                ReverbPreDelayMs = fx.ReverbPreDelayMs;
-                ApplyOnExportMixdown = Preferences.Default.MixFxApplyOnExportMixdown;
-            } finally {
-                suspendBindings = false;
-            }
-
-            // Picking a preset reloads its parameters into the sliders.
+            // --- BUG FIX: Move Subscriptions Here ---
+            // Picking a preset reloads its parameters into the sliders. 
+            // Subscribing first ensures that when we load the track state below, the suspendBindings flag prevents overwriting.
             this.WhenAnyValue(x => x.SelectedEq).Subscribe(opt => { if (opt != null) LoadEqPreset(opt.Key); });
             this.WhenAnyValue(x => x.SelectedComp).Subscribe(opt => { if (opt != null) LoadCompPreset(opt.Key); });
             this.WhenAnyValue(x => x.SelectedReverb).Subscribe(opt => { if (opt != null) LoadReverbPreset(opt.Key); });
+            
+            this.WhenAnyValue(x => x.SelectedDeEsser).Subscribe(opt => { if (opt != null) LoadDeEsserPreset(opt.Key); });
+            this.WhenAnyValue(x => x.SelectedDeThumper).Subscribe(opt => { if (opt != null) LoadDeThumperPreset(opt.Key); });
+            this.WhenAnyValue(x => x.SelectedSaturation).Subscribe(opt => { if (opt != null) LoadSaturationPreset(opt.Key); });
+
             this.WhenAnyValue(x => x.SelectedUserPreset).Subscribe(p => { if (p != null) LoadUserPreset(p); });
 
             this.WhenAnyValue(x => x.SelectedUserPreset)
                 .Select(p => p != null && !ReferenceEquals(p, defaultPreset))
                 .ToProperty(this, x => x.CanDeleteSelectedPreset, out canDeleteSelectedPreset);
+
+            // Seed dialog state from track's existing FX, or sensible defaults.
+            var fx = track?.MixFx ?? new UMixFx();
+            suspendBindings = true;
+            try {
+                Enabled = track?.MixFx?.Enabled ?? false;
+                
+                // Load Preset States
+                SelectedEq = FindOrFirst(EqPresets, fx.EqPreset);
+                SelectedComp = FindOrFirst(CompPresets, fx.CompPreset);
+                SelectedReverb = FindOrFirst(ReverbPresets, fx.ReverbPreset);
+                SelectedDeEsser = FindOrFirst(DeEsserPresets, fx.DeEsserPreset);
+                SelectedDeThumper = FindOrFirst(DeThumperPresets, fx.DeThumperPreset);
+                SelectedSaturation = FindOrFirst(SaturationPresets, fx.SaturationPreset);
+                
+                EqLowDb = fx.EqLowDb;
+                EqMidFreq = fx.EqMidFreq;
+                EqMidDb = fx.EqMidDb;
+                EqHighDb = fx.EqHighDb;
+                
+                CompThresholdDb = fx.CompThresholdDb;
+                CompRatio = fx.CompRatio;
+                CompMakeupDb = fx.CompMakeupDb;
+                
+                ReverbSize = fx.ReverbSize;
+                ReverbDamp = fx.ReverbDamp;
+                ReverbWet = fx.ReverbWet;
+                ReverbPreDelayMs = fx.ReverbPreDelayMs;
+
+                DeEsserFreq = fx.DeEsserFreq;
+                DeEsserThresholdDb = fx.DeEsserThresholdDb;
+                
+                DeThumperFreq = fx.DeThumperFreq;
+                DeThumperReductionDb = fx.DeThumperReductionDb;
+                
+                SaturationDrive = fx.SaturationDrive;
+                SaturationMix = fx.SaturationMix;
+
+                ApplyOnExportMixdown = Preferences.Default.MixFxApplyOnExportMixdown;
+            } finally {
+                suspendBindings = false;
+            }
 
             ApplyRecommendedCommand = ReactiveCommand.Create(ApplyRecommended);
             SaveUserPresetCommand = ReactiveCommand.CreateFromTask(SaveUserPresetAsync);
@@ -166,6 +225,13 @@ namespace OpenUtau.App.ViewModels {
                 ReverbPreset = "small_room",
                 ReverbSize = r.RoomSize, ReverbDamp = r.Damp, ReverbWet = 1.0,
                 ReverbPreDelayMs = r.PreDelayMs,
+                
+                DeEsserPreset = FxPresets.Off,
+                DeThumperPreset = FxPresets.Off,
+                SaturationPreset = FxPresets.Off,
+                DeEsserFreq = 6000.0, DeEsserThresholdDb = 0.0,
+                DeThumperFreq = 80.0, DeThumperReductionDb = 0.0,
+                SaturationDrive = 0.0, SaturationMix = 0.0
             };
         }
 
@@ -208,19 +274,72 @@ namespace OpenUtau.App.ViewModels {
             }
         }
 
+        private void LoadDeEsserPreset(string key) {
+            if (suspendBindings) return;
+            suspendBindings = true;
+            try {
+                if (key == FxPresets.Off) {
+                    DeEsserThresholdDb = 0.0; // 0 Threshold = Bypassed
+                } else {
+                    DeEsserFreq = 6000.0;
+                    DeEsserThresholdDb = -20.0;
+                }
+            } finally { suspendBindings = false; }
+        }
+
+        private void LoadDeThumperPreset(string key) {
+            if (suspendBindings) return;
+            suspendBindings = true;
+            try {
+                if (key == FxPresets.Off) {
+                    DeThumperReductionDb = 0.0; // 0 Reduction = Bypassed
+                } else {
+                    DeThumperFreq = 80.0;
+                    DeThumperReductionDb = -6.0;
+                }
+            } finally { suspendBindings = false; }
+        }
+
+        private void LoadSaturationPreset(string key) {
+            if (suspendBindings) return;
+            suspendBindings = true;
+            try {
+                if (key == FxPresets.Off) {
+                    SaturationDrive = 0.0; // 0 Mix/Drive = Bypassed
+                    SaturationMix = 0.0;
+                } else {
+                    SaturationDrive = 4.0;
+                    SaturationMix = 0.5;
+                }
+            } finally { suspendBindings = false; }
+        }
+
         private void LoadUserPreset(Preferences.MixFxUserPreset p) {
+            if (suspendBindings) return;
             if (p == null || p.Fx == null) return;
             var fx = p.Fx;
             suspendBindings = true;
             try {
                 Enabled = fx.Enabled || Enabled;
+                
                 SelectedEq = FindOrFirst(EqPresets, fx.EqPreset);
                 SelectedComp = FindOrFirst(CompPresets, fx.CompPreset);
                 SelectedReverb = FindOrFirst(ReverbPresets, fx.ReverbPreset);
+                SelectedDeEsser = FindOrFirst(DeEsserPresets, fx.DeEsserPreset);
+                SelectedDeThumper = FindOrFirst(DeThumperPresets, fx.DeThumperPreset);
+                SelectedSaturation = FindOrFirst(SaturationPresets, fx.SaturationPreset);
+                
                 EqLowDb = fx.EqLowDb; EqMidFreq = fx.EqMidFreq; EqMidDb = fx.EqMidDb; EqHighDb = fx.EqHighDb;
                 CompThresholdDb = fx.CompThresholdDb; CompRatio = fx.CompRatio; CompMakeupDb = fx.CompMakeupDb;
                 ReverbSize = fx.ReverbSize; ReverbDamp = fx.ReverbDamp; ReverbWet = fx.ReverbWet;
                 ReverbPreDelayMs = fx.ReverbPreDelayMs;
+                
+                DeEsserFreq = fx.DeEsserFreq; 
+                DeEsserThresholdDb = fx.DeEsserThresholdDb;
+                DeThumperFreq = fx.DeThumperFreq; 
+                DeThumperReductionDb = fx.DeThumperReductionDb;
+                SaturationDrive = fx.SaturationDrive; 
+                SaturationMix = fx.SaturationMix;
             } finally {
                 suspendBindings = false;
             }
@@ -279,10 +398,21 @@ namespace OpenUtau.App.ViewModels {
                 EqPreset = SelectedEq?.Key ?? FxPresets.Off,
                 CompPreset = SelectedComp?.Key ?? FxPresets.Off,
                 ReverbPreset = SelectedReverb?.Key ?? FxPresets.Off,
+                DeEsserPreset = SelectedDeEsser?.Key ?? FxPresets.Off,
+                DeThumperPreset = SelectedDeThumper?.Key ?? FxPresets.Off,
+                SaturationPreset = SelectedSaturation?.Key ?? FxPresets.Off,
+                
                 EqLowDb = EqLowDb, EqMidFreq = EqMidFreq, EqMidDb = EqMidDb, EqHighDb = EqHighDb,
                 CompThresholdDb = CompThresholdDb, CompRatio = CompRatio, CompMakeupDb = CompMakeupDb,
                 ReverbSize = ReverbSize, ReverbDamp = ReverbDamp, ReverbWet = ReverbWet,
                 ReverbPreDelayMs = ReverbPreDelayMs,
+                
+                DeEsserFreq = DeEsserFreq,
+                DeEsserThresholdDb = DeEsserThresholdDb,
+                DeThumperFreq = DeThumperFreq,
+                DeThumperReductionDb = DeThumperReductionDb,
+                SaturationDrive = SaturationDrive,
+                SaturationMix = SaturationMix
             };
         }
 

@@ -5,6 +5,9 @@ using OpenUtau.App.ViewModels;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 using ReactiveUI;
+using Avalonia.Input;
+using Avalonia;
+using Avalonia.VisualTree;
 
 namespace OpenUtau.App.Views {
     public partial class MixFxDialog : Window {
@@ -18,6 +21,21 @@ namespace OpenUtau.App.Views {
             this.track = track;
             DataContext = viewModel = new MixFxViewModel(track);
             viewModel.AskForName = PromptForNameAsync;
+            this.AddHandler(InputElement.PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
+        }
+
+        private void OnGlobalPointerPressed(object? sender, PointerPressedEventArgs e) {
+            // Only react if it is a right-click
+            if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
+            var visual = e.Source as Avalonia.Visual;
+            while (visual != null) {
+                if (visual is Slider slider && slider.Tag is string tagStr && double.TryParse(tagStr, out double def)) {
+                    slider.Value = def;
+                    e.Handled = true;
+                    return;
+                }
+                visual = visual.GetVisualParent();
+            }
         }
 
         Task<string?> PromptForNameAsync() {

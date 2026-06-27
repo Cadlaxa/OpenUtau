@@ -6,7 +6,7 @@
         x:Class="OpenUtau.App.Views.MixFxDialog"
         Icon="/Assets/open-utau.ico"
         Title="{DynamicResource mixfx.caption}"
-        Width="640" Height="540"
+        Width="640" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
   <Window.Styles>
@@ -26,10 +26,10 @@
       <Setter Property="Opacity" Value="0.8"/>
     </Style>
     <Style Selector="Slider">
-      <Setter Property="Margin" Value="0,-2,0,-2"/>
+      <Setter Property="Margin" Value="0,-6,0,-6"/>
     </Style>
     <Style Selector="Border.column">
-      <Setter Property="Padding" Value="10"/>
+      <Setter Property="Padding" Value="6"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}"/>
       <Setter Property="CornerRadius" Value="3"/>
@@ -38,7 +38,6 @@
   <Border Margin="{Binding $parent.WindowDecorationMargin}">
     <DockPanel Margin="14" LastChildFill="True">
 
-      <!-- TOP: title + enable + recommended -->
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
         <TextBlock Grid.Column="0" VerticalAlignment="Center" FontWeight="SemiBold"
                    Text="{Binding TrackName}"/>
@@ -49,7 +48,6 @@
                 ToolTip.Tip="{DynamicResource mixfx.recommended.tip}"/>
       </Grid>
 
-      <!-- LIBRARY row -->
       <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,10">
         <TextBlock Grid.Column="0" Classes="lbl" Margin="0,0,8,0"
                    Text="{DynamicResource mixfx.library}"/>
@@ -69,9 +67,8 @@
                 IsEnabled="{Binding CanDeleteSelectedPreset}"/>
       </Grid>
 
-      <!-- BOTTOM: export checkbox + OK/Cancel -->
       <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,10,0,0">
-        <CheckBox Grid.Column="0" IsChecked="{Binding ApplyOnExportMixdown}" VerticalAlignment="Center"/>
+        <CheckBox Grid.Column="0" IsChecked="{Binding ApplyOnExportMixdown}" VerticalAlignment="Center" Padding="2"/>
         <TextBlock Grid.Column="1" Classes="lbl" Margin="0,0,12,0" Text="{DynamicResource mixfx.applyonexport}"/>
         <Button Grid.Column="3" Content="{DynamicResource button.cancel}"
                 MinWidth="70" Margin="0,0,8,0" Click="OnCancelClicked"/>
@@ -79,12 +76,10 @@
                 MinWidth="70" Click="OnOkClicked"/>
       </Grid>
 
-      <!-- BODY: 3 columns side by side -->
-      <Grid ColumnDefinitions="*,8,*,8,*" IsEnabled="{Binding Enabled}">
-
-        <!-- EQ -->
-        <Border Grid.Column="0" Classes="column">
-          <StackPanel Spacing="3">
+      <Grid RowDefinitions="Auto,8,Auto" ColumnDefinitions="*,8,*,8,*" IsEnabled="{Binding Enabled}">
+        
+        <Border Grid.Row="0" Grid.Column="0" Classes="column">
+          <StackPanel Spacing="1">
             <TextBlock Classes="section" Text="EQ"/>
             <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
                       ItemsSource="{Binding EqPresets}" SelectedItem="{Binding SelectedEq}"/>
@@ -92,28 +87,27 @@
               <TextBlock Grid.Column="0" Classes="lbl" Text="Low (dB)"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding EqLowDb, StringFormat={}{0:+0.0;-0.0;0.0}}"/>
             </Grid>
-            <Slider Minimum="-12" Maximum="12" Value="{Binding EqLowDb}" TickFrequency="0.5"/>
+            <Slider Minimum="-12" Maximum="12" Value="{Binding EqLowDb}" TickFrequency="0.5" Tag="0.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Mid Freq"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding EqMidFreq, StringFormat={}{0:F0} Hz}"/>
             </Grid>
-            <Slider Minimum="200" Maximum="6000" Value="{Binding EqMidFreq}" TickFrequency="50"/>
+            <Slider Minimum="200" Maximum="6000" Value="{Binding EqMidFreq}" TickFrequency="50" Tag="3000.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Mid (dB)"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding EqMidDb, StringFormat={}{0:+0.0;-0.0;0.0}}"/>
             </Grid>
-            <Slider Minimum="-12" Maximum="12" Value="{Binding EqMidDb}" TickFrequency="0.5"/>
+            <Slider Minimum="-12" Maximum="12" Value="{Binding EqMidDb}" TickFrequency="0.5" Tag="0.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="High (dB)"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding EqHighDb, StringFormat={}{0:+0.0;-0.0;0.0}}"/>
             </Grid>
-            <Slider Minimum="-12" Maximum="12" Value="{Binding EqHighDb}" TickFrequency="0.5"/>
+            <Slider Minimum="-12" Maximum="12" Value="{Binding EqHighDb}" TickFrequency="0.5" Tag="0.0"/>
           </StackPanel>
         </Border>
 
-        <!-- Compressor -->
-        <Border Grid.Column="2" Classes="column">
-          <StackPanel Spacing="3">
+        <Border Grid.Row="0" Grid.Column="2" Classes="column">
+          <StackPanel Spacing="1">
             <TextBlock Classes="section" Text="Compressor"/>
             <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
                       ItemsSource="{Binding CompPresets}" SelectedItem="{Binding SelectedComp}"/>
@@ -121,23 +115,22 @@
               <TextBlock Grid.Column="0" Classes="lbl" Text="Threshold"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding CompThresholdDb, StringFormat={}{0:F1} dB}"/>
             </Grid>
-            <Slider Minimum="-40" Maximum="0" Value="{Binding CompThresholdDb}" TickFrequency="1"/>
+            <Slider Minimum="-40" Maximum="0" Value="{Binding CompThresholdDb}" TickFrequency="1" Tag="-18.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Ratio"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding CompRatio, StringFormat={}{0:F1}:1}"/>
             </Grid>
-            <Slider Minimum="1" Maximum="20" Value="{Binding CompRatio}" TickFrequency="0.1"/>
+            <Slider Minimum="1" Maximum="20" Value="{Binding CompRatio}" TickFrequency="0.1" Tag="2.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Makeup"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding CompMakeupDb, StringFormat={}{0:F1} dB}"/>
             </Grid>
-            <Slider Minimum="0" Maximum="12" Value="{Binding CompMakeupDb}" TickFrequency="0.1"/>
+            <Slider Minimum="0" Maximum="12" Value="{Binding CompMakeupDb}" TickFrequency="0.1" Tag="2.5"/>
           </StackPanel>
         </Border>
 
-        <!-- Reverb -->
-        <Border Grid.Column="4" Classes="column">
-          <StackPanel Spacing="3">
+        <Border Grid.Row="0" Grid.Column="4" Classes="column">
+          <StackPanel Spacing="1">
             <TextBlock Classes="section" Text="Reverb"/>
             <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
                       ItemsSource="{Binding ReverbPresets}" SelectedItem="{Binding SelectedReverb}"/>
@@ -145,22 +138,76 @@
               <TextBlock Grid.Column="0" Classes="lbl" Text="Size"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding ReverbSize, StringFormat={}{0:F2}}"/>
             </Grid>
-            <Slider Minimum="0" Maximum="1" Value="{Binding ReverbSize}" TickFrequency="0.01"/>
+            <Slider Minimum="0" Maximum="1" Value="{Binding ReverbSize}" TickFrequency="0.01" Tag="0.30"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Damp"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding ReverbDamp, StringFormat={}{0:F2}}"/>
             </Grid>
-            <Slider Minimum="0" Maximum="1" Value="{Binding ReverbDamp}" TickFrequency="0.01"/>
+            <Slider Minimum="0" Maximum="1" Value="{Binding ReverbDamp}" TickFrequency="0.01" Tag="0.70"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Wet"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding ReverbWet, StringFormat={}{0:F2}}"/>
             </Grid>
-            <Slider Minimum="0" Maximum="2" Value="{Binding ReverbWet}" TickFrequency="0.01"/>
+            <Slider Minimum="0" Maximum="2" Value="{Binding ReverbWet}" TickFrequency="0.01" Tag="1.0"/>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="lbl" Text="Pre-Delay"/>
               <TextBlock Grid.Column="1" Classes="val" Text="{Binding ReverbPreDelayMs, StringFormat={}{0:F0} ms}"/>
             </Grid>
-            <Slider Minimum="0" Maximum="200" Value="{Binding ReverbPreDelayMs}" TickFrequency="1"/>
+            <Slider Minimum="0" Maximum="200" Value="{Binding ReverbPreDelayMs}" TickFrequency="1" Tag="0.0"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="0" Classes="column">
+          <StackPanel Spacing="1">
+            <TextBlock Classes="section" Text="De-esser"/>
+            <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                      ItemsSource="{Binding DeEsserPresets}" SelectedItem="{Binding SelectedDeEsser}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Frequency"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding DeEsserFreq, StringFormat={}{0:F0} Hz}"/>
+            </Grid>
+            <Slider Minimum="3000" Maximum="10000" Value="{Binding DeEsserFreq}" TickFrequency="100" Tag="6000.0" IsEnabled="{Binding DeEsserEnabled}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Threshold"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding DeEsserThresholdDb, StringFormat={}{0:F1} dB}"/>
+            </Grid>
+            <Slider Minimum="-40" Maximum="0" Value="{Binding DeEsserThresholdDb}" TickFrequency="1" Tag="-20.0" IsEnabled="{Binding DeEsserEnabled}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="2" Classes="column">
+          <StackPanel Spacing="1">
+            <TextBlock Classes="section" Text="De-thumper"/>
+            <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                      ItemsSource="{Binding DeThumperPresets}" SelectedItem="{Binding SelectedDeThumper}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Frequency"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding DeThumperFreq, StringFormat={}{0:F0} Hz}"/>
+            </Grid>
+            <Slider Minimum="20" Maximum="200" Value="{Binding DeThumperFreq}" TickFrequency="5" Tag="80.0" IsEnabled="{Binding DeThumperEnabled}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Reduction"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding DeThumperReductionDb, StringFormat={}{0:F1} dB}"/>
+            </Grid>
+            <Slider Minimum="-24" Maximum="0" Value="{Binding DeThumperReductionDb}" TickFrequency="1" Tag="-6.0" IsEnabled="{Binding DeThumperEnabled}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="4" Classes="column">
+          <StackPanel Spacing="1">
+            <TextBlock Classes="section" Text="Saturation"/>
+            <ComboBox HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                      ItemsSource="{Binding SaturationPresets}" SelectedItem="{Binding SelectedSaturation}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Drive"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding SaturationDrive, StringFormat={}{0:F1}}"/>
+            </Grid>
+            <Slider Minimum="0" Maximum="10" Value="{Binding SaturationDrive}" TickFrequency="0.1" Tag="0.0" IsEnabled="{Binding SaturationEnabled}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="lbl" Text="Mix"/>
+              <TextBlock Grid.Column="1" Classes="val" Text="{Binding SaturationMix, StringFormat={}{0:F2}}"/>
+            </Grid>
+            <Slider Minimum="0" Maximum="1" Value="{Binding SaturationMix}" TickFrequency="0.05" Tag="0.0" IsEnabled="{Binding SaturationEnabled}"/>
           </StackPanel>
         </Border>
 

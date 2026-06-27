@@ -12,24 +12,38 @@ namespace OpenUtau.Core.Ustx {
         public string EqPreset { get; set; } = "vocal_air";
         public string CompPreset { get; set; } = "gentle";
         public string ReverbPreset { get; set; } = "small_room";
+        public string DeEsserPreset { get; set; } = "standard";
+        public string DeThumperPreset { get; set; } = "standard";
+        public string SaturationPreset { get; set; } = "standard";
 
+        // EQ
         public double EqLowDb { get; set; } = 0.0;
         public double EqMidFreq { get; set; } = 3000.0;
         public double EqMidDb { get; set; } = 1.5;
         public double EqHighDb { get; set; } = 3.0;
 
+        // Compressor
         public double CompThresholdDb { get; set; } = -18.0;
         public double CompRatio { get; set; } = 2.0;
         public double CompMakeupDb { get; set; } = 2.5;
 
+        // Reverb
         public double ReverbSize { get; set; } = 0.30;
         public double ReverbDamp { get; set; } = 0.7;
         public double ReverbWet { get; set; } = 1.0;
-        // Default 0 (not 12) so legacy ustx files without this field deserialize
-        // to the same audio they previously rendered.  The recommended-rack
-        // builder and reverb preset loader assign explicit non-zero values
-        // for new projects.
         public double ReverbPreDelayMs { get; set; } = 0.0;
+        
+        // De-esser
+        public double DeEsserFreq { get; set; } = 6000.0;
+        public double DeEsserThresholdDb { get; set; } = -20.0;
+        
+        // De-thumper
+        public double DeThumperFreq { get; set; } = 80.0;
+        public double DeThumperReductionDb { get; set; } = -6.0;
+        
+        // Saturation
+        public double SaturationDrive { get; set; } = 0.0;
+        public double SaturationMix { get; set; } = 0.0;
 
         public UMixFx Clone() {
             return new UMixFx {
@@ -48,6 +62,15 @@ namespace OpenUtau.Core.Ustx {
                 ReverbDamp = ReverbDamp,
                 ReverbWet = ReverbWet,
                 ReverbPreDelayMs = ReverbPreDelayMs,
+                DeEsserFreq = DeEsserFreq,
+                DeEsserThresholdDb = DeEsserThresholdDb,
+                DeThumperFreq = DeThumperFreq,
+                DeThumperReductionDb = DeThumperReductionDb,
+                SaturationDrive = SaturationDrive,
+                SaturationMix = SaturationMix,
+                DeEsserPreset = DeEsserPreset,
+                DeThumperPreset = DeThumperPreset,
+                SaturationPreset = SaturationPreset,
             };
         }
     }
