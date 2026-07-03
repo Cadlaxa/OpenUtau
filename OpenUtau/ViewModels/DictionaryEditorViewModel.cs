@@ -112,10 +112,19 @@ namespace OpenUtau.App.ViewModels {
                 return;
             }
             string absolutePath = _filePaths[SelectedFile];
+            if (absolutePath.StartsWith(_currentDirectory, StringComparison.OrdinalIgnoreCase)) {
+                CanCopyToVoicebank = false;
+                return;
+            }
             string fileName = Path.GetFileName(absolutePath);
-            string targetPath = Path.Combine(_currentDirectory, fileName);
-            
-            CanCopyToVoicebank = !absolutePath.Equals(targetPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(targetPath);
+            try {
+                var existingFiles = Directory.GetFiles(_currentDirectory, fileName, SearchOption.AllDirectories);
+                CanCopyToVoicebank = existingFiles.Length == 0;
+                
+            } catch {
+                string targetPath = Path.Combine(_currentDirectory, fileName);
+                CanCopyToVoicebank = !File.Exists(targetPath);
+            }
         }
 
         public void CopyToVoicebank() {
