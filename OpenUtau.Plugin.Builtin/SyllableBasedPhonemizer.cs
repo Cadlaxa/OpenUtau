@@ -515,8 +515,6 @@ namespace OpenUtau.Plugin.Builtin {
                                 
                                 if (rawReplacement.from is string fromStr) {
                                     dictionaryReplacements.Remove(fromStr);
-                                    dictionaryReplacements.Remove(fromStr.ToLower());
-                                    dictionaryReplacements.Remove(fromStr.ToUpper());
                                 }
 
                                 List<string> fromList = rawReplacement.FromList;
@@ -1590,8 +1588,6 @@ namespace OpenUtau.Plugin.Builtin {
                 
                 foreach (var kvp in childDict) {
                     safeDict[kvp.Key] = kvp.Value;
-                    safeDict[kvp.Key.ToUpperInvariant()] = kvp.Value; // Safely catches 'AA'
-                    safeDict[kvp.Key.ToLowerInvariant()] = kvp.Value; // Safely catches 'aa'
                 }
 
                 dictionaries[GetType()] = new G2pRemapper(

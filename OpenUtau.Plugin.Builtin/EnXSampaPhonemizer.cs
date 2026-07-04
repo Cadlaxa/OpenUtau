@@ -439,7 +439,6 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                         }
                     }
-                    FoundMatch:;
                     // try vcc
                     for (var i = lastC + 1; i >= 0; i--) {
                         var vr = $"{prevV} -";
@@ -485,8 +484,8 @@ namespace OpenUtau.Plugin.Builtin {
                     cc1 = $"{string.Join("", cc.Skip(i))}";
                 }
                 if (CurrentWordCc.Length >= 2) {
-                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
-                        || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
+                    if (liquid.Contains(cc.Last()) || semivowel.Contains(cc.Last())
+                        || liquid.Contains(ValidateAlias(cc.Last())) || semivowel.Contains(ValidateAlias(cc.Last()))) {
                         glides(cc1);
                     }
                 }
