@@ -261,6 +261,27 @@ namespace OpenUtau.App.ViewModels {
                     UpdateCopyToVoicebankState();
                 });
         }
+        public void ExecuteSelectDuplicates(object? parameter) {
+            var category = SelectedCategory;
+            if (category == null || string.IsNullOrEmpty(ReplaceColumn)) return;
+
+            if (parameter is System.Collections.IList selectedItems) {
+                selectedItems.Clear();
+                var seenValues = new HashSet<string>();
+
+                foreach (var row in category.Rows) {
+                    if (row.IsComment) continue;
+                    string currentVal = row[ReplaceColumn];
+                    if (string.IsNullOrEmpty(currentVal)) continue; 
+                    if (seenValues.Contains(currentVal)) {
+                        selectedItems.Add(row);
+                    } 
+                    else {
+                        seenValues.Add(currentVal);
+                    }
+                }
+            }
+        }
         private void Find(bool searchUp) {
             var category = SelectedCategory;
             if (category == null || string.IsNullOrEmpty(ReplaceColumn) || string.IsNullOrEmpty(FindText)) return;
