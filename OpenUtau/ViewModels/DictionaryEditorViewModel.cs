@@ -1052,14 +1052,11 @@ namespace OpenUtau.App.ViewModels {
 
                             bool isTimingsBlock = cat.Name.Equals("timings", StringComparison.OrdinalIgnoreCase);
                             
-                            bool isReplacementsBlock = cat.Name.Equals("replacements", StringComparison.OrdinalIgnoreCase) 
-                                                       && (col.Equals("from", StringComparison.OrdinalIgnoreCase) || col.Equals("to", StringComparison.OrdinalIgnoreCase));
-                            
                             var matches = System.Text.RegularExpressions.Regex.Matches(trimmedVal, @"\""[^\""]*\""|[^ ,]+");
                             
-                            // It becomes a list IF: explicit brackets, phonemes, replacements... 
-                            // OR (multiple items AND it is NOT the grapheme column AND NOT in fallbacks)
-                            if (isExplicitList || isPhonemesColumn || isReplacementsBlock || (matches.Count > 1 && !isGraphemeColumn && !isFallbacksBlock && !isTimingsBlock)) {
+                            // It becomes a list IF: explicit brackets, phonemes...
+                            // OR (multiple items AND it is NOT the grapheme column AND NOT in fallbacks AND NOT in timings)
+                            if (isExplicitList || isPhonemesColumn || (matches.Count > 1 && !isGraphemeColumn && !isFallbacksBlock && !isTimingsBlock)) {
                                 newRow[col] = matches.Cast<System.Text.RegularExpressions.Match>()
                                                      .Select(m => m.Value.Trim('[', ']'))
                                                      .Where(s => !string.IsNullOrWhiteSpace(s))
