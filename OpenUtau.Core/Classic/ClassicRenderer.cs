@@ -87,7 +87,6 @@ namespace OpenUtau.Classic {
                     }
                 }
 
-                // FIX: Apply dynamics if pulled successfully from cache
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
                     return result;
@@ -111,7 +110,10 @@ namespace OpenUtau.Classic {
                     var itemOtos = new ConcurrentDictionary<ResamplerItem, UOto>();
                     var singer = DocManager.Inst.Project.tracks[trackNo].Singer;
 
-                    foreach (var phone in phrase.phones) {
+                    double phraseStartMs = phrase.positionMs - phrase.leadingMs;
+
+                    for (int pIdx = 0; pIdx < phrase.phones.Length; pIdx++) {
+                        var phone = phrase.phones[pIdx];
                         int relativeStartTick = (phrase.position + phone.position) - activePart.position;
                         int centerTick = relativeStartTick + (phone.duration / 2);
 
@@ -136,28 +138,56 @@ namespace OpenUtau.Classic {
                         itemsBase.Add(itemBase);
                         itemOtos[itemBase] = baseOtos[phone];
 
-                        for (int i = 0; i < tracks.Count; i++) {
-                            UOto targetOto = baseOtos[phone];
-                            if (!string.IsNullOrEmpty(tracks[i].TargetColor) && TryHijackOto(singer, phone, tracks[i].TargetColor, out var oto)) targetOto = oto;
+                        double phoneStartMs = phone.positionMs - phone.leadingMs;
+                        double phoneEndMs = phrase.positionMs + phrase.durationMs; 
+                        if (pIdx + 1 < phrase.phones.Length) {
+                            phoneEndMs = phrase.phones[pIdx + 1].positionMs - phrase.phones[pIdx + 1].leadingMs;
+                        }
 
-                            otoField.SetValue(phone, targetOto); 
-                            var tItem = new ResamplerItem(phrase, phone);
+                        int wStart = Math.Max(0, (int)((phoneStartMs - phraseStartMs) / 5.0));
+                        int wEnd = Math.Max(0, (int)((phoneEndMs - phraseStartMs) / 5.0));
+
+                        for (int i = 0; i < tracks.Count; i++) {
+                            if (wStart >= tracks[i].Weights.Length) wStart = tracks[i].Weights.Length - 1;
+                            if (wEnd >= tracks[i].Weights.Length) wEnd = tracks[i].Weights.Length - 1;
                             
-                            int flagHashTrk = HashString(staticFlags + tracks[i].Flag);
-                            tItem.flags = new[] { Tuple.Create(staticFlags + tracks[i].Flag, (int?)null, (string)null) };
-                            tItem.outputFile = tItem.outputFile.Replace(".wav", $"_pTrk{i}_{flagHashTrk:X}.wav");
-                            tItem.inputTemp = tItem.inputTemp.Replace(".wav", $"_hij_{flagHashTrk:X}.wav"); 
-                            
-                            if (targetOto != baseOtos[phone]) tItem.inputFile = targetOto.File;
-                            itemOtos[tItem] = targetOto;
-                            trackItems[i].Add(tItem);
+                            bool isUsed = false;
+                            for (int w = wStart; w <= wEnd; w++) {
+                                if (tracks[i].Weights[w] > 0.001f) {
+                                    isUsed = true;
+                                    break;
+                                }
+                            }
+
+                            if (!isUsed) {
+                                // SKIP RENDERING: Curve is 0 here! Reuse the base audio to fill the gap.
+                                trackItems[i].Add(itemBase);
+                            } else {
+                                UOto targetOto = baseOtos[phone];
+                                if (!string.IsNullOrEmpty(tracks[i].TargetColor) && TryHijackOto(singer, phone, tracks[i].TargetColor, out var oto)) targetOto = oto;
+
+                                otoField.SetValue(phone, targetOto); 
+                                var tItem = new ResamplerItem(phrase, phone);
+                                
+                                int flagHashTrk = HashString(staticFlags + tracks[i].Flag);
+                                tItem.flags = new[] { Tuple.Create(staticFlags + tracks[i].Flag, (int?)null, (string)null) };
+                                tItem.outputFile = tItem.outputFile.Replace(".wav", $"_pTrk{i}_{flagHashTrk:X}.wav");
+                                tItem.inputTemp = tItem.inputTemp.Replace(".wav", $"_hij_{flagHashTrk:X}.wav"); 
+                                
+                                if (targetOto != baseOtos[phone]) tItem.inputFile = targetOto.File;
+                                itemOtos[tItem] = targetOto;
+                                trackItems[i].Add(tItem);
+                            }
                         }
                         otoField.SetValue(phone, baseOtos[phone]); 
                     }
 
-                    var allItems = new List<ResamplerItem>();
-                    allItems.AddRange(itemsBase);
-                    foreach (var list in trackItems) allItems.AddRange(list);
+                    // --- Deduplicate Render Queue using HashSet ---
+                    var allItems = new HashSet<ResamplerItem>();
+                    foreach (var item in itemsBase) allItems.Add(item);
+                    foreach (var list in trackItems) {
+                        foreach (var item in list) allItems.Add(item);
+                    }
 
                     int completed = 0;
                     int itemsPerPhone = allItems.Count / phrase.phones.Length;
@@ -276,7 +306,6 @@ namespace OpenUtau.Classic {
                     }
                 }
 
-                // FIX: Apply dynamics if pulled successfully from cache
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
                     return result;
@@ -296,10 +325,13 @@ namespace OpenUtau.Classic {
                     var trackItems = new List<List<ResamplerItem>>();
                     for (int i = 0; i < tracks.Count; i++) trackItems.Add(new List<ResamplerItem>());
                     
-                    var itemOtos = new Dictionary<ResamplerItem, UOto>();
+                    var itemOtos = new ConcurrentDictionary<ResamplerItem, UOto>();
                     var singer = DocManager.Inst.Project.tracks[trackNo].Singer;
 
-                    foreach (var phone in phrase.phones) {
+                    double phraseStartMs = phrase.positionMs - phrase.leadingMs;
+
+                    for (int pIdx = 0; pIdx < phrase.phones.Length; pIdx++) {
+                        var phone = phrase.phones[pIdx];
                         int relativeStartTick = (phrase.position + phone.position) - activePart.position;
                         int centerTick = relativeStartTick + (phone.duration / 2);
 
@@ -324,28 +356,56 @@ namespace OpenUtau.Classic {
                         itemsBase.Add(itemBase);
                         itemOtos[itemBase] = baseOtos[phone];
 
-                        for (int i = 0; i < tracks.Count; i++) {
-                            UOto targetOto = baseOtos[phone];
-                            if (!string.IsNullOrEmpty(tracks[i].TargetColor) && TryHijackOto(singer, phone, tracks[i].TargetColor, out var oto)) targetOto = oto;
+                        double phoneStartMs = phone.positionMs - phone.leadingMs;
+                        double phoneEndMs = phrase.positionMs + phrase.durationMs; 
+                        if (pIdx + 1 < phrase.phones.Length) {
+                            phoneEndMs = phrase.phones[pIdx + 1].positionMs - phrase.phones[pIdx + 1].leadingMs;
+                        }
 
-                            otoField.SetValue(phone, targetOto);
-                            var tItem = new ResamplerItem(phrase, phone);
+                        int wStart = Math.Max(0, (int)((phoneStartMs - phraseStartMs) / 5.0));
+                        int wEnd = Math.Max(0, (int)((phoneEndMs - phraseStartMs) / 5.0));
+
+                        for (int i = 0; i < tracks.Count; i++) {
+                            if (wStart >= tracks[i].Weights.Length) wStart = tracks[i].Weights.Length - 1;
+                            if (wEnd >= tracks[i].Weights.Length) wEnd = tracks[i].Weights.Length - 1;
                             
-                            int flagHashTrk = HashString(staticFlags + tracks[i].Flag);
-                            tItem.flags = new[] { Tuple.Create(staticFlags + tracks[i].Flag, (int?)null, (string)null) };
-                            tItem.outputFile = tItem.outputFile.Replace(".wav", $"_pTrk{i}_{flagHashTrk:X}.wav");
-                            tItem.inputTemp = tItem.inputTemp.Replace(".wav", $"_hij_{flagHashTrk:X}.wav");
-                            
-                            if (targetOto != baseOtos[phone]) tItem.inputFile = targetOto.File;
-                            itemOtos[tItem] = targetOto;
-                            trackItems[i].Add(tItem);
+                            bool isUsed = false;
+                            for (int w = wStart; w <= wEnd; w++) {
+                                if (tracks[i].Weights[w] > 0.001f) {
+                                    isUsed = true;
+                                    break;
+                                }
+                            }
+
+                            if (!isUsed) {
+                                // SKIP RENDERING: Curve is 0 here! Reuse the base audio to fill the gap.
+                                trackItems[i].Add(itemBase);
+                            } else {
+                                UOto targetOto = baseOtos[phone];
+                                if (!string.IsNullOrEmpty(tracks[i].TargetColor) && TryHijackOto(singer, phone, tracks[i].TargetColor, out var oto)) targetOto = oto;
+
+                                otoField.SetValue(phone, targetOto);
+                                var tItem = new ResamplerItem(phrase, phone);
+                                
+                                int flagHashTrk = HashString(staticFlags + tracks[i].Flag);
+                                tItem.flags = new[] { Tuple.Create(staticFlags + tracks[i].Flag, (int?)null, (string)null) };
+                                tItem.outputFile = tItem.outputFile.Replace(".wav", $"_pTrk{i}_{flagHashTrk:X}.wav");
+                                tItem.inputTemp = tItem.inputTemp.Replace(".wav", $"_hij_{flagHashTrk:X}.wav");
+                                
+                                if (targetOto != baseOtos[phone]) tItem.inputFile = targetOto.File;
+                                itemOtos[tItem] = targetOto;
+                                trackItems[i].Add(tItem);
+                            }
                         }
                         otoField.SetValue(phone, baseOtos[phone]);
                     }
 
-                    var allItems = new List<ResamplerItem>();
-                    allItems.AddRange(itemsBase);
-                    foreach (var list in trackItems) allItems.AddRange(list);
+                    // --- Deduplicate Render Queue using HashSet ---
+                    var allItems = new HashSet<ResamplerItem>();
+                    foreach (var item in itemsBase) allItems.Add(item);
+                    foreach (var list in trackItems) {
+                        foreach (var item in list) allItems.Add(item);
+                    }
 
                     Parallel.ForEach(allItems, new ParallelOptions() { MaxDegreeOfParallelism = Preferences.Default.NumRenderThreads }, item => {
                         if (cancellation.IsCancellationRequested) return;
@@ -478,7 +538,6 @@ namespace OpenUtau.Classic {
                     }
                 }
 
-                // FIX: Apply dynamics if pulled successfully from cache
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
                     return result;
@@ -644,7 +703,6 @@ namespace OpenUtau.Classic {
                     }
                 }
 
-                // FIX: Apply dynamics if pulled successfully from cache
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
                     return result;
