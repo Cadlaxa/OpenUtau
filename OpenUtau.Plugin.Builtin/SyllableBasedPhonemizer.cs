@@ -529,13 +529,10 @@ namespace OpenUtau.Plugin.Builtin {
                                 };
 
                                 if (parsedFrom is string fromString) {
-                                    if (parsedTo is string toString) {
-                                        // Dictionary handles simple 1-to-1 replacements
-                                        dictionaryReplacements[fromString] = toString;
-                                    } else {
-                                        // 1-to-Many goes to Split
-                                        localSplit.Add(cleanReplacement);
-                                    }
+                                    // FIX: Treat all 1:1 replacements as splitting rules.
+                                    // This prevents them from becoming global fallbacks
+                                    // and forces them to respect string-length priority.
+                                    localSplit.Add(cleanReplacement);
                                 } else {
                                     // Many-to-Any goes to Merge
                                     localMerge.Add(cleanReplacement);
@@ -1306,11 +1303,18 @@ namespace OpenUtau.Plugin.Builtin {
             List<string> finalPhonemes = new List<string>();
             int idx = 0;
             
+            // Sort validRules by the length of the matching array descending.
+            // This guarantees multi-phoneme matches evaluate BEFORE 1:1 matches.
             var validRules = mergingReplacements.Concat(splittingReplacements)
-                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary")).ToList();
+                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary"))
+                .OrderByDescending(r => r.FromList.Count)
+                .ThenByDescending(r => r.FromList.Sum(s => s.Length)) // Prioritize longer strings
+                .ToList();
                 
             var validSplits = splittingReplacements
-                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary")).ToList();
+                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary"))
+                .OrderByDescending(r => r.FromList.Sum(s => s.Length)) // Sort fallback splits too
+                .ToList();
 
             while (idx < inputPhonemes.Count) {
                 bool replaced = false;
@@ -1519,29 +1523,49 @@ namespace OpenUtau.Plugin.Builtin {
             if (!mergingReplacements.Any() && !splittingReplacements.Any()) return ending;
 
             List<string> currentPhonemes = new List<string>();
+            
             bool hasPrevV = !string.IsNullOrEmpty(ending.prevV);
             currentPhonemes.Add(hasPrevV ? ending.prevV : "null");
+            
             if (ending.cc != null) currentPhonemes.AddRange(ending.cc);
+            
+            bool hasTail = ending.HasTail;
+            currentPhonemes.Add(hasTail ? ending.tail : "null");
 
             List<string> finalPhonemes = ApplyReplacements(currentPhonemes, true);
 
             string newPrevV = "";
+            string newTail = "";
             List<string> newCc = new List<string>();
 
             if (finalPhonemes.Count > 0) {
+                // The first item is always the previous vowel (or empty if null)
                 string firstPh = finalPhonemes[0];
                 if (firstPh == "null") {
                     newPrevV = "";
-                    finalPhonemes.RemoveAt(0);
                 } else {
                     newPrevV = firstPh;
-                    finalPhonemes.RemoveAt(0);
                 }
-                newCc.AddRange(finalPhonemes);
+                finalPhonemes.RemoveAt(0);
             }
+            
+            if (finalPhonemes.Count > 0) {
+                // The last item is always the tail (or empty if null)
+                string lastPh = finalPhonemes.Last();
+                if (lastPh == "null") {
+                    newTail = "";
+                } else {
+                    newTail = lastPh;
+                }
+                finalPhonemes.RemoveAt(finalPhonemes.Count - 1);
+            }
+
+            newCc.AddRange(finalPhonemes);
             
             ending.prevV = newPrevV;
             ending.cc = newCc.ToArray();
+            ending.tail = newTail;
+            
             return ending;
         }
 

@@ -121,13 +121,9 @@ namespace OpenUtau.Plugin.Builtin {
                 original = fallbackSplit.ToArray();
             }
             
-            List<string> modified = new List<string>(original);
-            List<string> finalPhonemes = new List<string>();
-            finalPhonemes = new List<string>(modified);
             List<string> finalProcessedPhonemes = new List<string>();
-            IEnumerable<string> phonemes;
-            phonemes = finalPhonemes;
-            foreach (string s in phonemes) {
+            
+            foreach (string s in original) {
                 switch (s) {
                     default:
                         finalProcessedPhonemes.Add(s);

@@ -82,8 +82,6 @@ namespace OpenUtau.Plugin.Builtin {
             if (original == null) {
                 return null;
             }
-            List<string> modified = new List<string>(original);
-            List<string> finalPhonemes = ApplyReplacements(modified, false);
             List<string> finalProcessedPhonemes = new List<string>();
 
             // SPLITS UP DR AND TR
@@ -114,10 +112,8 @@ namespace OpenUtau.Plugin.Builtin {
                     vowel3S.Add($"{V1}{C1}");
                 }
             }
-            IEnumerable<string> phonemes;
-            phonemes = finalPhonemes;
            
-            foreach (string s in phonemes) {
+            foreach (string s in original) {
                 switch (s) {
                     case var str when dr.Contains(str) && !HasOto($"{str}", note.tone) && !HasOto(ValidateAlias(str), note.tone):
                         finalProcessedPhonemes.AddRange(new string[] { "jh", s[1].ToString() });
