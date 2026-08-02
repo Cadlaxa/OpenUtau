@@ -966,7 +966,7 @@ namespace OpenUtau.Plugin.Builtin {
 
             string color = attr.voiceColor ?? string.Empty;
             string alt = attr.alternate?.ToString() ?? string.Empty;
-            int toneShift = attr.toneShift;
+            int toneShift = attr.toneShift ?? 0;
             
             var validatedAlias = ValidateAliasIfNeeded(alias, tone + toneShift);
             var mappedAlias = MapPhoneme(validatedAlias, tone + toneShift, color, alt, singer);
