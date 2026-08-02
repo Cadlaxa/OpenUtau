@@ -82,8 +82,6 @@ namespace OpenUtau.Plugin.Builtin {
             if (original == null) {
                 return null;
             }
-            List<string> modified = new List<string>(original);
-            List<string> finalPhonemes = ApplyReplacements(modified, false);
             List<string> finalProcessedPhonemes = new List<string>();
 
             // SPLITS UP DR AND TR
@@ -114,10 +112,8 @@ namespace OpenUtau.Plugin.Builtin {
                     vowel3S.Add($"{V1}{C1}");
                 }
             }
-            IEnumerable<string> phonemes;
-            phonemes = finalPhonemes;
            
-            foreach (string s in phonemes) {
+            foreach (string s in original) {
                 switch (s) {
                     case var str when dr.Contains(str) && !HasOto($"{str}", note.tone) && !HasOto(ValidateAlias(str), note.tone):
                         finalProcessedPhonemes.AddRange(new string[] { "jh", s[1].ToString() });
@@ -215,13 +211,11 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         private string ReplacePhoneme(string phoneme, int tone) {
-            // If the original phoneme has an OTO, use it directly.
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            // Otherwise, try to apply the dictionary replacement.
             if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
                 return replaced;
+            }
+            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
+                return phoneme;
             }
             return phoneme;
         }
@@ -415,7 +409,8 @@ namespace OpenUtau.Plugin.Builtin {
                     if (HasOto(AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, ""), syllable.vowelTone)) {
                         cc1 = AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, "");
                     }
-                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                    if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                        || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                         glides(cc1);
                     }
                     // CV
@@ -450,7 +445,8 @@ namespace OpenUtau.Plugin.Builtin {
                         if (HasOto(AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, ""), syllable.vowelTone)) {
                             cc1 = AliasFormat($"{string.Join("", cc.Skip(i + 1))}", "cc", syllable.tone, "");
                         }
-                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])) {
+                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                            || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
                             glides(cc1);
                         }
                         // CV

@@ -121,13 +121,9 @@ namespace OpenUtau.Plugin.Builtin {
                 original = fallbackSplit.ToArray();
             }
             
-            List<string> modified = new List<string>(original);
-            List<string> finalPhonemes = new List<string>();
-            finalPhonemes = new List<string>(modified);
             List<string> finalProcessedPhonemes = new List<string>();
-            IEnumerable<string> phonemes;
-            phonemes = finalPhonemes;
-            foreach (string s in phonemes) {
+            
+            foreach (string s in original) {
                 switch (s) {
                     default:
                         finalProcessedPhonemes.Add(s);
@@ -154,13 +150,11 @@ namespace OpenUtau.Plugin.Builtin {
 
         // prioritize yaml replacements over dictionary replacements
         private string ReplacePhoneme(string phoneme, int tone) {
-            // If the original phoneme has an OTO, use it directly.
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            // Otherwise, try to apply the dictionary replacement.
             if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
                 return replaced;
+            }
+            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
+                return phoneme;
             }
             return phoneme;
         }

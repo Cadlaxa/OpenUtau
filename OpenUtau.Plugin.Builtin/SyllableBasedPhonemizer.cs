@@ -195,8 +195,27 @@ namespace OpenUtau.Plugin.Builtin {
                 }
                 
                 var syllablePhonemes = ProcessSyllable(modifiedSyllable);
-                phonemes.AddRange(MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex));
-                globalPhonemeIndex += syllablePhonemes.Count;
+                var madePhonemes = MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex).ToList();
+                int currentSyllablePhonemeCount = syllablePhonemes.Count;
+
+                var basePhoneme = madePhonemes.LastOrDefault();
+                string baseAlias = basePhoneme.phoneme ?? "";
+                if (vowelSustains.TryGetValue(baseAlias, out var sustainData) || 
+                    vowelSustains.TryGetValue(modifiedSyllable.v, out sustainData)) {
+                    
+                    string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, modifiedSyllable.tone);
+                    if (HasOto(mappedSustain, modifiedSyllable.tone) || HasOto(sustainData.sustain, modifiedSyllable.tone)) {
+                        int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
+                        madePhonemes.Add(new Phoneme {
+                            phoneme = sustainData.sustain,
+                            position = basePhoneme.position + offsetTicks,
+                            index = globalPhonemeIndex + currentSyllablePhonemeCount
+                        });
+                        currentSyllablePhonemeCount++;
+                    }
+                }
+                phonemes.AddRange(madePhonemes);
+                globalPhonemeIndex += currentSyllablePhonemeCount;
             }
 
             if (!nextNeighbour.HasValue) {
@@ -230,9 +249,9 @@ namespace OpenUtau.Plugin.Builtin {
             int noteIndex = 0;
             for (int i = 0; i < phonemes.Count; i++) {
                 var attr = notes[0].phonemeAttributes?.FirstOrDefault(attr => attr.index == i) ?? default;
-                string alt = attr.alternate?.ToString() ?? string.Empty;
-                string color = attr.voiceColor;
-                int toneShift = attr.toneShift;
+                string alt = (attr.alternate ?? GetParentAlternate())?.ToString() ?? string.Empty;
+                string color = attr.voiceColor ?? GetParentVoiceColor();
+                int toneShift = attr.toneShift ?? GetParentToneShift();
                 var phoneme = phonemes[i];
                 while (noteIndex < notes.Length - 1 && notes[noteIndex].position - notes[0].position < phoneme.position) {
                     noteIndex++;
@@ -273,6 +292,12 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             };
         }
+
+        protected static readonly YamlDotNet.Serialization.IDeserializer TolerantDeserializer = 
+            new YamlDotNet.Serialization.DeserializerBuilder()
+            .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
 
         public override void SetSinger(USinger singer) {
             if (this.singer != singer || this.localYamlGeneration != globalYamlGeneration) {
@@ -346,8 +371,6 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                         }
                     } else if (isGlobal && YamlTemplate != null) {
-                        // ONLY auto-create from scratch if it's the global plugin file.
-                        // If it's a voicebank folder (isGlobal = false) and the file doesn't exist, this safely does nothing.
                         shouldWriteTemplate = true;
                     }
 
@@ -394,7 +417,7 @@ namespace OpenUtau.Plugin.Builtin {
                 // reset live arrays/lists back to defaults before stacking
                 vowels = backupVowels;
                 consonants = backupConsonants;
-                tails = "-,R".Split(','); 
+                tails = "-".Split(','); 
 
                 fricative = Array.Empty<string>();
                 aspirate = Array.Empty<string>();
@@ -418,37 +441,50 @@ namespace OpenUtau.Plugin.Builtin {
                 splittingReplacements.Clear();
                 yamlFallbacks.Clear();
                 PhonemeOverrides.Clear();
+                if (backupVowelSustains == null) backupVowelSustains = new Dictionary<string, (string, double)>(vowelSustains);
+                vowelSustains.Clear();
+                foreach (var kvp in backupVowelSustains) vowelSustains[kvp.Key] = kvp.Value;
 
                 // parse the files sequentially (Singer configs seamlessly overwrite global configs)
                 foreach (var file in filesToParse) {
                     try {
-                        var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                        var data = TolerantDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
                         
-                        // SYMBOLS
                         var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        vowels = vowels.Concat(yamlVowels).Distinct().ToArray();
+                        vowels = yamlVowels.Concat(vowels).Distinct().ToArray();
 
-                        tails = tails.Concat(data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        var yamlTails = data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        tails = yamlTails.Concat(tails).Distinct().ToArray();
+                        
                         if (data?.isglides != null) enableGlides = data.isglides.Value; 
                         
-                        fricative = fricative.Concat(data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        aspirate = aspirate.Concat(data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        semivowel = semivowel.Concat(data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        liquid = liquid.Concat(data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        nasal = nasal.Concat(data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        stop = stop.Concat(data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        tap = tap.Concat(data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
-                        affricate = affricate.Concat(data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol) ?? Array.Empty<string>()).Distinct().ToArray();
+                        var yFricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        fricative = yFricative.Concat(fricative).Distinct().ToArray();
+                        var yAspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        aspirate = yAspirate.Concat(aspirate).Distinct().ToArray();
+                        var ySemivowel = data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        semivowel = ySemivowel.Concat(semivowel).Distinct().ToArray();
+                        var yLiquid = data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        liquid = yLiquid.Concat(liquid).Distinct().ToArray();
+                        var yNasal = data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        nasal = yNasal.Concat(nasal).Distinct().ToArray();
+                        var yStop = data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        stop = yStop.Concat(stop).Distinct().ToArray();
+                        var yTap = data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        tap = yTap.Concat(tap).Distinct().ToArray();
+                        var yAffricate = data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
+                        affricate = yAffricate.Concat(affricate).Distinct().ToArray();
 
-                        var yamlConsonants = fricative.Concat(aspirate).Concat(semivowel).Concat(liquid).Concat(nasal).Concat(stop).Concat(tap).Concat(affricate).ToArray();
-                        consonants = consonants.Concat(yamlConsonants).Distinct().ToArray();
+                        var yamlConsonants = yFricative.Concat(yAspirate).Concat(ySemivowel).Concat(yLiquid)
+                            .Concat(yNasal).Concat(yStop).Concat(yTap).Concat(yAffricate).ToArray();
+                        consonants = yamlConsonants.Concat(consonants).Distinct().ToArray();
 
                         // DIPHTHONG AUTO-TAIL DETECTION
                         var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
                         var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
 
                         foreach (var d in yamlDiphthongs) {
-                            if (!diphthongTails.ContainsKey(d) && !diphthongSplits.ContainsKey(d)) {
+                            if (!diphthongSplits.ContainsKey(d)) {
                                 foreach (var tail in dynamicTails) {
                                     if (d.EndsWith(tail) && d != tail) {
                                         diphthongTails[d] = tail;
@@ -464,17 +500,48 @@ namespace OpenUtau.Plugin.Builtin {
                         }
 
                         if (data?.replacements != null) {
-                            foreach (var replacement in data.replacements) {
-                                string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
-                                if (replacement.from is IEnumerable<object> fromList) {
-                                    string[] fromArray = fromList.Select(item => item.ToString() ?? "null").ToArray();
-                                    if (replacement.to is string toString) mergingReplacements.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
-                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                } else if (replacement.from is string fromString) {
-                                    if (replacement.to is string toString) dictionaryReplacements[fromString] = toString;
-                                    else if (replacement.to is IEnumerable<object> toList) splittingReplacements.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
+                            var localMerge = new List<Replacement>();
+                            var localSplit = new List<Replacement>();
+                            string GetFromKey(object fromObj) {
+                                if (fromObj is string s) return s;
+                                if (fromObj is System.Collections.IEnumerable e) {
+                                    return string.Join(",", e.Cast<object>().Select(x => x?.ToString() ?? ""));
+                                }
+                                return "";
+                            }
+
+                            foreach (var rawReplacement in data.replacements) {
+                                string fromKey = GetFromKey(rawReplacement.from);
+                                mergingReplacements.RemoveAll(r => GetFromKey(r.from) == fromKey);
+                                splittingReplacements.RemoveAll(r => GetFromKey(r.from) == fromKey);
+                                
+                                if (rawReplacement.from is string fromStr) {
+                                    dictionaryReplacements.Remove(fromStr);
+                                }
+
+                                List<string> fromList = rawReplacement.FromList;
+                                List<string> toList = rawReplacement.ToList;
+                                object parsedFrom = fromList.Count == 1 ? fromList[0] : fromList.ToArray();
+                                object parsedTo = toList.Count == 1 ? toList[0] : toList.ToArray();
+
+                                var cleanReplacement = new Replacement {
+                                    from = parsedFrom,
+                                    to = parsedTo,
+                                    where = rawReplacement.where
+                                };
+
+                                if (parsedFrom is string fromString) {
+                                    // FIX: Treat all 1:1 replacements as splitting rules.
+                                    // This prevents them from becoming global fallbacks
+                                    // and forces them to respect string-length priority.
+                                    localSplit.Add(cleanReplacement);
+                                } else {
+                                    // Many-to-Any goes to Merge
+                                    localMerge.Add(cleanReplacement);
                                 }
                             }
+                            mergingReplacements.InsertRange(0, localMerge);
+                            splittingReplacements.InsertRange(0, localSplit);
                         }
 
                         if (data?.fallbacks != null) {
@@ -489,6 +556,14 @@ namespace OpenUtau.Plugin.Builtin {
                             foreach (var d in data.diphthongs) {
                                 if (!string.IsNullOrEmpty(d.from) && !string.IsNullOrEmpty(d.to)) {
                                     diphthongTails[d.from] = d.to; 
+                                }
+                            }
+                        }
+
+                        if (data?.vowelsustains != null) {
+                            foreach (var v in data.vowelsustains) {
+                                if (!string.IsNullOrEmpty(v.symbol) && !string.IsNullOrEmpty(v.sustain)) {
+                                    vowelSustains[v.symbol] = (v.sustain, v.offset);
                                 }
                             }
                         }
@@ -650,6 +725,8 @@ namespace OpenUtau.Plugin.Builtin {
         private Dictionary<string, string> backupDiphthongTails = null;
         private Dictionary<string, string[]> backupDiphthongSplits = null;
         private Dictionary<string, string> backupDictionaryReplacements = null;
+        protected Dictionary<string, (string sustain, double offset)> vowelSustains = new Dictionary<string, (string, double)>();
+        private Dictionary<string, (string sustain, double offset)> backupVowelSustains = null;
 
         /// <summary>
         /// separates symbols to syllables, without an ending.
@@ -820,9 +897,9 @@ namespace OpenUtau.Plugin.Builtin {
         /// <returns></returns>
         protected virtual string[] HandleWordNotFound(Note note) {
             var attr = note.phonemeAttributes?.FirstOrDefault(attr => attr.index == 0) ?? default;
-            string alt = attr.alternate?.ToString() ?? string.Empty;
-            string color = attr.voiceColor;
-            int toneShift = attr.toneShift;
+            string alt = (attr.alternate ?? GetParentAlternate())?.ToString() ?? string.Empty;
+            string color = attr.voiceColor ?? GetParentVoiceColor();
+            int toneShift = attr.toneShift ?? GetParentToneShift();
             var mpdlyric = MapPhoneme(note.lyric, note.tone + toneShift, color, alt, singer);
             if(HasOto(mpdlyric, note.tone)){
                 error = mpdlyric;
@@ -934,7 +1011,7 @@ namespace OpenUtau.Plugin.Builtin {
 
             string color = attr.voiceColor ?? string.Empty;
             string alt = attr.alternate?.ToString() ?? string.Empty;
-            int toneShift = attr.toneShift;
+            int toneShift = attr.toneShift ?? 0;
             
             var validatedAlias = ValidateAliasIfNeeded(alias, tone + toneShift);
             var mappedAlias = MapPhoneme(validatedAlias, tone + toneShift, color, alt, singer);
@@ -1179,11 +1256,13 @@ namespace OpenUtau.Plugin.Builtin {
             public Fallbacks[] fallbacks { get; set; } = Array.Empty<Fallbacks>();
             public Timings[] timings { get; set; } = Array.Empty<Timings>();
             public DiphthongData[] diphthongs { get; set; } = Array.Empty<DiphthongData>();
+            public VowelSustainData[] vowelsustains { get; set; } = Array.Empty<VowelSustainData>();
 
             public struct SymbolData { public string symbol { get; set; } public string type { get; set; } }
             public struct Fallbacks { public string from { get; set; } public string to { get; set; } }
             public struct Timings { public string symbol { get; set; } public double value { get; set; } }
             public struct DiphthongData { public string from { get; set; } public string to { get; set; } }
+            public struct VowelSustainData { public string symbol { get; set; } public string sustain { get; set; } public double offset { get; set; } }
         }
 
         public class Replacement {
@@ -1269,11 +1348,18 @@ namespace OpenUtau.Plugin.Builtin {
             List<string> finalPhonemes = new List<string>();
             int idx = 0;
             
+            // Sort validRules by the length of the matching array descending.
+            // This guarantees multi-phoneme matches evaluate BEFORE 1:1 matches.
             var validRules = mergingReplacements.Concat(splittingReplacements)
-                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary")).ToList();
+                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary"))
+                .OrderByDescending(r => r.FromList.Count)
+                .ThenByDescending(r => r.FromList.Sum(s => s.Length)) // Prioritize longer strings
+                .ToList();
                 
             var validSplits = splittingReplacements
-                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary")).ToList();
+                .Where(r => r.where == "all" || (!isBoundary && r.where == "inside") || (isBoundary && r.where == "boundary"))
+                .OrderByDescending(r => r.FromList.Sum(s => s.Length)) // Sort fallback splits too
+                .ToList();
 
             while (idx < inputPhonemes.Count) {
                 bool replaced = false;
@@ -1482,29 +1568,49 @@ namespace OpenUtau.Plugin.Builtin {
             if (!mergingReplacements.Any() && !splittingReplacements.Any()) return ending;
 
             List<string> currentPhonemes = new List<string>();
+            
             bool hasPrevV = !string.IsNullOrEmpty(ending.prevV);
             currentPhonemes.Add(hasPrevV ? ending.prevV : "null");
+            
             if (ending.cc != null) currentPhonemes.AddRange(ending.cc);
+            
+            bool hasTail = ending.HasTail;
+            currentPhonemes.Add(hasTail ? ending.tail : "null");
 
             List<string> finalPhonemes = ApplyReplacements(currentPhonemes, true);
 
             string newPrevV = "";
+            string newTail = "";
             List<string> newCc = new List<string>();
 
             if (finalPhonemes.Count > 0) {
+                // The first item is always the previous vowel (or empty if null)
                 string firstPh = finalPhonemes[0];
                 if (firstPh == "null") {
                     newPrevV = "";
-                    finalPhonemes.RemoveAt(0);
                 } else {
                     newPrevV = firstPh;
-                    finalPhonemes.RemoveAt(0);
                 }
-                newCc.AddRange(finalPhonemes);
+                finalPhonemes.RemoveAt(0);
             }
+            
+            if (finalPhonemes.Count > 0) {
+                // The last item is always the tail (or empty if null)
+                string lastPh = finalPhonemes.Last();
+                if (lastPh == "null") {
+                    newTail = "";
+                } else {
+                    newTail = lastPh;
+                }
+                finalPhonemes.RemoveAt(finalPhonemes.Count - 1);
+            }
+
+            newCc.AddRange(finalPhonemes);
             
             ending.prevV = newPrevV;
             ending.cc = newCc.ToArray();
+            ending.tail = newTail;
+            
             return ending;
         }
 
@@ -1551,8 +1657,6 @@ namespace OpenUtau.Plugin.Builtin {
                 
                 foreach (var kvp in childDict) {
                     safeDict[kvp.Key] = kvp.Value;
-                    safeDict[kvp.Key.ToUpperInvariant()] = kvp.Value; // Safely catches 'AA'
-                    safeDict[kvp.Key.ToLowerInvariant()] = kvp.Value; // Safely catches 'aa'
                 }
 
                 dictionaries[GetType()] = new G2pRemapper(
@@ -1620,12 +1724,10 @@ namespace OpenUtau.Plugin.Builtin {
                 double overrideRatio = currentAlias != null ? GetTransitionMultiplier(currentAlias) : 1.0;
 
                 if (overrideRatio != 1.0) {
-                    // If there's a custom multiplier, use the Constant length to prevent giant envelopes
                     baseLengthMs = GetTransitionBasicLengthMsByConstant();
                     stretch *= overrideRatio; 
                 } else {
-                    // Default behavior: use OTO preutterance
-                    baseLengthMs = GetTransitionBasicLengthMsByOto(nextAlias, tone, nextPAttr);
+                    baseLengthMs = GetTransitionBasicLengthMs(nextAlias, tone, nextPAttr);
                 }
                 
                 trueLengths[i] = MsToTick(baseLengthMs * stretch);
