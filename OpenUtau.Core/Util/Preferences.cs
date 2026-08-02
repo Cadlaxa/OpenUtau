@@ -164,6 +164,7 @@ namespace OpenUtau.Core.Util {
             public int DiffSingerStepsVariance = 20;
             public int DiffSingerStepsPitch = 10;
             public bool DiffSingerTensorCache = true;
+            public bool DiffSingerVarianceLocalPitchPatch = false;
             public bool DiffSingerLangCodeHide = false;
             public bool SkipRenderingMutedTracks = false;
             public string Language = string.Empty;
@@ -216,6 +217,8 @@ namespace OpenUtau.Core.Util {
             public bool LockUnselectedNotesPitch = true;
             public bool LockUnselectedNotesVibrato = true;
             public bool LockUnselectedNotesExpressions = true;
+            public bool LyricLivePreview = true;
+            public bool LyricApplySelectionOnly = true;
             public bool VoicebankPublishUseIgnore = true;
             public string VoicebankPublishIgnores = @"#Adobe Audition
 *.pkf
