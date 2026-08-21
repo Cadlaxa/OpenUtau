@@ -60,7 +60,6 @@ namespace OpenUtau.Plugin.Builtin {
                 .Where(parts => parts.Length == 2)
                 .Where(parts => parts[0] != parts[1])
                 .ToDictionary(parts => parts[0], parts => parts[1]);
-        private bool isYamlFallbacks = false;
         private bool vc_FallBack = false;
         private bool phoneticHint = false;
 
@@ -173,17 +172,6 @@ namespace OpenUtau.Plugin.Builtin {
             }
         }
 
-        // prioritize yaml replacements over dictionary replacements
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            return phoneme;
-        }
-        
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -200,14 +188,6 @@ namespace OpenUtau.Plugin.Builtin {
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
 
             bool isAtomicCluster = cc.Length == 2 && ccvException.Contains(cc[0]);
-
-            // Check for missing YAML fallback phonemes
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
 
             // For VC Fallback phonemes
             foreach (var entry in vcFallBacks) {
@@ -985,17 +965,15 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected string ValidateAlias(string alias, int tone) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
             if (HasOto(alias, tone)) return alias;
 
-            // YAML Fallbacks
-            if (yamlFallbacks != null && yamlFallbacks.Count > 0) {
-                string originalYaml = alias;
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
                 }
-                // If YAML changed something, test the NEW string!
-                if (alias != originalYaml && HasOto(alias, tone)) return alias;
+                alias = baseResolved;
             }
 
             // Apply Vowel-Only global fallbacks
@@ -1020,7 +998,7 @@ namespace OpenUtau.Plugin.Builtin {
             string contextualAlias = ApplyContextualFallbacks(alias, tone);
             if (contextualAlias != alias) return contextualAlias;
 
-            return base.ValidateAlias(alias);
+            return alias;
         }
 
         // VV FALLBACKS, START and END
@@ -1285,18 +1263,24 @@ namespace OpenUtau.Plugin.Builtin {
                 p2Options.AddRange(fallbacks2);
             }
 
-            // Iterate through all possible combinations
-            foreach (var opt1 in p1Options) {
-                foreach (var opt2 in p2Options) {
-                    if (opt1 == part1 && opt2 == part2) continue; 
+            foreach (var opt1 in p1Options.Skip(1)) {
+                string tryAlias = hasSpace ? $"{opt1} {part2}" : $"{opt1}{part2}";
+                if (HasOto(tryAlias, tone)) return tryAlias;
+            }
+
+            foreach (var opt2 in p2Options.Skip(1)) {
+                string tryAlias = hasSpace ? $"{part1} {opt2}" : $"{part1}{opt2}";
+                if (HasOto(tryAlias, tone)) return tryAlias;
+            }
+
+            foreach (var opt1 in p1Options.Skip(1)) {
+                foreach (var opt2 in p2Options.Skip(1)) {
                     string tryAlias = hasSpace ? $"{opt1} {opt2}" : $"{opt1}{opt2}";
-                    
-                    if (HasOto(tryAlias, tone)) {
-                        return tryAlias;
-                    }
+                    if (HasOto(tryAlias, tone)) return tryAlias;
                 }
             }
-            return null; 
+
+            return null;
         }
 
         // Endings has 50 ticks gap

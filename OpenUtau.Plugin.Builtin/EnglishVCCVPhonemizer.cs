@@ -37,8 +37,6 @@ namespace OpenUtau.Plugin.Builtin {
                 .ToDictionary(parts => parts[0], parts => parts[1]);
         }
         
-        private bool isYamlFallbacks = false;
-
         private readonly Dictionary<string, string> vcExceptions =
             new Dictionary<string, string>() {
                 {"i ng","1 ng"},
@@ -194,16 +192,6 @@ namespace OpenUtau.Plugin.Builtin {
         private class VcVowelYAMLData: YAMLData {
             public Dictionary<string, string> vcvowels { get; set; } = new Dictionary<string, string>();
         }
-        // prioritize yaml replacements over dictionary replacements
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            return phoneme;
-        }
 
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
@@ -219,12 +207,6 @@ namespace OpenUtau.Plugin.Builtin {
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
             int lastCPrevWord = syllable.prevWordConsonantsCount;
 
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Key, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
             string basePhoneme = null;
             var phonemes = new List<string>();
             // --------------------------- STARTING V ------------------------------- //
@@ -873,14 +855,16 @@ namespace OpenUtau.Plugin.Builtin {
             }
             return vc;
         }
-        protected override string ValidateAlias(string alias) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
             //foreach (var consonant in new[] { "h" }) {
             //    alias = alias.Replace(consonant, "hh");
             //}
-            if (isYamlFallbacks) {
-                foreach (var syllable in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
                 }
+                alias = baseResolved;
             }
             foreach (var consonant in new[] { "6r" }) {
                 alias = alias.Replace(consonant, "3");

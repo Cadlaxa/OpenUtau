@@ -41,23 +41,6 @@ namespace OpenUtau.Plugin.Builtin {
     
         List<string> consExceptions = new List<string>();
 
-        // For banks with missing vowels
-        private readonly Dictionary<string, string> missingVphonemes = "ax=a".Split(',')
-                .Select(entry => entry.Split('='))
-                .Where(parts => parts.Length == 2)
-                .Where(parts => parts[0] != parts[1])
-                .ToDictionary(parts => parts[0], parts => parts[1]);
-        private bool isMissingVPhonemes = false;
-        private bool isYamlFallbacks = false;
-
-
-        // For banks with missing custom consonants
-        private readonly Dictionary<string, string> missingCphonemes = "N=n".Split(',')
-                .Select(entry => entry.Split('='))
-                .Where(parts => parts.Length == 2)
-                .Where(parts => parts[0] != parts[1])
-                .ToDictionary(parts => parts[0], parts => parts[1]);
-        private bool isMissingCPhonemes = false;
         private bool cPV_FallBack = false;
         private readonly string[] ccvException = { "ch", "dh", "dx", "fh", "gh", "hh", "jh", "kh", "ph", "ng", "sh", "th", "vh", "wh", "zh" };
         private readonly string[] RomajiException = { "a", "e", "i", "o", "u" };
@@ -146,16 +129,6 @@ namespace OpenUtau.Plugin.Builtin {
             }
         }
 
-        // prioritize yaml replacements over dictionary replacements
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            return phoneme;
-        }
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -170,29 +143,6 @@ namespace OpenUtau.Plugin.Builtin {
             string[] CurrentWordCc = syllable.CurrentWordCc.Select(c => ReplacePhoneme(c, syllable.tone)).ToArray();
             string[] PreviousWordCc = syllable.PreviousWordCc.Select(c => ReplacePhoneme(c, syllable.tone)).ToArray();
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
-
-            // Check for missing vowel phonemes
-            foreach (var entry in missingVphonemes) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Key, syllable.tone)) {
-                    isMissingVPhonemes = true;
-                    break;
-                }
-            }
-
-            // Check for missing consonant phonemes
-            foreach (var entry in missingCphonemes) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isMissingCPhonemes = true;
-                    break;
-                }
-            }
-
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
 
             // STARTING V
             if (syllable.IsStartingV) {
@@ -881,28 +831,6 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
             return alias;
-        }
-
-        protected override string ValidateAlias(string alias) {
-
-            // VALIDATE ALIAS DEPENDING ON METHOD
-            if (isMissingVPhonemes) {
-                foreach (var fb in missingVphonemes.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-            if (isMissingCPhonemes) {
-                foreach (var fb in missingCphonemes.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-            if (isYamlFallbacks) {
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-
-            return base.ValidateAlias(alias);
         }
 
         // Endings has 50 ticks gap
