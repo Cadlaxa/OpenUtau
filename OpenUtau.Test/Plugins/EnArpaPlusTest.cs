@@ -82,7 +82,7 @@ namespace OpenUtau.Plugins {
         }
         [Theory]
         [InlineData("kroidroi", "", new string[] { "- kr_C3", "kr oy_C3", "iy dr_C3", "dr oy_C3", "oy -_C3" })]
-        [InlineData("whhat", "",  new string[] { "- hh_C3", "hh uw_C3", "w ah_C3", "ah t_C3", "t -_C3" })]
+        [InlineData("whhat", "",  new string[] { "- hh_C3", "f w_C3", "w ah_C3", "ah t_C3", "t -_C3" })]
 
         public void HintTest(string lyric, string hint, string[] aliases) {
             RunPhonemizeTest("en_arpa-plus", new NoteParams[] { new NoteParams { lyric = lyric, hint = hint, tone = "C3", phonemes = SamePhonemeParams(4, 0, 0, "")} }, aliases);
