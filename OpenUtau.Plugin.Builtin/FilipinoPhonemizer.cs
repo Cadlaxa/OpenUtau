@@ -34,11 +34,9 @@ namespace OpenUtau.Plugin.Builtin {
                 { "iw", "w" },
             };
         }
-    
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
-       
         protected override string[] GetSymbols(Note note) {
             string[] original = base.GetSymbols(note);
             if (!string.IsNullOrEmpty(note.phoneticHint)) {
@@ -113,7 +111,6 @@ namespace OpenUtau.Plugin.Builtin {
 
         // Endings has 50 ticks gap
         protected override bool NoGap => true;
-
         protected override string ValidateAlias(string alias, int tone = 0) {
 
             // VALIDATE ALIAS DEPENDING ON METHOD
@@ -127,22 +124,6 @@ namespace OpenUtau.Plugin.Builtin {
                 alias = baseResolved;
             }
             return alias;
-        }
-
-        protected override double GetTransitionBasicLengthMs(string alias, int tone, PhonemeAttributes attr) {
-            double otoLength = GetTransitionBasicLengthMsByOto(alias, tone, attr);
-
-            var sortedOverrides = PhonemeOverrides.OrderByDescending(kv => kv.Key.Length);
-            foreach (var kvp in sortedOverrides) {
-                var symbol = kvp.Key;
-                var value = kvp.Value;
-
-                if (Regex.IsMatch(alias, $@"(?<![a-zA-Z]){Regex.Escape(symbol)}(?![a-zA-Z])")) {
-                    return GetTransitionBasicLengthMsByConstant() * value;
-                }
-            }
-
-            return otoLength;
         }
     }
 }
