@@ -87,6 +87,17 @@ namespace OpenUtau.Plugin.Builtin {
             /// </summary>
             public bool canAliasBeExtended;
 
+            // Lookahead & Context Properties
+            public string nextV;
+            public string[] nextCc;
+            public string prevBasePhoneme;
+            public string nextBasePhoneme;
+
+            public string NextVowel => nextV ?? string.Empty;
+            public string[] NextCC => nextCc ?? Array.Empty<string>();
+            public string PrevBasePhoneme => prevBasePhoneme ?? string.Empty;
+            public string NextBasePhoneme => nextBasePhoneme ?? string.Empty;
+
             // helpers
             public bool IsStartingV => prevV == "" && cc.Length == 0;
             public bool IsVV => prevV != "" && cc.Length == 0;
@@ -162,15 +173,36 @@ namespace OpenUtau.Plugin.Builtin {
             
             runtimeGlides.Clear();
 
-            var syllables = MakeSyllables(notes, MakeEnding(prevNeighbours));
+            // Lookahead to next ending if available
+            Ending? nextEnding = nextNeighbour.HasValue ? MakeEnding(new[] { nextNeighbour.Value }) : null;
+            var syllables = MakeSyllables(notes, MakeEnding(prevNeighbours), nextEnding);
             if (syllables == null) {
                 return HandleError();
             }
 
-            var phonemes = new List<Phoneme>();
-            int globalPhonemeIndex = 0; // Track the exact index for OpenUtau's UI
+            // Pre-pass: Compute predicted base phonemes for each syllable
+            string[] predictedBases = new string[syllables.Length];
+            for (int i = 0; i < syllables.Length; i++) {
+                var mod = ApplyBoundaryReplacements(syllables[i]);
+                if (tails.Contains(mod.v)) {
+                    predictedBases[i] = mod.v;
+                } else {
+                    var tempPhonemes = ProcessSyllable(mod);
+                    predictedBases[i] = tempPhonemes?.LastOrDefault() ?? mod.v;
+                }
+            }
 
-            foreach (var syllable in syllables) {
+            var phonemes = new List<Phoneme>();
+            int globalPhonemeIndex = 0;
+            string runningPrevBasePhoneme = string.Empty;
+
+            for (int i = 0; i < syllables.Length; i++) {
+                var syllable = syllables[i];
+                
+                // Populate base lookaround
+                syllable.prevBasePhoneme = runningPrevBasePhoneme;
+                syllable.nextBasePhoneme = (i + 1 < syllables.Length) ? predictedBases[i + 1] : string.Empty;
+
                 var modifiedSyllable = ApplyBoundaryReplacements(syllable);
                 
                 if (tails.Contains(modifiedSyllable.v)) {
@@ -185,11 +217,11 @@ namespace OpenUtau.Plugin.Builtin {
                     };
                     
                     var endingPhonemes = ProcessEnding(ending);
-                    
                     if (endingPhonemes != null) {
                         phonemes.AddRange(MakePhonemes(endingPhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex));
                         globalPhonemeIndex += endingPhonemes.Count;
                     }
+                    runningPrevBasePhoneme = modifiedSyllable.v;
                     continue; 
                 }
                 
@@ -199,6 +231,8 @@ namespace OpenUtau.Plugin.Builtin {
 
                 var basePhoneme = madePhonemes.LastOrDefault();
                 string baseAlias = basePhoneme.phoneme ?? "";
+                runningPrevBasePhoneme = baseAlias;
+
                 if (vowelSustains.TryGetValue(baseAlias, out var sustainData) || 
                     vowelSustains.TryGetValue(modifiedSyllable.v, out sustainData)) {
                     
@@ -221,11 +255,6 @@ namespace OpenUtau.Plugin.Builtin {
                 var tryEnding = MakeEnding(notes);
                 if (tryEnding.HasValue) {
                     var ending = tryEnding.Value;
-
-                    if (nextNeighbour.HasValue && tails.Contains(nextNeighbour.Value.lyric)) {
-                        ending.tail = nextNeighbour.Value.lyric;
-                    }
-                    
                     var modifiedEnding = ApplyBoundaryReplacements(ending);
                     var endingPhonemes = ProcessEnding(modifiedEnding);
 
@@ -651,6 +680,45 @@ namespace OpenUtau.Plugin.Builtin {
         protected virtual string GetDictionaryName() { return null; }
 
         /// <summary>
+        /// Greedy tokenization: identifies longest matching consonants/vowels first (e.g., "kwh", "sh", "dx")
+        /// and counts multi-character consonants as 1 single element, falling back to 1-character tokens.
+        /// </summary>
+        protected virtual List<string> TokenizePhonemes(string raw) {
+            var tokens = new List<string>();
+            if (string.IsNullOrEmpty(raw)) return tokens;
+
+            var knownVowels = GetVowels() ?? Array.Empty<string>();
+            var knownConsonants = (consonants != null && consonants.Length > 0) ? consonants : (GetConsonants() ?? Array.Empty<string>());
+            
+            var allKnown = knownVowels
+                .Concat(knownConsonants)
+                .Concat(tails ?? Array.Empty<string>())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Distinct()
+                .OrderByDescending(s => s.Length)
+                .ToArray();
+
+            int i = 0;
+            while (i < raw.Length) {
+                bool matched = false;
+                foreach (var symbol in allKnown) {
+                    if (raw.IndexOf(symbol, i, StringComparison.Ordinal) == i) {
+                        tokens.Add(symbol);
+                        i += symbol.Length;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    // Fallback to single character
+                    tokens.Add(raw[i].ToString());
+                    i++;
+                }
+            }
+            return tokens;
+        }
+
+        /// <summary>
         /// extracts array of phoneme symbols from note. Override for procedural dictionary or something
         /// reads from dictionary if provided
         /// </summary>
@@ -658,9 +726,18 @@ namespace OpenUtau.Plugin.Builtin {
         /// <returns></returns>
         protected virtual string[] GetSymbols(Note note) {
             string[] getSymbolsRaw(string lyrics) {
-                if (lyrics == null) {
+                if (string.IsNullOrEmpty(lyrics)) {
                     return new string[0];
-                } else return lyrics.Split(" ");
+                }
+                if (lyrics.Contains(" ")) {
+                    var parts = lyrics.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    var resultList = new List<string>();
+                    foreach (var part in parts) {
+                        resultList.AddRange(TokenizePhonemes(part));
+                    }
+                    return resultList.ToArray();
+                }
+                return TokenizePhonemes(lyrics).ToArray();
             }
 
             if (tails.Contains(note.lyric)) {
@@ -730,7 +807,7 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="inputNotes"></param>
         /// <param name="prevWord"></param>
         /// <returns></returns>
-        protected virtual Syllable[] MakeSyllables(Note[] inputNotes, Ending? prevEnding) {
+        protected virtual Syllable[] MakeSyllables(Note[] inputNotes, Ending? prevEnding, Ending? nextEnding = null) {
             (var symbols, var vowelIds, var notes) = GetSymbolsAndVowels(inputNotes);
             if (symbols == null || vowelIds == null || notes == null) {
                 return null;
@@ -743,13 +820,12 @@ namespace OpenUtau.Plugin.Builtin {
 
             var syllables = new Syllable[vowelIds.Length];
 
-            // Making the first syllable
+            // Syllable 0 initialization
             if (prevEnding.HasValue) {
                 var prevEndingValue = prevEnding.Value;
                 var beginningCc = prevEndingValue.cc.ToList();
                 beginningCc.AddRange(symbols.Take(firstVowelId));
 
-                // If we had a prev neighbour ending, let's take info from it
                 syllables[0] = new Syllable() {
                     prevV = prevEndingValue.prevV,
                     cc = beginningCc.ToArray(),
@@ -763,7 +839,6 @@ namespace OpenUtau.Plugin.Builtin {
                     prevWordConsonantsCount = prevEndingValue.cc.Count()
                 };
             } else {
-                // there is only empty space before us
                 syllables[0] = new Syllable() {
                     prevV = "",
                     cc = symbols.Take(firstVowelId).ToArray(),
@@ -777,7 +852,7 @@ namespace OpenUtau.Plugin.Builtin {
                 };
             }
 
-            // normal syllables after the first one
+            // Subsequent syllables
             var noteI = 1;
             var ccs = new List<string>();
             var position = 0;
@@ -797,10 +872,24 @@ namespace OpenUtau.Plugin.Builtin {
                         position = position,
                         vowelTone = notes[noteI].tone,
                         vowelAttr = notes[noteI].phonemeAttributes,
-                        canAliasBeExtended = true // for all not-first notes is allowed
+                        canAliasBeExtended = true
                     };
                     ccs = new List<string>();
                     noteI++;
+                }
+            }
+
+            // Assign NextVowel (nextV) and NextCC (nextCc)
+            for (int i = 0; i < syllables.Length; i++) {
+                if (i < syllables.Length - 1) {
+                    syllables[i].nextV = syllables[i + 1].v;
+                    syllables[i].nextCc = syllables[i + 1].cc ?? Array.Empty<string>();
+                } else if (nextEnding.HasValue) {
+                    syllables[i].nextV = nextEnding.Value.prevV;
+                    syllables[i].nextCc = nextEnding.Value.cc ?? Array.Empty<string>();
+                } else {
+                    syllables[i].nextV = string.Empty;
+                    syllables[i].nextCc = Array.Empty<string>();
                 }
             }
 
@@ -1331,7 +1420,7 @@ namespace OpenUtau.Plugin.Builtin {
             bool inBaseGroup = false;
             switch (baseGroup) {
                 case "vowel": case "vowels": inBaseGroup = GetVowels().Contains(actualPhoneme); break;
-                case "consonant": case "consonants": inBaseGroup = GetConsonants().Contains(actualPhoneme); break;
+                case "consonant": case "consonants": inBaseGroup = (consonants.Length > 0 ? consonants : GetConsonants()).Contains(actualPhoneme); break;
                 case "affricate": inBaseGroup = affricate.Contains(actualPhoneme); break;
                 case "fricative": inBaseGroup = fricative.Contains(actualPhoneme); break;
                 case "aspirate": inBaseGroup = aspirate.Contains(actualPhoneme); break;
@@ -1663,7 +1752,7 @@ namespace OpenUtau.Plugin.Builtin {
                 foreach (var vowel in GetVowels()) {
                     phonemeSymbols[vowel] = true; 
                 }
-                foreach (var consonant in GetConsonants()) {
+                foreach (var consonant in (consonants.Length > 0 ? consonants : GetConsonants())) {
                     phonemeSymbols[consonant] = false;
                 }
 
