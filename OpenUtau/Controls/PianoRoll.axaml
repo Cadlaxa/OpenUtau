@@ -296,6 +296,11 @@
                   <CheckBox IsChecked="{Binding ShowGhostNotes}" />
                 </MenuItem.Icon>
               </MenuItem>
+              <MenuItem Header="{DynamicResource prefs.appearance.detachpianoroll}" Click="OnMenuDetachPianoRoll">
+                <MenuItem.Icon>
+                  <CheckBox IsChecked="{Binding PianoRollDetached}" />
+                </MenuItem.Icon>
+              </MenuItem>
               <MenuItem Header="{DynamicResource prefs.appearance.trackcolor}" Click="OnMenuUseTrackColor">
                 <MenuItem.Icon>
                   <CheckBox IsChecked="{Binding UseTrackColor}" />
@@ -352,14 +357,6 @@
                     <CheckBox IsChecked="{Binding PlaybackAutoScroll2}" />
                   </MenuItem.Icon>
                 </MenuItem>
-              </MenuItem>
-              <MenuItem Header="{DynamicResource pianoroll.menu.view.pianoroll}">
-                <MenuItem Header="{DynamicResource pianoroll.menu.view.pianoroll.detach}" Click="OnMenuDetachPianoRoll">
-                  <MenuItem.Icon>
-                    <CheckBox IsChecked="{Binding PianoRollDetached}" />
-                  </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="{DynamicResource pianoroll.menu.view.pianoroll.hide}" Click="OnMenuHidePianoRoll"/>
               </MenuItem>
             </MenuItem>
 
@@ -483,7 +480,7 @@
               </Grid>
             </ToggleButton>
             <ToggleButton Classes="toolbar" Margin="0" Padding="1" Height="20" Width="20" IsChecked="{Binding ShowPhonemizerTags}"
-                          ToolTip.Tip="Show Phonemizer Tags">
+                          ToolTip.Tip="{DynamicResource pianoroll.toggle.phonemizer}">
               <Grid Width="18" Height="18">
                 <Path Classes="filled" Data="M21.41 11.58l-9-9C12.04 2.21 11.54 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.41l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.41zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z">
                   <Path.RenderTransform>
@@ -538,6 +535,7 @@
             </Button>
           </StackPanel>
         </Border>
+        <Border Grid.Column="3" Background="Transparent" DoubleTapped="OnHidePianoRoll"/>
         <Border Grid.Column="4">
           <StackPanel Orientation="Horizontal">
             <ToggleButton Classes="toolbar" Margin="0" Padding="1" Height="20" Width="20" IsChecked="{Binding NotesViewModel.ShowNoteParams}"
@@ -553,6 +551,10 @@
                 </Path>
               </Grid>
             </ToggleButton>
+            <!-- Hide PianoRoll Padding -->
+            <Border IsVisible="{Binding HideMenuItemVisible}">
+              <Border Width="20" IsVisible="{Binding !NotesViewModel.ShowNoteParams}"/>
+            </Border>
           </StackPanel>
         </Border>
       </Grid>
@@ -625,6 +627,18 @@
               Background="{DynamicResource SystemRegionBrush}" Padding="0">
         <c:NotePropertiesControl/>
       </Border>
+
+      <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"
+              Classes="toolbar clear" Margin="2"
+              HorizontalAlignment="Right" VerticalAlignment="Top"
+              Height="20" Width="20" Padding="1"
+              Click="OnHidePianoRoll"
+              IsVisible="{Binding HideMenuItemVisible}"
+              ToolTip.Tip="{DynamicResource pianoroll.toggle.hidepianoroll}">
+        <Grid Width="18" Height="18">
+          <Path Stroke="{DynamicResource SystemControlForegroundBaseHighBrush}" StrokeThickness="1" Data="M 4 4 L 14 14 M 14 4 L 4 14"/>
+        </Grid>
+      </Button>
 
       <Border Grid.Row="2" Grid.RowSpan="2" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
               BoxShadow="inset 0 0 5 1 #3F000000" ClipToBounds="True" IsHitTestVisible="False">
