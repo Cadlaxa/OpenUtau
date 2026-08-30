@@ -120,6 +120,9 @@ namespace OpenUtau.Core.Render {
                     } else if (innerEx.Any(e => e is DllNotFoundException)) {
                         DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
                             new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>: <translate:errors.install.cpp>", flatEx)));
+                    } else if (innerEx.Any(e => e is ResamplerFailedException)) {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
+                            new MessageCustomizableException("Failed to render.", "<translate:errors.resampler.failed.message>", flatEx)));
                     } else {
                         DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
                             new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>", flatEx)));
@@ -139,8 +142,11 @@ namespace OpenUtau.Core.Render {
         // for playback
         public Tuple<MasterAdapter, List<Fader>> RenderProject(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation) {
             double startMs = project.timeAxis.TickPosToMsPos(startTick);
+            double endMs = endTick == -1
+                ? double.PositiveInfinity
+                : project.timeAxis.TickPosToMsPos(endTick);
             var renderMixdownResult = RenderMixdown(uiScheduler, ref cancellation, wait: false);
-            var master = new MasterAdapter(renderMixdownResult.Item1);
+            var master = new MasterAdapter(renderMixdownResult.Item1, endMs);
             master.SetPosition((int)(startMs * 44100 / 1000) * 2);
             return Tuple.Create(master, renderMixdownResult.Item2);
         }
