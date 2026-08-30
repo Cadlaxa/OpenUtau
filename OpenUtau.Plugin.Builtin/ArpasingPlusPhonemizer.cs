@@ -600,13 +600,13 @@ namespace OpenUtau.Plugin.Builtin {
                 var vcr3 = $"{prevV} {cc[0]} {t}";
                 var vcr4 = $"{prevV}{cc[0]}{t}";
                 if (!RomajiException.Contains(cc[0])) {
-                    if (HasOto(vcr, ending.tone) && HasOto(ValidateAlias(vcr, ending.tone), ending.tone) || (HasOto(vcr2, ending.tone) && HasOto(ValidateAlias(vcr2, ending.tone), ending.tone))) {
+                    if (HasOto(vcr, ending.tone) || HasOto(ValidateAlias(vcr, ending.tone), ending.tone) || (HasOto(vcr2, ending.tone) || HasOto(ValidateAlias(vcr2, ending.tone), ending.tone))) {
                         TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{v} {cc[0]}", "dynEnd", ending.tone, "", t), ValidateAlias(AliasFormat($"{v} {cc[0]}", "dynEnd", ending.tone, "", t), ending.tone));
-                    } else if (HasOto(vcr3, ending.tone) && HasOto(ValidateAlias(vcr3, ending.tone), ending.tone)) {
+                    } else if (HasOto(vcr3, ending.tone) || HasOto(ValidateAlias(vcr3, ending.tone), ending.tone)) {
                         TryAddPhoneme(phonemes, ending.tone, vcr3, ValidateAlias(vcr3, ending.tone));
-                    } else if (HasOto(vcr4, ending.tone) && HasOto(ValidateAlias(vcr4, ending.tone), ending.tone)) {
+                    } else if (HasOto(vcr4, ending.tone) || HasOto(ValidateAlias(vcr4, ending.tone), ending.tone)) {
                         TryAddPhoneme(phonemes, ending.tone, vcr4, ValidateAlias(vcr4, ending.tone));
-                    } else if (HasOto(vc, ending.tone) && HasOto(ValidateAlias(vc, ending.tone), ending.tone)) {
+                    } else if (HasOto(vc, ending.tone) || HasOto(ValidateAlias(vc, ending.tone), ending.tone)) {
                         TryAddPhoneme(phonemes, ending.tone, vc, ValidateAlias(vc, ending.tone));
                         if (vc.Contains(cc[0])) {
                             TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{cc[0]}", "ending", ending.tone, "", t), ValidateAlias(AliasFormat($"{cc[0]}", "ending", ending.tone, "", t), ending.tone));
@@ -641,15 +641,15 @@ namespace OpenUtau.Plugin.Builtin {
                                 TryAddPhoneme(phonemes, ending.tone, AliasFormat($"{v}", "ending", ending.tone, "", t), ValidateAlias(AliasFormat($"{v}", "ending", ending.tone, "", t), ending.tone));
                             }
                             break;
-                        } else if (HasOto(vcc, ending.tone) && HasOto(ValidateAlias(vcc, ending.tone), ending.tone) && lastC == 1) {
+                        } else if (HasOto(vcc, ending.tone) || HasOto(ValidateAlias(vcc, ending.tone), ending.tone) && lastC == 1) {
                             TryAddPhoneme(phonemes, ending.tone, vcc, ValidateAlias(vcc, ending.tone));
                             firstC = 1;
                             break;
-                        } else if (HasOto(vcc2, ending.tone) && HasOto(ValidateAlias(vcc2, ending.tone), ending.tone) && lastC == 1) {
+                        } else if (HasOto(vcc2, ending.tone) || HasOto(ValidateAlias(vcc2, ending.tone), ending.tone) && lastC == 1) {
                             TryAddPhoneme(phonemes, ending.tone, vcc2, ValidateAlias(vcc2, ending.tone));
                             firstC = 1;
                             break;
-                        } else if (!phoneticHint && (HasOto(vcc3, ending.tone) && HasOto(ValidateAlias(vcc3, ending.tone), ending.tone))) {
+                        } else if (!phoneticHint && (HasOto(vcc3, ending.tone) || HasOto(ValidateAlias(vcc3, ending.tone), ending.tone))) {
                             TryAddPhoneme(phonemes, ending.tone, vcc3, ValidateAlias(vcc3, ending.tone));
                             if (vcc3.EndsWith(cc.Last()) && lastC == 1) {
                                 if (consonants.Contains(cc.Last())) {
@@ -658,7 +658,7 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                             firstC = 1;
                             break;
-                        } else if (!phoneticHint && (HasOto(vcc4, ending.tone) && HasOto(ValidateAlias(vcc4, ending.tone), ending.tone))) {
+                        } else if (!phoneticHint && (HasOto(vcc4, ending.tone) || HasOto(ValidateAlias(vcc4, ending.tone), ending.tone))) {
                             TryAddPhoneme(phonemes, ending.tone, vcc4, ValidateAlias(vcc4, ending.tone));
                             if (vcc4.EndsWith(cc.Last()) && lastC == 1) {
                                 if (consonants.Contains(cc.Last())) {
