@@ -204,25 +204,33 @@ namespace OpenUtau.Plugin.Builtin {
             base.SetUp(notes, project, track);
             utrack = track;
             int trackNo = project.tracks.IndexOf(track);
+            if (trackNo < 0 && track != null) {
+                trackNo = track.TrackNo;
+            }
             var part = project.parts.OfType<UVoicePart>()
-                .FirstOrDefault(p => p.trackNo == trackNo);
+                .FirstOrDefault(p => p.trackNo == trackNo)
+                ?? project.parts.OfType<UVoicePart>().FirstOrDefault();
+
             unotes = part?.notes.OrderBy(n => n.position).ToList() ?? new List<UNote>();
         }
-        private float CalcConvel(UNote note) {
-            if (note == null) return 100f;
-            float baseConvel = 100f * ((float)timeAxis.GetBpmAtTick(note.position) / 120f);
+
+        private float CalcConvel(int position, int duration) {
+            double noteBpm = timeAxis != null ? timeAxis.GetBpmAtTick(position) : (bpm > 0 ? bpm : 120.0);
+            float baseConvel = 100f * ((float)noteBpm / 120f);
             float finalConvel;
             var trackVel = utrack?.TrackExpressions?.FirstOrDefault(e => e.abbr == "vel");
             float velMin = trackVel?.min ?? 0f;
             float velMax = trackVel?.max ?? 200f;
             
-            if (note.duration >= 480)
-                finalConvel = baseConvel + (50f - 100f * ((float)note.duration / 960f));
+            if (duration >= 480)
+                finalConvel = baseConvel + (50f - 100f * ((float)duration / 960f));
             else
-                finalConvel = baseConvel + (100f - (100f * ((float)note.duration / 480f)));
+                finalConvel = baseConvel + (100f - (100f * ((float)duration / 480f)));
             
             return Math.Clamp(finalConvel, velMin, velMax);
         }
+
+        private float CalcConvel(UNote note) => CalcConvel(note.position, note.duration);
 
         private (UNote un, UNote unNext) UNoteAt(int absPos) {
             if (unotes.Count == 0) return (null, null);
@@ -260,6 +268,7 @@ namespace OpenUtau.Plugin.Builtin {
                 (new Regex($@"^{V}$"),        "V"),
             };
         }
+
         private string Classify(string alias) {
             if (patterns == null) InitPatterns();
             if (starlightccs.Contains(alias)) return "codaCC";
@@ -267,16 +276,25 @@ namespace OpenUtau.Plugin.Builtin {
                 if (pattern.IsMatch(alias)) return type;
             return "Unknown";
         }
+
         protected override void SyncAttributes(Note[] notes, List<string> phonemeSymbols, int startIndex, List<PhonemeAttributes> attrList) {
-            if (unotes.Count == 0 || !useConvel || phonemeSymbols.Count == 0) return;
+            if (!useConvel || phonemeSymbols.Count == 0 || notes == null || notes.Length == 0) return;
 
-            var (curUN, nextUN) = UNoteAt(notes[0].position);
-            int curIdx = curUN != null ? unotes.IndexOf(curUN) : -1;
-            var prevUN = curIdx > 0 ? unotes[curIdx - 1] : null;
+            float noteVel;
+            float? prevVel = null;
+            float? nextVel = null;
 
-            float noteVel = CalcConvel(curUN);
-            var prevVel = prevUN != null ? (float?)CalcConvel(prevUN) : null;
-            var nextVel = nextUN != null ? (float?)CalcConvel(nextUN) : null;
+            if (unotes.Count > 0) {
+                var (curUN, nextUN) = UNoteAt(notes[0].position);
+                int curIdx = curUN != null ? unotes.IndexOf(curUN) : -1;
+                var prevUN = curIdx > 0 ? unotes[curIdx - 1] : null;
+
+                noteVel = curUN != null ? CalcConvel(curUN) : CalcConvel(notes[0].position, notes[0].duration);
+                if (prevUN != null) prevVel = CalcConvel(prevUN);
+                if (nextUN != null) nextVel = CalcConvel(nextUN);
+            } else {
+                noteVel = CalcConvel(notes[0].position, notes[0].duration);
+            }
 
             for (int i = 0; i < phonemeSymbols.Count; i++) {
                 int globalIdx = startIndex + i;
@@ -303,10 +321,10 @@ namespace OpenUtau.Plugin.Builtin {
                         break;
                 }
 
-                if (!attr.consonantStretchRatio.HasValue) {
-                    attr.consonantStretchRatio = Math.Pow(2.0, (100.0 - vel) / 100.0);
-                }
+                // Apply velocity stretch factor dynamically
+                attr.consonantStretchRatio = Math.Pow(2.0, (100.0 - vel) / 100.0);
 
+                // Propagate forward across coda consonant clusters
                 prevVel = vel;
 
                 if (existingIdx >= 0) attrList[existingIdx] = attr;
