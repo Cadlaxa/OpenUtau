@@ -180,7 +180,6 @@ namespace OpenUtau.Plugin.Builtin {
                 return HandleError();
             }
 
-            // Pre-pass: Compute predicted base phonemes for each syllable
             string[] predictedBases = new string[syllables.Length];
             for (int i = 0; i < syllables.Length; i++) {
                 var mod = ApplyBoundaryReplacements(syllables[i]);
@@ -192,14 +191,12 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            var phonemes = new List<Phoneme>();
-            int globalPhonemeIndex = 0;
+            var allPhonemeSymbols = new List<string>();
+            var syllablePhonemeBuckets = new List<(List<string> symbols, int duration, int position, bool isEnding, int tone)>();
             string runningPrevBasePhoneme = string.Empty;
 
             for (int i = 0; i < syllables.Length; i++) {
                 var syllable = syllables[i];
-                
-                // Populate base lookaround
                 syllable.prevBasePhoneme = runningPrevBasePhoneme;
                 syllable.nextBasePhoneme = (i + 1 < syllables.Length) ? predictedBases[i + 1] : string.Empty;
 
@@ -217,27 +214,55 @@ namespace OpenUtau.Plugin.Builtin {
                     };
                     
                     var endingPhonemes = ProcessEnding(ending);
-                    if (endingPhonemes != null) {
-                        phonemes.AddRange(MakePhonemes(endingPhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex));
-                        globalPhonemeIndex += endingPhonemes.Count;
+                    if (endingPhonemes != null && endingPhonemes.Count > 0) {
+                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone));
+                        allPhonemeSymbols.AddRange(endingPhonemes);
                     }
                     runningPrevBasePhoneme = modifiedSyllable.v;
                     continue; 
                 }
                 
                 var syllablePhonemes = ProcessSyllable(modifiedSyllable);
-                var madePhonemes = MakePhonemes(syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, mainNote.phonemeAttributes, globalPhonemeIndex).ToList();
-                int currentSyllablePhonemeCount = syllablePhonemes.Count;
+                if (syllablePhonemes != null && syllablePhonemes.Count > 0) {
+                    syllablePhonemeBuckets.Add((syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone));
+                    allPhonemeSymbols.AddRange(syllablePhonemes);
+                    runningPrevBasePhoneme = syllablePhonemes.LastOrDefault() ?? "";
+                }
+            }
+
+            if (!nextNeighbour.HasValue) {
+                var tryEnding = MakeEnding(notes);
+                if (tryEnding.HasValue) {
+                    var ending = tryEnding.Value;
+                    var modifiedEnding = ApplyBoundaryReplacements(ending);
+                    var endingPhonemes = ProcessEnding(modifiedEnding);
+
+                    if (endingPhonemes != null && endingPhonemes.Count > 0) {
+                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedEnding.duration, modifiedEnding.position, true, ending.tone));
+                        allPhonemeSymbols.AddRange(endingPhonemes);
+                    }
+                }
+            }
+
+            var workingAttributes = mainNote.phonemeAttributes != null
+                ? mainNote.phonemeAttributes.ToList()
+                : new List<PhonemeAttributes>();
+
+            SyncAttributes(notes, allPhonemeSymbols, 0, workingAttributes);
+
+            var phonemes = new List<Phoneme>();
+            int globalPhonemeIndex = 0;
+
+            foreach (var bucket in syllablePhonemeBuckets) {
+                var madePhonemes = MakePhonemes(bucket.symbols, bucket.duration, bucket.position, bucket.isEnding, bucket.tone, workingAttributes.ToArray(), globalPhonemeIndex).ToList();
+                int currentSyllablePhonemeCount = bucket.symbols.Count;
 
                 var basePhoneme = madePhonemes.LastOrDefault();
                 string baseAlias = basePhoneme.phoneme ?? "";
-                runningPrevBasePhoneme = baseAlias;
 
-                if (vowelSustains.TryGetValue(baseAlias, out var sustainData) || 
-                    vowelSustains.TryGetValue(modifiedSyllable.v, out sustainData)) {
-                    
-                    string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, modifiedSyllable.tone);
-                    if (HasOto(mappedSustain, modifiedSyllable.tone) || HasOto(sustainData.sustain, modifiedSyllable.tone)) {
+                if (vowelSustains.TryGetValue(baseAlias, out var sustainData)) {
+                    string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, bucket.tone);
+                    if (HasOto(mappedSustain, bucket.tone) || HasOto(sustainData.sustain, bucket.tone)) {
                         int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
                         madePhonemes.Add(new Phoneme {
                             phoneme = sustainData.sustain,
@@ -251,36 +276,37 @@ namespace OpenUtau.Plugin.Builtin {
                 globalPhonemeIndex += currentSyllablePhonemeCount;
             }
 
-            if (!nextNeighbour.HasValue) {
-                var tryEnding = MakeEnding(notes);
-                if (tryEnding.HasValue) {
-                    var ending = tryEnding.Value;
-                    var modifiedEnding = ApplyBoundaryReplacements(ending);
-                    var endingPhonemes = ProcessEnding(modifiedEnding);
-
-                    if (endingPhonemes != null) {
-                        phonemes.AddRange(MakePhonemes(endingPhonemes, modifiedEnding.duration, modifiedEnding.position, true, ending.tone, mainNote.phonemeAttributes, globalPhonemeIndex));
-                        globalPhonemeIndex += endingPhonemes.Count; 
-                    }
-                }
-            }
-
             var phonemesArray = phonemes.ToArray();
-            CustomParameters(notes, prev, next, prevNeighbour, nextNeighbour, prevNeighbours, phonemesArray);
-            var finalPhonemes = AssignAllAffixes(phonemesArray.ToList(), notes, prevNeighbours);
+            var finalPhonemes = AssignAllAffixes(phonemesArray.ToList(), notes, prevNeighbours, workingAttributes);
             return new Result() {
                 phonemes = finalPhonemes
             };
         }
 
-        protected virtual Phoneme[] AssignAllAffixes(List<Phoneme> phonemes, Note[] notes, Note[] prevs) {
+        protected virtual Phoneme[] AssignAllAffixes(List<Phoneme> phonemes, Note[] notes, Note[] prevs, List<PhonemeAttributes> dynamicAttributes = null) {
             int noteIndex = 0;
             for (int i = 0; i < phonemes.Count; i++) {
-                var attr = notes[0].phonemeAttributes?.FirstOrDefault(attr => attr.index == i) ?? default;
-                string alt = (attr.alternate ?? GetParentAlternate())?.ToString() ?? string.Empty;
+                var attr = dynamicAttributes?.FirstOrDefault(a => a.index == i) 
+                    ?? notes[0].phonemeAttributes?.FirstOrDefault(a => a.index == i) 
+                    ?? default;
+
+                var phoneme = phonemes[i];
+
+                int? altValue = attr.alternate ?? GetParentAlternate();
+                string alt = altValue?.ToString();
+
+                if (string.IsNullOrEmpty(alt) && phoneme.expressions != null) {
+                    var altExpr = phoneme.expressions.FirstOrDefault(e => e.abbr == "alt");
+                    if (altExpr.abbr == "alt" && altExpr.value > 0) {
+                        altValue = (int)altExpr.value;
+                        alt = altValue.ToString();
+                    }
+                }
+                alt ??= string.Empty;
+
                 string color = attr.voiceColor ?? GetParentVoiceColor();
                 int toneShift = attr.toneShift ?? GetParentToneShift();
-                var phoneme = phonemes[i];
+                
                 while (noteIndex < notes.Length - 1 && notes[noteIndex].position - notes[0].position < phoneme.position) {
                     noteIndex++;
                 }
@@ -298,9 +324,26 @@ namespace OpenUtau.Plugin.Builtin {
                 var validatedAlias = phoneme.phoneme;
                 if (validatedAlias != null) {
                     validatedAlias = ValidateAliasIfNeeded(validatedAlias, tone + toneShift);
-                    validatedAlias = MapPhoneme(validatedAlias, tone + toneShift, color, alt, singer);
+                    string mapped = MapPhoneme(validatedAlias, tone + toneShift, color, alt, singer);
 
-                    phoneme.phoneme = validatedAlias;
+                    if (!string.IsNullOrEmpty(alt) && alt != "0" && mapped == validatedAlias) {
+                        if (singer.TryGetMappedOto($"{validatedAlias}{alt}", tone + toneShift, color, out var altOto)) {
+                            mapped = altOto.Alias;
+                        }
+                    }
+
+                    phoneme.phoneme = mapped;
+
+                    // Write alternate into expressions so the UI slider updates
+                    if (altValue.HasValue && altValue.Value > 0) {
+                        var exprList = phoneme.expressions != null 
+                            ? new List<PhonemeExpression>(phoneme.expressions) 
+                            : new List<PhonemeExpression>();
+
+                        exprList.RemoveAll(e => e.abbr == "alt");
+                        exprList.Add(new PhonemeExpression { abbr = "alt", value = altValue.Value });
+                        phoneme.expressions = exprList;
+                    }
                 } else {
                     phoneme.phoneme = null;
                     phoneme.position = 0;
@@ -1121,9 +1164,14 @@ namespace OpenUtau.Plugin.Builtin {
             var validatedAlias = ValidateAliasIfNeeded(alias, tone + toneShift);
             var mappedAlias = MapPhoneme(validatedAlias, tone + toneShift, color, alt, singer);
 
+            // Direct OTO lookup fallback for non-subbank numeric alternates
+            if (!string.IsNullOrEmpty(alt) && alt != "0" && mappedAlias == validatedAlias) {
+                if (singer.TryGetMappedOto($"{validatedAlias}{alt}", tone + toneShift, color, out var altOto)) {
+                    mappedAlias = altOto.Alias;
+                }
+            }
+
             if (singer.TryGetMappedOto(mappedAlias, tone + toneShift, out var oto)) {
-                // If overlap is negative, add that absolute duration to the preutterance 
-                // to ensure the entire consonant timing is preserved.
                 if (oto.Overlap < 0) {
                     return oto.Preutter - oto.Overlap;
                 }
@@ -1234,6 +1282,30 @@ namespace OpenUtau.Plugin.Builtin {
         #region helpers
 
         /// <summary>
+        /// Child phonemizers can override this hook to dynamically populate attributes (alts, vel, etc.) 
+        /// before timing and layout calculations occur.
+        /// </summary>
+        protected virtual void SyncAttributes(Note[] notes, List<string> phonemeSymbols, int startIndex, List<PhonemeAttributes> attrList) {
+            for (int i = 0; i < phonemeSymbols.Count; i++) {
+                int globalIdx = startIndex + i;
+                int existingIdx = attrList.FindIndex(a => a.index == globalIdx);
+                var attr = existingIdx >= 0 ? attrList[existingIdx] : new PhonemeAttributes { index = globalIdx };
+
+                attr = GetDynamicPhonemeAttributes(phonemeSymbols[i], globalIdx, attr, notes);
+
+                if (existingIdx >= 0) attrList[existingIdx] = attr;
+                else attrList.Add(attr);
+            }
+        }
+
+        /// <summary>
+        /// Hook for child phonemizers to compute dynamic attributes natively per phoneme alias.
+        /// </summary>
+        protected virtual PhonemeAttributes GetDynamicPhonemeAttributes(string alias, int index, PhonemeAttributes currentAttr, Note[] notes) {
+            return currentAttr;
+        }
+
+        /// <summary>
         /// May be used if you have different logic for short and long notes
         /// </summary>
         /// <param name="syllable"></param>
@@ -1243,14 +1315,6 @@ namespace OpenUtau.Plugin.Builtin {
         }
         protected bool IsShort(Ending ending) {
             return TickToMs(ending.duration) < GetTransitionBasicLengthMs() * 2;
-        }
-
-        /// <summary>
-        /// Native API for child phonemizers to automatically apply expressions (vel, alt, clr, etc.)
-        /// This is called internally after all phonemes are generated and aligned, right before returning to the engine.
-        /// </summary>
-        protected virtual void CustomParameters(Note[] notes, Note? prev, Note? next, Note? prevNeighbour, Note? nextNeighbour, Note[] prevNeighbours, Phoneme[] phonemes) {
-            // Base implementation does nothing. Child classes override this to implement custom logic.
         }
 
         /// <summary>
@@ -1854,16 +1918,26 @@ namespace OpenUtau.Plugin.Builtin {
                 var phonemeI = phonemeSymbols.Count - i - 1;
                 var globalIndex = globalStartIndex + phonemeI;
                 var validatedAlias = phonemeSymbols[phonemeI];
+                var pAttr = attributes?.FirstOrDefault(a => a.index == globalIndex) ?? default;
 
                 if (validatedAlias != null) {
+                    var exprList = new List<PhonemeExpression>();
+                    if (pAttr.consonantStretchRatio.HasValue) {
+                        float vel = (float)(100.0 - 100.0 * Math.Log2(pAttr.consonantStretchRatio.Value));
+                        exprList.Add(new PhonemeExpression { abbr = "vel", value = vel });
+                    }
+                    if (pAttr.alternate.HasValue && pAttr.alternate.Value > 0) {
+                        exprList.Add(new PhonemeExpression { abbr = "alt", value = pAttr.alternate.Value });
+                    }
+
                     phonemes[phonemeI] = new Phoneme {
                         phoneme = validatedAlias,
-                        index = globalIndex 
+                        index = globalIndex,
+                        expressions = exprList.Count > 0 ? exprList : null
                     };
                     
                     if (i == 0) {
                         if (isEnding) {
-                            var pAttr = attributes?.FirstOrDefault(a => a.index == globalIndex) ?? default;
                             double baseLengthMs;
                             double stretch = pAttr.consonantStretchRatio ?? 1.0;
                             
