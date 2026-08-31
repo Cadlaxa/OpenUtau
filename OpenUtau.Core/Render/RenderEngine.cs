@@ -57,6 +57,11 @@ namespace OpenUtau.Core.Render {
 
         // for playback or export
         public Tuple<WaveMix, List<Fader>> RenderMixdown(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, bool wait = false) {
+            return RenderMixdown(uiScheduler, ref cancellation, wait, applyMixFx: true);
+        }
+
+        // for playback or export -- explicit MixFx control (export dialog passes false to keep dry stems)
+        public Tuple<WaveMix, List<Fader>> RenderMixdown(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, bool wait, bool applyMixFx) {
             var newCancellation = new CancellationTokenSource();
             var oldCancellation = Interlocked.Exchange(ref cancellation, newCancellation);
             if (oldCancellation != null) {
@@ -66,6 +71,10 @@ namespace OpenUtau.Core.Render {
             double startMs = project.timeAxis.TickPosToMsPos(startTick);
             double endMs = endTick == -1 ? double.PositiveInfinity : project.timeAxis.TickPosToMsPos(endTick);
             var faders = new List<Fader>();
+            // Each track is wrapped with its own UMixFx (no global FX bus).
+            // Tracks with MixFx == null or Enabled = false pass through unchanged
+            // (zero-overhead bypass).  All tracks sum into a single mix.
+            var trackOutputs = new List<ISignalSource>();
             var requests = PrepareRequests()
                 .Where(request => request.sources.Length > 0 && request.sources.Max(s => s.EndMs) > startMs && (double.IsPositiveInfinity(endMs) || request.sources.Min(s => s.offsetMs) < endMs))
                 .ToArray();
@@ -91,6 +100,11 @@ namespace OpenUtau.Core.Render {
                 fader.Pan = (float)track.Pan;
                 fader.SetScaleToTarget();
                 faders.Add(fader);
+
+                ISignalSource trackOut = applyMixFx
+                    ? MixFxSource.WrapWith(fader, track.MixFx)
+                    : (ISignalSource)fader;
+                trackOutputs.Add(trackOut);
             }
             var task = Task.Run(() => {
                 RenderRequests(requests, newCancellation, playing: !wait);
@@ -106,6 +120,9 @@ namespace OpenUtau.Core.Render {
                     } else if (innerEx.Any(e => e is DllNotFoundException)) {
                         DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
                             new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>: <translate:errors.install.cpp>", flatEx)));
+                    } else if (innerEx.Any(e => e is ResamplerFailedException)) {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
+                            new MessageCustomizableException("Failed to render.", "<translate:errors.resampler.failed.message>", flatEx)));
                     } else {
                         DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
                             new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>", flatEx)));
@@ -115,14 +132,21 @@ namespace OpenUtau.Core.Render {
             if (wait) {
                 task.Wait();
             }
-            return Tuple.Create(new WaveMix(faders), faders);
+            // Build the final mix.  All tracks (FX-wrapped or dry) sum into
+            // a single WaveMix.  Bypass-as-pointer-identity in WrapWith keeps
+            // disabled tracks zero-cost.
+            var resultMix = new WaveMix(trackOutputs);
+            return Tuple.Create(resultMix, faders);
         }
 
         // for playback
         public Tuple<MasterAdapter, List<Fader>> RenderProject(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation) {
             double startMs = project.timeAxis.TickPosToMsPos(startTick);
+            double endMs = endTick == -1
+                ? double.PositiveInfinity
+                : project.timeAxis.TickPosToMsPos(endTick);
             var renderMixdownResult = RenderMixdown(uiScheduler, ref cancellation, wait: false);
-            var master = new MasterAdapter(renderMixdownResult.Item1);
+            var master = new MasterAdapter(renderMixdownResult.Item1, endMs);
             master.SetPosition((int)(startMs * 44100 / 1000) * 2);
             return Tuple.Create(master, renderMixdownResult.Item2);
         }

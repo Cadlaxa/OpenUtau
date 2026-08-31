@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Core.Ustx;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace OpenUtau.App.Controls {
     class TrackHeaderCanvas : Canvas {
@@ -95,6 +95,14 @@ namespace OpenUtau.App.Controls {
                             } else if (track.TrackNo == e.trackNo) {
                                 header.ViewModel.ToggleMute();
                             }
+                        }
+                    }
+                });
+            MessageBus.Current.Listen<MixFxChangedNotification>()
+                .Subscribe(e => {
+                    foreach (var (track, header) in trackHeaders) {
+                        if (header.ViewModel != null && track.TrackNo == e.trackNo) {
+                            header.ViewModel.ManuallyRaise();
                         }
                     }
                 });

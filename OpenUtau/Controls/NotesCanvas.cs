@@ -9,6 +9,7 @@ using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace OpenUtau.App.Controls {
     class NotesCanvas : Control {
@@ -129,6 +130,7 @@ namespace OpenUtau.App.Controls {
             MessageBus.Current.Listen<PartRefreshEvent>()
                 .Subscribe(_ => RefreshGhostNotes());
             this.WhenAnyValue(x => x.Part)
+                .OfType<UVoicePart>()
                 .Subscribe(_ => RefreshGhostNotes());
         }
 
@@ -345,7 +347,7 @@ namespace OpenUtau.App.Controls {
             double p0Tone = note.AdjustedTone + pts[0].Y / 10.0;
             Point p0 = viewModel.TickToneToPoint(p0Tick, p0Tone - 0.5);
             Point p_1 = p0;
-            points.Clear();
+            var points = new Points();          
             points.Add(p0);
 
             var brush = note.pitch.snapFirst ? ThemeManager.AccentBrush3 : null;
@@ -403,8 +405,8 @@ namespace OpenUtau.App.Controls {
                     context.DrawGeometry(null, pen, pointGeometry);
                 }
             }
-            polylineGeometry.Points = points;
-            context.DrawGeometry(null, pen, polylineGeometry);
+            var geometry = new PolylineGeometry(points, false);
+            context.DrawGeometry(null, pen, geometry);
         }
 
         private void RenderVibrato(UNote note, NotesViewModel viewModel, DrawingContext context) {
@@ -417,15 +419,15 @@ namespace OpenUtau.App.Controls {
             float nPeriod = (float)viewModel.Project.timeAxis.TicksBetweenMsPos(note.PositionMs, note.PositionMs + vibrato.period) / note.duration;
             float nPos = vibrato.NormalizedStart;
             var point = vibrato.Evaluate(nPos, nPeriod, note);
-            points.Clear();
+            var points = new Points();
             points.Add(viewModel.TickToneToPoint(point.X, point.Y - 0.5));
             while (nPos < 1) {
                 nPos = Math.Min(1, nPos + nPeriod / 16);
                 point = vibrato.Evaluate(nPos, nPeriod, note);
                 points.Add(viewModel.TickToneToPoint(point.X, point.Y - 0.5));
             }
-            polylineGeometry.Points = points;
-            context.DrawGeometry(null, pen, polylineGeometry);
+            var geometry = new PolylineGeometry(points, false);
+            context.DrawGeometry(null, pen, geometry);
         }
 
         private readonly Geometry vibratoIcon = Geometry.Parse("M-6.5 1 L-6 1.5 L-4.5 0 L-2 2.5 L0.5 0 L3 2.5 L6.5 -1 L6 -1.5 L4.5 0 L2 -2.5 L-0.5 0 L-3 -2.5 Z");
@@ -482,14 +484,14 @@ namespace OpenUtau.App.Controls {
                     int pitchStart = phrase.position - phrase.leading - Part.position;
                     int startIdx = (int)Math.Max(0, (leftTick - pitchStart) / 5);
                     int endIdx = (int)Math.Min(phrase.pitches.Length, (rightTick - pitchStart) / 5 + 1);
-                    points.Clear();
+                    var points = new Points();
                     for (int i = startIdx; i < endIdx; ++i) {
                         int t = pitchStart + i * 5;
                         float p = phrase.pitches[i];
                         points.Add(viewModel.TickToneToPoint(t, p / 100 - 0.5));
                     }
-                    polylineGeometry.Points = points;
-                    context.DrawGeometry(null, pen, polylineGeometry);
+                    var geometry = new PolylineGeometry(points, false);
+                    context.DrawGeometry(null, pen, geometry);
                 }
             }
         }
