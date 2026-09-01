@@ -110,7 +110,7 @@ namespace OpenUtau.Core.DiffSinger {
                                 result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0));
                             }
                         } catch (Exception e) {
-                            Log.Error(e, "Failed to render.");
+                            Log.Error(e, "Failed to read cached render, re-rendering.");
                         }
                     }
                     if (result.samples == null) {
@@ -143,11 +143,27 @@ namespace OpenUtau.Core.DiffSinger {
             if(String.IsNullOrEmpty(singer.dsConfig.vocoder) ||
                 String.IsNullOrEmpty(singer.dsConfig.acoustic) ||
                 String.IsNullOrEmpty(singer.dsConfig.phonemes)){
+                if(singer.Errors.Count > 0) {
+                    throw new Exception(singer.Errors[0]);
+                }
                 throw new Exception("Invalid dsconfig.yaml. Please ensure that dsconfig.yaml contains keys \"vocoder\", \"acoustic\" and \"phonemes\".");
             }
 
             var vocoder = singer.getVocoder();
             //mel specification validity checks
+            //num_mel_bins must be a sane vocoder value. This is a hard-coded
+            //upper bound (see DsVocoderConfig.MaxMelBins): voicebank authors
+            //cannot override it. Not checking this lets a malformed vocoder
+            //smuggle in a non-vocoder onnx model that requires an unusually
+            //large mel tensor for inputs.
+            if (vocoder.num_mel_bins < 1 || vocoder.num_mel_bins > DsVocoderConfig.MaxMelBins) {
+                throw new Exception(
+                    $"Vocoder num_mel_bins must be between 1 and {DsVocoderConfig.MaxMelBins}, but got {vocoder.num_mel_bins}");
+            }
+            if (singer.dsConfig.num_mel_bins < 1 || singer.dsConfig.num_mel_bins > DsVocoderConfig.MaxMelBins) {
+                throw new Exception(
+                    $"Acoustic model num_mel_bins must be between 1 and {DsVocoderConfig.MaxMelBins}, but got {singer.dsConfig.num_mel_bins}");
+            }
             //mel base must be 10 or e
             if (vocoder.mel_base != "10" && vocoder.mel_base != "e") {
                 throw new Exception(
@@ -335,6 +351,10 @@ namespace OpenUtau.Core.DiffSinger {
                 || singer.dsConfig.useEnergyEmbed
                 || singer.dsConfig.useVoicingEmbed
                 || singer.dsConfig.useTensionEmbed) {
+                if(!singer.HasVariancePredictor){
+                    throw new Exception(
+                        "This singer has no variance predictor but its acoustic model requires one.");
+                }
                 var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
                 lock(variancePredictor){
@@ -363,7 +383,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var energy = predictedEnergy.Zip(userEnergy, varianceDeltaFunctions[ENE]).ToArray();
+                    var energy = predictedEnergy.Zip(userEnergy, varianceDeltaFunctions[ENE])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("energy",
                         new DenseTensor<float>(energy, new int[] { energy.Length })
                         .Reshape(new int[] { 1, energy.Length })));
@@ -381,7 +402,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var breathiness = predictedBreathiness.Zip(userBreathiness, varianceDeltaFunctions[Format.Ustx.BREC]).ToArray();
+                    var breathiness = predictedBreathiness.Zip(userBreathiness, varianceDeltaFunctions[Format.Ustx.BREC])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("breathiness",
                         new DenseTensor<float>(breathiness, new int[] { breathiness.Length })
                         .Reshape(new int[] { 1, breathiness.Length })));
@@ -399,7 +421,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var voicing = predictedVoicing.Zip(userVoicing, varianceDeltaFunctions[Format.Ustx.VOIC]).ToArray();
+                    var voicing = predictedVoicing.Zip(userVoicing, varianceDeltaFunctions[Format.Ustx.VOIC])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("voicing",
                         new DenseTensor<float>(voicing, new int[] { voicing.Length })
                         .Reshape(new int[] { 1, voicing.Length })));
@@ -417,7 +440,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var tension = predictedTension.Zip(userTension, varianceDeltaFunctions[Format.Ustx.TENC]).ToArray();
+                    var tension = predictedTension.Zip(userTension, varianceDeltaFunctions[Format.Ustx.TENC])
+                        .Select(x => Math.Clamp(x, -10f, 10f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
                         new DenseTensor<float>(tension, new int[] { tension.Length })
                         .Reshape(new int[] { 1, tension.Length })));
@@ -485,6 +509,11 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new Exception($"The shape of vocoder output should be (1, length), but the actual shape is {DiffSingerUtils.ShapeString(samplesTensor)}");
             }
             var samples = samplesTensor.ToArray();
+            if (vocoder.sample_rate != 44100) {
+                var signal = new NWaves.Signals.DiscreteSignal(vocoder.sample_rate, samples);
+                signal = NWaves.Operations.Operation.Resample(signal, 44100);
+                samples = signal.Samples;
+            }
             return samples;
         }
 
@@ -496,6 +525,38 @@ namespace OpenUtau.Core.DiffSinger {
             var pitchPredictor = singer.getPitchPredictor()!;
             lock (pitchPredictor) {
                 return pitchPredictor.Process(phrase);
+            }
+        }
+
+        public RenderPitchResult LoadRenderedPitch(RenderPhrase phrase, HashSet<int> selectedNotePositions) {
+            if (!Preferences.Default.DiffSingerLocalRetaking) {
+                return LoadRenderedPitch(phrase);
+            }
+            DiffSingerSinger singer = (DiffSingerSinger) phrase.singer;
+            if (!singer.HasPitchPredictor) {
+                throw new Exception("This singer has no pitch predictor.");
+            }
+            var pitchPredictor = singer.getPitchPredictor()!;
+            var noteRelativePositions = new int[phrase.notes.Length];
+            for (int i = 0; i < phrase.notes.Length; i++) {
+                noteRelativePositions[i] = phrase.notes[i].position;
+            }
+            var retakeNoteIndexes = DiffSingerRetake.MapSelectedPositionsToNoteIndexes(
+                phrase.position, noteRelativePositions, selectedNotePositions);
+            if (retakeNoteIndexes.Count == 0 || retakeNoteIndexes.Count == phrase.notes.Length) {
+                lock (pitchPredictor) {
+                    return pitchPredictor.Process(phrase);
+                }
+            }
+            var frameMs = pitchPredictor.FrameMs;
+            int headFrames = DiffSingerUtils.headFrames;
+            int tailFrames = DiffSingerUtils.tailFrames;
+            var ph_dur = DiffSingerUtils.PaddedPhoneDurations(phrase, frameMs, headFrames, tailFrames);
+            int totalFrames = ph_dur.Sum();
+            var existingPitch = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames,
+                x => x * 0.01).Select(f => (float)f).ToArray();
+            lock (pitchPredictor) {
+                return pitchPredictor.Process(phrase, retakeNoteIndexes, existingPitch);
             }
         }
 

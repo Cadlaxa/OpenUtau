@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Core;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using Serilog;
 
 namespace OpenUtau.App.Controls {

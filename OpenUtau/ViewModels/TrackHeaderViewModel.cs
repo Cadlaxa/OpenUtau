@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Linq;
+
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
@@ -15,36 +14,38 @@ using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
+using ReactiveUI.Primitives;
+using ReactiveUI.SourceGenerators;
 using Serilog;
 
 namespace OpenUtau.App.ViewModels {
-    public class TrackHeaderViewModel : ViewModelBase, IActivatableViewModel {
+    public partial class TrackHeaderViewModel : ViewModelBase, IActivatableViewModel {
         public int TrackNo => track.TrackNo + 1;
         public USinger Singer => track.Singer;
         public Phonemizer Phonemizer => track.Phonemizer;
         public string PhonemizerTag => track.Phonemizer.Tag;
         public Core.Render.IRenderer Renderer => track.RendererSettings.Renderer;
         public IReadOnlyList<MenuItemViewModel>? SingerMenuItems { get; set; }
-        public ReactiveCommand<USinger, Unit> SelectSingerCommand { get; }
+        public ReactiveCommand<USinger, RxVoid> SelectSingerCommand { get; }
         public IReadOnlyList<MenuItemViewModel>? PhonemizerMenuItems { get; set; }
-        public ReactiveCommand<PhonemizerFactory, Unit> SelectPhonemizerCommand { get; }
+        public ReactiveCommand<PhonemizerFactory, RxVoid> SelectPhonemizerCommand { get; }
         public IReadOnlyList<MenuItemViewModel>? RenderersMenuItems { get; set; }
-        public ReactiveCommand<string, Unit> SelectRendererCommand { get; }
-        [Reactive] public string TrackName { get; set; } = string.Empty;
-        [Reactive] public SolidColorBrush TrackAccentColor { get; set; } = ThemeManager.GetTrackColor("Blue").AccentColor;
-        [Reactive] public TrackColor TrackColor { get; set; } = ThemeManager.GetTrackColor("Blue");
-        [Reactive] public double Volume { get; set; }
-        [Reactive] public double Pan { get; set; }
-        [Reactive] public bool Mute { get; set; }
-        [Reactive] public bool Muted { get; set; }
-        [Reactive] public bool Solo { get; set; }
-        [Reactive] public bool IsSelected { get; set; }
-        [Reactive] public Bitmap? Avatar { get; set; }
-        [Reactive] public bool IsSingerVisible { get; set; }
-        [Reactive] public bool IsPhonemizerVisible { get; set; }
-        [Reactive] public bool IsRendererVisible { get; set; }
-        [Reactive] public IBrush HeaderBorderBrush { get; set; } = ThemeManager.NeutralAccentBrushSemi;
+        public ReactiveCommand<string, RxVoid> SelectRendererCommand { get; }
+        [Reactive] public partial string TrackName { get; set; } = string.Empty;
+        [Reactive] public partial SolidColorBrush TrackAccentColor { get; set; } = ThemeManager.GetTrackColor("Blue").AccentColor;
+        [Reactive] public partial TrackColor TrackColor { get; set; } = ThemeManager.GetTrackColor("Blue");
+        [Reactive] public partial double Volume { get; set; }
+        [Reactive] public partial double Pan { get; set; }
+        [Reactive] public partial bool Mute { get; set; }
+        [Reactive] public partial bool Muted { get; set; }
+        [Reactive] public partial bool Solo { get; set; }
+        [Reactive] public partial bool IsSelected { get; set; }
+        [Reactive] public partial Bitmap? Avatar { get; set; }
+        [Reactive] public partial bool IsSingerVisible { get; set; }
+        [Reactive] public partial bool IsPhonemizerVisible { get; set; }
+        [Reactive] public partial bool IsRendererVisible { get; set; }
+        [Reactive] public partial bool MixFxEnabled { get; set; }
+        [Reactive] public partial IBrush HeaderBorderBrush { get; set; } = ThemeManager.NeutralAccentBrushSemi;
 
         public ViewModelActivator Activator { get; }
 
@@ -123,6 +124,7 @@ namespace OpenUtau.App.ViewModels {
             Mute = track.Mute;
             Muted = track.Muted;
             Solo = track.Solo;
+            MixFxEnabled = track.MixFx?.Enabled ?? false;
             this.WhenAnyValue(x => x.Volume)
                 .Subscribe(volume => {
                     track.Volume = volume;
@@ -145,6 +147,14 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(x => x.Solo)
                 .Subscribe(solo => {
                     track.Solo = solo;
+                });
+            this.WhenAnyValue(x => x.MixFxEnabled)
+                .Subscribe(enabled => {
+                    if (track.MixFx != null) {
+                        track.MixFx.Enabled = enabled;
+                    } else if (enabled) {
+                        track.MixFx = new UMixFx { Enabled = true };
+                    }
                 });
             this.WhenAnyValue(x => x.IsSelected)
                 .Subscribe(_ => RefreshSelectionStyle());
@@ -180,6 +190,7 @@ namespace OpenUtau.App.ViewModels {
             this.RaisePropertyChanged(nameof(Mute));
             JudgeMuted();
         }
+
         public void ToggleMute(bool mute) {
             if (mute) {
                 Mute = true;
@@ -486,6 +497,8 @@ namespace OpenUtau.App.ViewModels {
             this.RaisePropertyChanged(nameof(Mute));
             this.RaisePropertyChanged(nameof(Muted));
             this.RaisePropertyChanged(nameof(Solo));
+            MixFxEnabled = track.MixFx?.Enabled ?? false;
+            this.RaisePropertyChanged(nameof(MixFxEnabled));
             this.RaisePropertyChanged(nameof(Volume));
             this.RaisePropertyChanged(nameof(Pan));
             RefreshAvatar();
@@ -593,6 +606,13 @@ namespace OpenUtau.App.ViewModels {
         public void VoiceColorRemapping() {
             if (track.Singer != null && track.Singer.Found && track.VoiceColorExp != null) {
                 DocManager.Inst.ExecuteCmd(new VoiceColorRemappingNotification(track.TrackNo, false));
+            }
+        }
+
+        public void OpenMixFxDialog() {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null) {
+                var dialog = new MixFxDialog(track);
+                dialog.ShowDialog(desktop.MainWindow);
             }
         }
     }

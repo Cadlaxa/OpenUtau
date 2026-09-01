@@ -23,8 +23,10 @@ namespace OpenUtau.App.Views {
             WindowState = (WindowState)Preferences.Default.PianorollWindowSize.State;
         }
 
-        public void WindowGotFocus(object sender, GotFocusEventArgs e) {
-            pianoRoll.Focus();
+        public void WindowGotFocus(object sender, FocusChangedEventArgs e) {
+            if (e.Source is PianoRollDetachedWindow) {
+                pianoRoll.Focus();
+            }
         }
 
         public void WindowClosing(object? sender, WindowClosingEventArgs e) {

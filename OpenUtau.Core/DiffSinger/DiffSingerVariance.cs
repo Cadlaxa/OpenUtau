@@ -35,15 +35,20 @@ namespace OpenUtau.Core.DiffSinger{
         IG2p g2p;
         float frameMs;
         DiffSingerSpeakerEmbedManager speakerEmbedManager;
+        readonly Dictionary<ulong, VariancePatchState> variancePatchStates = new Dictionary<ulong, VariancePatchState>();
 
         public float FrameMs => frameMs;
 
         public DsVariance(string rootPath)
         {
             this.rootPath = rootPath;
-            dsConfig = Yaml.DefaultDeserializer.Deserialize<DsConfig>(
-                File.ReadAllText(Path.Combine(rootPath, "dsconfig.yaml"),
-                    Encoding.UTF8));
+            var dsconfigPath = Path.Combine(rootPath, "dsconfig.yaml");
+            try {
+                dsConfig = Yaml.DefaultDeserializer.Deserialize<DsConfig>(
+                    File.ReadAllText(dsconfigPath, Encoding.UTF8));
+            } catch (Exception e) {
+                throw new Exception($"Failed to load {dsconfigPath}", e);
+            }
             if(dsConfig.variance == null){
                 throw new Exception("This voicebank doesn't contain a variance model");
             }
@@ -57,7 +62,7 @@ namespace OpenUtau.Core.DiffSinger{
                     languageIds = DiffSingerUtils.LoadLanguageIds(langIdPath);
                 } catch (Exception e) {
                     Log.Error(e, $"failed to load language id from {langIdPath}");
-                    return;
+                    throw new Exception($"Failed to load {langIdPath}", e);
                 }
             }
             //Load phonemes list
@@ -89,11 +94,15 @@ namespace OpenUtau.Core.DiffSinger{
             if(!File.Exists(file)){
                 throw new Exception($"File not found: {file}");
             }
-            var g2pBuilder = G2pDictionary.NewBuilder().Load(File.ReadAllText(file));
-            //SP and AP should always be vowel
-            g2pBuilder.AddSymbol("SP", true);
-            g2pBuilder.AddSymbol("AP", true);
-            return g2pBuilder.Build(); 
+            try {
+                var g2pBuilder = G2pDictionary.NewBuilder().Load(File.ReadAllText(file));
+                //SP and AP should always be vowel
+                g2pBuilder.AddSymbol("SP", true);
+                g2pBuilder.AddSymbol("AP", true);
+                return g2pBuilder.Build();
+            } catch (Exception e) {
+                throw new Exception($"Failed to load {file}", e);
+            }
         }
 
         public DiffSingerSpeakerEmbedManager getSpeakerEmbedManager(){
@@ -187,34 +196,41 @@ namespace OpenUtau.Core.DiffSinger{
             pitch = pitch.Zip(toneShift, (x, d) => x + d).ToArray();
 
             var varianceInputs = new List<NamedOnnxValue>();
-            varianceInputs.Add(NamedOnnxValue.CreateFromTensor("encoder_out", encoder_out));
-            varianceInputs.Add(NamedOnnxValue.CreateFromTensor("ph_dur",
+            var variancePatchInputs = new List<NamedOnnxValue>();
+            void AddVarianceInput(NamedOnnxValue input, bool includeInPatchKey = true) {
+                varianceInputs.Add(input);
+                if (includeInPatchKey) {
+                    variancePatchInputs.Add(input);
+                }
+            }
+            AddVarianceInput(NamedOnnxValue.CreateFromTensor("encoder_out", encoder_out));
+            AddVarianceInput(NamedOnnxValue.CreateFromTensor("ph_dur",
                 new DenseTensor<Int64>(ph_dur.Select(x=>(Int64)x).ToArray(), new int[] { ph_dur.Length }, false)
                 .Reshape(new int[] { 1, ph_dur.Length })));
-            varianceInputs.Add(NamedOnnxValue.CreateFromTensor("pitch",
+            AddVarianceInput(NamedOnnxValue.CreateFromTensor("pitch",
                 new DenseTensor<float>(pitch, new int[] { pitch.Length }, false)
-                .Reshape(new int[] { 1, totalFrames })));
+                .Reshape(new int[] { 1, totalFrames })), includeInPatchKey: false);
             if (dsConfig.predict_energy) {
                 var energy = Enumerable.Repeat(0f, totalFrames).ToArray();
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("energy",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("energy",
                     new DenseTensor<float>(energy, new int[] { energy.Length }, false)
                         .Reshape(new int[] { 1, totalFrames })));
             }
             if (dsConfig.predict_breathiness) {
                 var breathiness = Enumerable.Repeat(0f, totalFrames).ToArray();
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("breathiness",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("breathiness",
                     new DenseTensor<float>(breathiness, new int[] { breathiness.Length }, false)
                         .Reshape(new int[] { 1, totalFrames })));
             }
             if (dsConfig.predict_voicing) {
                 var voicing = Enumerable.Repeat(0f, totalFrames).ToArray();
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("voicing",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("voicing",
                     new DenseTensor<float>(voicing, new int[] { voicing.Length }, false)
                         .Reshape(new int[] { 1, totalFrames })));
             }
             if (dsConfig.predict_tension) {
                 var tension = Enumerable.Repeat(0f, totalFrames).ToArray();
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("tension",
                     new DenseTensor<float>(tension, new int[] { tension.Length }, false)
                         .Reshape(new int[] { 1, totalFrames })));
             }
@@ -226,12 +242,12 @@ namespace OpenUtau.Core.DiffSinger{
                 dsConfig.predict_tension,
             }.Sum(Convert.ToInt32);
             var retake = Enumerable.Repeat(true, totalFrames * numVariances).ToArray();
-            varianceInputs.Add(NamedOnnxValue.CreateFromTensor("retake",
+            AddVarianceInput(NamedOnnxValue.CreateFromTensor("retake",
                 new DenseTensor<bool>(retake, new int[] { retake.Length }, false)
                 .Reshape(new int[] { 1, totalFrames, numVariances })));
             var steps = Preferences.Default.DiffSingerStepsVariance;
             if (dsConfig.useContinuousAcceleration) {
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("steps",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("steps",
                     new DenseTensor<long>(new long[] { steps }, new int[] { 1 }, false)));
             } else {
                 // find a largest integer speedup that are less than 1000 / steps and is a factor of 1000
@@ -239,14 +255,20 @@ namespace OpenUtau.Core.DiffSinger{
                 while (1000 % speedup != 0 && speedup > 1) {
                     speedup--;
                 }
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("speedup",
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("speedup",
                     new DenseTensor<long>(new long[] { speedup }, new int[] { 1 },false)));
             }
             //Speaker
             if(dsConfig.speakers != null) {
                 var speakerEmbedManager = getSpeakerEmbedManager();
                 var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, ph_dur, frameMs, totalFrames, headFrames, tailFrames);
-                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));
+                AddVarianceInput(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));
+            }
+            ulong? variancePatchKey = null;
+            if (Preferences.Default.DiffSingerTensorCache &&
+                Preferences.Default.DiffSingerVarianceLocalPitchPatch) {
+                var baseHash = new DiffSingerCache(varianceHash, variancePatchInputs).Hash;
+                variancePatchKey = DiffSingerVariancePatch.BuildStateKey(baseHash, phrase.position, phrase.end);
             }
             Onnx.VerifyInputNames(varianceModel, varianceInputs);
             var varianceCache = Preferences.Default.DiffSingerTensorCache
@@ -282,7 +304,7 @@ namespace OpenUtau.Core.DiffSinger{
                     .First()
                     .AsTensor<float>()
                 : null;
-            return new VarianceResult{
+            var result = new VarianceResult{
                 energy = energy_pred?.ToArray(),
                 breathiness = breathiness_pred?.ToArray(),
                 voicing = voicing_pred?.ToArray(),
@@ -292,6 +314,23 @@ namespace OpenUtau.Core.DiffSinger{
                 tailFrames = tailFrames,
                 totalFrames = totalFrames,
             };
+            if (variancePatchKey.HasValue) {
+                result = ApplyVariancePatch(variancePatchKey.Value, pitch, result);
+            }
+            return result;
+        }
+
+        VarianceResult ApplyVariancePatch(ulong patchKey, float[] pitch, VarianceResult result) {
+            try {
+                variancePatchStates.TryGetValue(patchKey, out var previous);
+                var merged = DiffSingerVariancePatch.Merge(previous, pitch, result);
+                variancePatchStates[patchKey] = new VariancePatchState(pitch, merged);
+                return merged;
+            } catch (Exception e) {
+                Log.Warning(e, "Failed to apply DiffSinger variance local pitch patch.");
+                variancePatchStates[patchKey] = new VariancePatchState(pitch, result);
+                return result;
+            }
         }
 
         private bool disposedValue;

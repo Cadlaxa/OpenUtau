@@ -27,12 +27,18 @@ namespace OpenUtau.Core.DiffSinger
         DiffSingerSpeakerEmbedManager speakerEmbedManager;
         const string PEXP = DiffSingerUtils.PEXP;
 
+        public float FrameMs => frameMs;
+
         public DsPitch(string rootPath)
         {
             this.rootPath = rootPath;
-            dsConfig = Core.Yaml.DefaultDeserializer.Deserialize<DsConfig>(
-                File.ReadAllText(Path.Combine(rootPath, "dsconfig.yaml"),
-                    System.Text.Encoding.UTF8));
+            var dsconfigPath = Path.Combine(rootPath, "dsconfig.yaml");
+            try {
+                dsConfig = Core.Yaml.DefaultDeserializer.Deserialize<DsConfig>(
+                    File.ReadAllText(dsconfigPath, System.Text.Encoding.UTF8));
+            } catch (Exception e) {
+                throw new Exception($"Failed to load {dsconfigPath}", e);
+            }
             if(dsConfig.pitch == null){
                 throw new Exception("This voicebank doesn't contain a pitch model");
             }
@@ -46,7 +52,7 @@ namespace OpenUtau.Core.DiffSinger
                     languageIds = DiffSingerUtils.LoadLanguageIds(langIdPath);
                 } catch (Exception e) {
                     Log.Error(e, $"failed to load language id from {langIdPath}");
-                    return;
+                    throw new Exception($"Failed to load {langIdPath}", e);
                 }
             }
             //Load phonemes list
@@ -76,11 +82,15 @@ namespace OpenUtau.Core.DiffSinger
             if(!File.Exists(file)){
                 throw new Exception($"File not found: {file}");
             }
-            var g2pBuilder = G2pDictionary.NewBuilder().Load(File.ReadAllText(file));
-            //SP and AP should always be vowel
-            g2pBuilder.AddSymbol("SP", true);
-            g2pBuilder.AddSymbol("AP", true);
-            return g2pBuilder.Build();
+            try {
+                var g2pBuilder = G2pDictionary.NewBuilder().Load(File.ReadAllText(file));
+                //SP and AP should always be vowel
+                g2pBuilder.AddSymbol("SP", true);
+                g2pBuilder.AddSymbol("AP", true);
+                return g2pBuilder.Build();
+            } catch (Exception e) {
+                throw new Exception($"Failed to load {file}", e);
+            }
         }
 
         public DiffSingerSpeakerEmbedManager getSpeakerEmbedManager(){
@@ -99,7 +109,7 @@ namespace OpenUtau.Core.DiffSinger
             return token;
         }
         
-        public RenderPitchResult Process(RenderPhrase phrase){
+        public RenderPitchResult Process(RenderPhrase phrase, HashSet<int>? retakeNoteIndexes = null, float[]? existingPitch = null){
             var startMs = phrase.phones[0].positionMs - DiffSingerUtils.GetHeadMs(frameMs);
             int headFrames = DiffSingerUtils.headFrames;
             int tailFrames = DiffSingerUtils.tailFrames;
@@ -176,21 +186,29 @@ namespace OpenUtau.Core.DiffSinger
             var noteDurMsList = new List<double>();
             var noteMidiList = new List<float>();
             var noteRestList = new List<bool>();
+            //paddedToRealNoteIndex is kept in lockstep with noteDurMsList so the retake
+            //frame mask can map each padded segment to the real note it belongs to.
+            //Gap-rest segments inserted below follow the preceding real note.
+            var paddedToRealNoteIndex = new List<int>();
             //Head padding
             noteDurMsList.Add(Math.Max(0, phrase.notes[0].positionMs - startMs));
             noteMidiList.Add(phrase.notes[0].adjustedTone);
             noteRestList.Add(true);
+            paddedToRealNoteIndex.Add(0);
             double prevNoteEndMs = phrase.notes[0].positionMs;
-            foreach (var note in phrase.notes) {
+            for (int realIdx = 0; realIdx < phrase.notes.Length; realIdx++) {
+                var note = phrase.notes[realIdx];
                 double gapMs = note.positionMs - prevNoteEndMs;
                 if (gapMs > 0) {
-                    //Insert a rest note for the gap
+                    //Insert a rest note for the gap; associate it with the previous real note
                     noteDurMsList.Add(gapMs);
                     noteMidiList.Add(note.adjustedTone);
                     noteRestList.Add(true);
+                    paddedToRealNoteIndex.Add(realIdx - 1);
                 }
                 noteDurMsList.Add(note.durationMs);
                 noteMidiList.Add(note.adjustedTone);
+                paddedToRealNoteIndex.Add(realIdx);
                 //Slur notes follow the previous note's rest status
                 if (note.lyric.StartsWith("+")) {
                     noteRestList.Add(noteRestList[^1]);
@@ -209,6 +227,7 @@ namespace OpenUtau.Core.DiffSinger
             noteDurMsList.Add(DiffSingerUtils.GetTailMs(frameMs));
             noteMidiList.Add(phrase.notes[^1].adjustedTone);
             noteRestList.Add(true);
+            paddedToRealNoteIndex.Add(phrase.notes.Length - 1);
 
             //Set tone for each rest group using nearest non-rest note
             var note_rest = noteRestList;
@@ -243,6 +262,13 @@ namespace OpenUtau.Core.DiffSinger
                 .ToList();
             var pitch = Enumerable.Repeat(60f, totalFrames).ToArray();
             var retake = Enumerable.Repeat(true, totalFrames).ToArray();
+            if (retakeNoteIndexes != null && existingPitch != null) {
+                retake = DiffSingerRetake.BuildRetakeFrameMask(
+                    note_dur, paddedToRealNoteIndex, retakeNoteIndexes, totalFrames);
+                for (int i = 0; i < totalFrames && i < existingPitch.Length; i++) {
+                    pitch[i] = existingPitch[i];
+                }
+            }
             var pitchInputs = new List<NamedOnnxValue>();
             pitchInputs.Add(NamedOnnxValue.CreateFromTensor("encoder_out", encoder_out));
             pitchInputs.Add(NamedOnnxValue.CreateFromTensor("note_midi",
@@ -314,14 +340,16 @@ namespace OpenUtau.Core.DiffSinger
                     .Select(i=>(float)phrase.timeAxis.MsPosToTickPos(startMs + i*frameMs) - phrase.position)
                     .Append((float)phrase.duration + 1)
                     .ToArray(),
-                    tones = pitch_out.Append(pitch_out[^1]).ToArray()
+                    tones = pitch_out.Append(pitch_out[^1]).ToArray(),
+                    retakeMask = retakeNoteIndexes != null ? retake.Append(retake[^1]).ToArray() : null,
                 };
             }else{
                 return new RenderPitchResult{
                     ticks = Enumerable.Range(0,totalFrames)
                     .Select(i=>(float)phrase.timeAxis.MsPosToTickPos(startMs + i*frameMs) - phrase.position)
                     .ToArray(),
-                    tones = pitch_out
+                    tones = pitch_out,
+                    retakeMask = retakeNoteIndexes != null ? retake : null,
                 };
             }
         }
