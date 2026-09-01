@@ -45,8 +45,6 @@
               <MenuItem Header="{DynamicResource menu.file.exportustto}" Click="OnMenuExportUstTo"/>
               <MenuItem Header="{DynamicResource menu.file.exportmidi}" Click="OnMenuExportMidi"/>
               <MenuItem Header="{DynamicResource menu.file.exportds}" Click="OnMenuExportDsTo"/>
-              <MenuItem Header="{DynamicResource menu.file.exportds.v2}" Click="OnMenuExportDsV2To"/>
-              <MenuItem Header="{DynamicResource menu.file.exportds.v2withoutpitch}" Click="OnMenuExportDsV2WithoutPitchTo"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource menu.file.openexportlocation}" Click="OnMenuOpenProjectLocation"/>
           </MenuItem>
@@ -213,7 +211,7 @@
           <Grid.RowDefinitions>
             <RowDefinition Height="24"/>
             <RowDefinition Height="24"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="*" MinHeight="0.01"/>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="3*"
                            MinHeight="{Binding PianoRollMinHeight}"
@@ -243,7 +241,7 @@
                 </TextBlock>
               </Grid>
             </Border>
-            <Border Classes="playback" Width="88" HorizontalAlignment="Center">
+            <Border Classes="playback" Width="109" HorizontalAlignment="Center">
               <StackPanel Orientation="Horizontal">
                 <Button Command="{Binding PlaybackViewModel.SeekStart}">
                   <Path Fill="{Binding $parent.Foreground}" VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -261,6 +259,11 @@
                   <Path Fill="{Binding $parent.Foreground}" VerticalAlignment="Center" HorizontalAlignment="Center"
                         Data="M 0 0 L 5 4.5 L 0 9 Z M 5 0 L 7 0 L 7 9 L 5 9 Z"/>
                 </Button>
+                <ToggleButton IsChecked="{Binding PlaybackViewModel.LoopPlayback}"
+                              ToolTip.Tip="{DynamicResource tip.playback.loop}">
+                  <Path Fill="{Binding $parent.Foreground}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Data="M 1 2 L 8 2 L 8 0 L 11 3 L 8 6 L 8 4 L 2 4 L 2 6 L 0 6 L 0 4 C 0 2.9 0.4 2 1 2 Z M 10 10 L 3 10 L 3 12 L 0 9 L 3 6 L 3 8 L 9 8 L 9 6 L 11 6 L 11 8 C 11 9.1 10.6 10 10 10 Z"/>
+                </ToggleButton>
               </StackPanel>
             </Border>
             <Border Classes="playback" Width="72" HorizontalAlignment="Right" Margin="4,0">
@@ -290,7 +293,8 @@
                   PointerWheelChanged="TimelinePointerWheelChanged"
                   PointerPressed="TimelinePointerPressed"
                   PointerMoved="TimelinePointerMoved"
-                  PointerReleased="TimelinePointerReleased">
+                  PointerReleased="TimelinePointerReleased"
+                  DoubleTapped="TimelineDoubleTapped">
             <Path Name="PlayPos"
                   Canvas.Left="{Binding TracksViewModel.PlayPosX}"
                   Canvas.Top="0" ZIndex="100" IsHitTestVisible="False"
@@ -329,7 +333,7 @@
                             TickOffset="{Binding TracksViewModel.TickOffset}"
                             SnapDiv="{Binding TracksViewModel.SnapDiv}"
                             SnapTicks="{Binding TracksViewModel.SnapTicks}"
-                            ShowBarNumber="True"/>
+                            ShowBar="True"/>
           <c:PartsCanvas x:Name="partsCanvas" Grid.Row="2" Grid.Column="1" ClipToBounds="True" Background="Transparent"
                         DataContext="{Binding TracksViewModel}"
                         TickWidth="{Binding TickWidth}"
@@ -348,7 +352,15 @@
                       Canvas.Left="{Binding PlayPosHighlightX, Mode=OneWay}"
                       Canvas.Top="0"
                       Fill="{DynamicResource NeutralAccentBrushSemi2}"
+                      IsVisible="{Binding $parent[Window].DataContext.PlaybackViewModel.ShowPlayPosHighlight}"
                       IsHitTestVisible="False"/>
+            <Rectangle Name="PlayPosLine"
+                       Canvas.Left="{Binding PlayPosX}"
+                       Canvas.Top="0" Width="1"
+                       Height="{Binding $parent.Bounds.Height, Mode=OneWay}"
+                       ZIndex="99" IsHitTestVisible="False"
+                       IsVisible="{Binding $parent[Window].DataContext.PlaybackViewModel.IsPlaying}"
+                       Fill="{DynamicResource AccentBrush2}"/>
             <Rectangle Name="SelectionBox" StrokeThickness="2"
                       Stroke="{DynamicResource SystemControlForegroundBaseHighBrush}"
                       Fill="{DynamicResource TickLineBrushLow}" ZIndex="1000"
@@ -403,7 +415,9 @@
           </Border>
           <GridSplitter Grid.Row="3" Grid.ColumnSpan="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                         Background="{DynamicResource SystemControlBackgroundAltHighBrush}" Focusable="False" Cursor="SizeNorthSouth" IsVisible="{Binding ShowPianoRoll}"/>
-          <ContentControl Name="PianoRollContainer" Grid.Row="4" Grid.ColumnSpan="3" Margin="0,-5" Padding="0,5"/>
+          <Canvas Grid.Row="4" Grid.ColumnSpan="3" IsVisible="{Binding ShowPianoRoll}">
+            <ContentControl Name="PianoRollContainer" Width="{Binding $parent[Canvas].Bounds.Width}" Height="{Binding $parent[Canvas].Bounds.Height}"/>
+          </Canvas>
           <TextBlock Grid.Row="5" Grid.ColumnSpan="3" HorizontalAlignment="Stretch" Height="20" Margin="4,4,4,0" Text="{Binding ProgressText}"/>
           <ProgressBar Grid.Row="6" Grid.ColumnSpan="3" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Value="{Binding Progress}"/>
         </Grid>

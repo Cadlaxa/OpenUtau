@@ -12,6 +12,7 @@ using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using OpenUtau.Core.Format;
 using Serilog;
+using System.Collections.Concurrent;
 
 namespace OpenUtau.Core {
     public class SineGenerator : ISampleProvider {
@@ -167,6 +168,8 @@ namespace OpenUtau.Core {
     }
 
     public class PlaybackManager : SingletonBase<PlaybackManager>, ICmdSubscriber {
+        public ConcurrentDictionary<string, (int trackNo, double posMs, float[] samples, DateTime renderTime)> LiveWaveformCache = new ConcurrentDictionary<string, (int, double, float[], DateTime)>();
+        public bool IsWaveformBlanked { get; set; } = false;
         private PlaybackManager() {
             DocManager.Inst.AddSubscriber(this);
             try {
@@ -189,10 +192,17 @@ namespace OpenUtau.Core {
         public int StartTick => DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs);
         CancellationTokenSource renderCancellation;
 
+        // Active playback range captured when playback starts. Its end remains a stop
+        // boundary even when looping is disabled.
+        private int playbackRangeStartTick = 0;
+        private int playbackRangeEndTick = -1;
+        private bool loopProjectOnPlaybackEnd;
+
         public Audio.IAudioOutput AudioOutput { get; set; } = new Audio.DummyAudioOutput();
         public bool OutputActive => AudioOutput.PlaybackState == PlaybackState.Playing;
         public bool StartingToPlay { get; private set; }
         public bool PlayingMaster { get; private set; }
+        public bool LoopPlayback { get; set; }
 
         public void PlayTestSound() {
             masterMix = null;
@@ -240,11 +250,31 @@ namespace OpenUtau.Core {
             if (PlayingMaster) {
                 PausePlayback();
             } else {
-                Play(
-                    DocManager.Inst.Project,
-                    tick: tick == -1 ? DocManager.Inst.playPosTick : tick,
-                    endTick: endTick,
-                    trackNo: trackNo);
+                int rangeStart = DocManager.Inst.rangeStartTick;
+                int rangeEnd = DocManager.Inst.rangeEndTick;
+                if (endTick == -1 && rangeEnd > rangeStart) {
+                    int playPos = DocManager.Inst.playPosTick;
+                    playbackRangeStartTick = rangeStart;
+                    playbackRangeEndTick = rangeEnd;
+                    loopProjectOnPlaybackEnd = false;
+                    Play(
+                        DocManager.Inst.Project,
+                        tick: tick == -1
+                            ? ((playPos >= rangeStart && playPos < rangeEnd) ? playPos : rangeStart)
+                            : tick,
+                        endTick: rangeEnd,
+                        trackNo: trackNo);
+                } else {
+                    playbackRangeEndTick = -1;
+                    // Explicit bounds are used for one-shot previews such as Alt+Space
+                    // on selected notes; they must not fall through to project looping.
+                    loopProjectOnPlaybackEnd = endTick == -1;
+                    Play(
+                        DocManager.Inst.Project,
+                        tick: tick == -1 ? DocManager.Inst.playPosTick : tick,
+                        endTick: endTick,
+                        trackNo: trackNo);
+                }
             }
         }
 
@@ -255,18 +285,25 @@ namespace OpenUtau.Core {
                 return;
             }
             AudioOutput.Stop();
-            Render(project, tick, endTick, trackNo);
             StartingToPlay = true;
+            PlayingMaster = true;
+            Render(project, tick, endTick, trackNo);
         }
 
         public void StopPlayback() {
             AudioOutput.Stop();
+            StartingToPlay = false;
             PlayingMaster = false;
+            playbackRangeEndTick = -1;
+            loopProjectOnPlaybackEnd = false;
         }
 
         public void PausePlayback() {
             AudioOutput.Pause();
+            StartingToPlay = false;
             PlayingMaster = false;
+            playbackRangeEndTick = -1;
+            loopProjectOnPlaybackEnd = false;
         }
 
         private void StartPlayback(double startMs, MasterAdapter masterAdapter) {
@@ -284,14 +321,15 @@ namespace OpenUtau.Core {
         private void Render(UProject project, int tick, int endTick, int trackNo) {
             Task.Run(() => {
                 try {
+                    LiveWaveformCache.Clear();
+                    IsWaveformBlanked = false;
+                    DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
                     RenderEngine engine = new RenderEngine(project, startTick: tick, endTick: endTick, trackNo: trackNo);
                     var result = engine.RenderProject(DocManager.Inst.MainScheduler, ref renderCancellation);
-                    if (result.Item1.IsPlayable()) {
-                        faders = result.Item2;
-                        StartPlayback(project.timeAxis.TickPosToMsPos(tick), result.Item1);
-                        PlayingMaster = true;
-                    }
+                    faders = result.Item2;
                     StartingToPlay = false;
+                    StartPlayback(project.timeAxis.TickPosToMsPos(tick), result.Item1);
+                    DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
                 } catch (Exception e) {
                     Log.Error(e, "Failed to render.");
                     StopPlayback();
@@ -305,7 +343,39 @@ namespace OpenUtau.Core {
             if (AudioOutput != null && AudioOutput.PlaybackState == PlaybackState.Playing && PlayingMaster) {
                 double ms = (AudioOutput.GetPosition() / sizeof(float) - masterMix.Waited / 2) * 1000.0 / 44100;
                 int tick = DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs + ms);
+                if (playbackRangeEndTick > 0 && tick >= playbackRangeEndTick) {
+                    HandlePlaybackBoundary(hasPlaybackRange: true);
+                    return;
+                }
                 DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(tick, masterMix.IsWaiting));
+            } else if (AudioOutput != null &&
+                AudioOutput.PlaybackState == PlaybackState.Stopped &&
+                PlayingMaster &&
+                !StartingToPlay) {
+                HandlePlaybackBoundary(hasPlaybackRange: playbackRangeEndTick > 0);
+            }
+        }
+
+        private void HandlePlaybackBoundary(bool hasPlaybackRange) {
+            if (LoopPlayback) {
+                if (hasPlaybackRange) {
+                    Play(
+                        DocManager.Inst.Project,
+                        tick: playbackRangeStartTick,
+                        endTick: playbackRangeEndTick);
+                    return;
+                }
+                if (loopProjectOnPlaybackEnd && DocManager.Inst.Project.EndTick > 0) {
+                    Play(DocManager.Inst.Project, tick: 0);
+                    return;
+                }
+            }
+            if (hasPlaybackRange) {
+                int endTick = playbackRangeEndTick;
+                StopPlayback();
+                DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(endTick));
+            } else {
+                StopPlayback();
             }
         }
 
@@ -322,7 +392,7 @@ namespace OpenUtau.Core {
                     DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, $"Exporting to {exportPath}."));
 
                     CheckFileWritable(exportPath);
-                    WaveFileWriter.CreateWaveFile16(exportPath, new ExportAdapter(projectMix).ToMono(1, 0));
+                    WaveFileWriter.CreateWaveFile16(exportPath, new ExportAdapter(projectMix));
                     DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, $"Exported to {exportPath}."));
                 } catch (IOException ioe) {
                     var customEx = new MessageCustomizableException($"Failed to export {exportPath}.", $"<translate:errors.failed.export>: {exportPath}", ioe);
@@ -402,6 +472,8 @@ namespace OpenUtau.Core {
             } else if (cmd is LoadProjectNotification) {
                 StopPlayback();
                 renderCancellation?.Cancel();
+                LiveWaveformCache.Clear();
+                DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
                 DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(0));
             }
             if (cmd is PreRenderNotification || cmd is LoadProjectNotification) {
@@ -412,5 +484,8 @@ namespace OpenUtau.Core {
         }
 
         #endregion
+    }
+    public class WaveformReadyNotification : UNotification {
+        public override string ToString() => "Waveform rendered and ready";
     }
 }
