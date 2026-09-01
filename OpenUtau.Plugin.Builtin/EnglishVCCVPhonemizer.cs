@@ -310,7 +310,7 @@ namespace OpenUtau.Plugin.Builtin {
                 switch (Classify(sym)) {
                     case "V C": case "VC": case "VC-":
                     case "VCC": case "VCC-": case "codaCC": case "C C":
-                    case "VC C": case "V-": case "V CC": 
+                    case "VC C": case "V-": case "V CC": case "CC-": case "CC":
                         if (notes[0].lyric == "+" || notes[0].lyric == "+~") {
                             autoVel = noteVel;
                             break;
