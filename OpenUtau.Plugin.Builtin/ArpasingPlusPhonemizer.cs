@@ -134,34 +134,46 @@ namespace OpenUtau.Plugin.Builtin {
             utrack = track;
             uproject = project;
             int trackNo = project.tracks.IndexOf(track);
+            if (trackNo < 0 && track != null) {
+                trackNo = track.TrackNo;
+            }
             var part = project.parts.OfType<UVoicePart>()
-                .FirstOrDefault(p => p.trackNo == trackNo);
+                .FirstOrDefault(p => p.trackNo == trackNo)
+                ?? project.parts.OfType<UVoicePart>().FirstOrDefault();
+
             unotes = part?.notes.OrderBy(n => n.position).ToList() ?? new List<UNote>();
         }
 
+        private (UNote un, UNote unNext) UNoteAt(int absPos) {
+            if (unotes.Count == 0) return (null, null);
+            var un = unotes.LastOrDefault(n => n.position <= absPos) ?? unotes[0];
+            int idx = unotes.IndexOf(un);
+            return (un, idx + 1 < unotes.Count ? unotes[idx + 1] : null);
+        }
+
         private string GetPureAlias(string rawAlias, USinger singer) {
-            if (string.IsNullOrWhiteSpace(rawAlias) || singer == null || singer.Subbanks == null) 
-                return rawAlias;
+            if (string.IsNullOrWhiteSpace(rawAlias) || singer == null) 
+                return rawAlias ?? "";
 
             string cleanAlias = rawAlias;
 
-            var suffixes = singer.Subbanks.Select(s => s.Suffix)
-                .Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderByDescending(s => s.Length).ToList();
-
-            foreach (var suffix in suffixes) {
-                if (cleanAlias.EndsWith(suffix)) {
-                    cleanAlias = cleanAlias.Substring(0, cleanAlias.Length - suffix.Length);
-                    break; 
+            if (singer.Subbanks != null) {
+                var suffixes = singer.Subbanks.Select(s => s.Suffix)
+                    .Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderByDescending(s => s.Length);
+                foreach (var suffix in suffixes) {
+                    if (cleanAlias.EndsWith(suffix)) {
+                        cleanAlias = cleanAlias.Substring(0, cleanAlias.Length - suffix.Length);
+                        break; 
+                    }
                 }
-            }
 
-            var prefixes = singer.Subbanks.Select(s => s.Prefix)
-                .Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderByDescending(s => s.Length).ToList();
-
-            foreach (var prefix in prefixes) {
-                if (cleanAlias.StartsWith(prefix)) {
-                    cleanAlias = cleanAlias.Substring(prefix.Length);
-                    break; 
+                var prefixes = singer.Subbanks.Select(s => s.Prefix)
+                    .Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderByDescending(s => s.Length);
+                foreach (var prefix in prefixes) {
+                    if (cleanAlias.StartsWith(prefix)) {
+                        cleanAlias = cleanAlias.Substring(prefix.Length);
+                        break; 
+                    }
                 }
             }
             cleanAlias = Regex.Replace(cleanAlias, @"\s*\d+$", "");
@@ -173,7 +185,7 @@ namespace OpenUtau.Plugin.Builtin {
             testOto = null;
             var formats = alt == 0
                 ? new[] { baseAlias }
-                : new[] { $"{baseAlias}{alt}", $"{baseAlias} {alt}", $"{baseAlias}0{alt}" };
+                : new[] { $"{baseAlias}{alt}" };
 
             foreach (var format in formats) {
                 if (singer.TryGetMappedOto(format, tone, color, out testOto)) {
@@ -206,119 +218,255 @@ namespace OpenUtau.Plugin.Builtin {
             return left + "_" + right;
         }
 
-        private int FindBestAlt(string cleanAlias, string prevCleanAlias, string nextCleanAlias, UOto prevOto, USinger singer, int tone, string color, out UOto chosenOto) {
-            chosenOto = null;
+        private class AltCandidate {
+            public int Alt;
+            public UOto Oto;
+            public string WavNorm;
+            public string PaddedWav;
+            public bool IsPhonetic;
+        }
+
+        private List<AltCandidate> GetCandidates(string cleanAlias, USinger singer, int tone, string color) {
+            var list = new List<AltCandidate>();
             string baseAlias = cleanAlias.ToLower();
 
-            string prevChunk = FormatForChunking(prevCleanAlias);
-            string currChunk = FormatForChunking(cleanAlias);
-            string nextChunk = FormatForChunking(nextCleanAlias);
-            
-            string prevWav = prevOto?.File;
-
-            int bestAlt = 0;
-            int highestScore = -1;
-
             for (int alt = 0; alt < 25; alt++) {
-                if (TryGetMappedOtoAnyFormat(singer, baseAlias, alt, tone, color, out var testOto)) {
-                    string testWav = testOto.File;
-                    if (string.IsNullOrEmpty(testWav)) continue;
+                if (TryGetMappedOtoAnyFormat(singer, baseAlias, alt, tone, color, out var oto)) {
+                    string wav = oto.File;
+                    if (string.IsNullOrEmpty(wav)) continue;
 
-                    int score = 0;
-                    string testWavNorm = Path.GetFileNameWithoutExtension(testWav).ToLower()
+                    string norm = Path.GetFileNameWithoutExtension(wav).ToLower()
                         .Replace("-", "").Trim().Replace(" ", "_");
-                    while (testWavNorm.Contains("__")) testWavNorm = testWavNorm.Replace("__", "_");
-                    string paddedWav = $"_{testWavNorm}_"; 
+                    while (norm.Contains("__")) norm = norm.Replace("__", "_");
 
-                    bool isPhonetic = testWavNorm.Any(char.IsLetter);
-                    bool prevBaton = !string.IsNullOrEmpty(prevWav) && string.Equals(testWav, prevWav, StringComparison.OrdinalIgnoreCase);
-                    bool nextBaton = false;
-
-                    if (!string.IsNullOrEmpty(nextCleanAlias)) {
-                        for (int nextAlt = 0; nextAlt < 25; nextAlt++) {
-                            if (TryGetMappedOtoAnyFormat(singer, nextCleanAlias.ToLower(), nextAlt, tone, color, out var nextOto)) {
-                                if (string.Equals(nextOto.File, testWav, StringComparison.OrdinalIgnoreCase)) {
-                                    nextBaton = true;
-                                    break; 
-                                }
-                            }
-                        }
-                    }
-
-                    if (isPhonetic) {
-                        if (prevBaton) score += 40;
-                        if (nextBaton) score += 40;
-                    } else {
-                        if (prevBaton) score += 100;
-                        if (nextBaton) score += 100;
-                    }
-
-                    string forwardOverlap = MergeChunks(currChunk, nextChunk);
-                    string backwardOverlap = MergeChunks(prevChunk, currChunk);
-
-                    if (!string.IsNullOrEmpty(forwardOverlap) && paddedWav.Contains($"_{forwardOverlap}_")) {
-                        score += 150;
-                    }
-                    if (!string.IsNullOrEmpty(backwardOverlap) && paddedWav.Contains($"_{backwardOverlap}_")) {
-                        score += 150;
-                    }
-
-                    if (!string.IsNullOrEmpty(nextChunk) && paddedWav.Contains($"_{nextChunk}_")) score += 30;
-                    if (!string.IsNullOrEmpty(prevChunk) && paddedWav.Contains($"_{prevChunk}_")) score += 30;
-                    if (!string.IsNullOrEmpty(currChunk) && paddedWav.Contains($"_{currChunk}_")) score += 20;
-
-                    if (score > highestScore) {
-                        highestScore = score;
-                        bestAlt = alt;
-                        chosenOto = testOto; 
-                    }
+                    list.Add(new AltCandidate {
+                        Alt = alt,
+                        Oto = oto,
+                        WavNorm = norm,
+                        PaddedWav = $"_{norm}_",
+                        IsPhonetic = norm.Any(char.IsLetter)
+                    });
                 }
             }
 
-            if (chosenOto == null) {
-                TryGetMappedOtoAnyFormat(singer, baseAlias, 0, tone, color, out chosenOto);
+            if (list.Count == 0 && TryGetMappedOtoAnyFormat(singer, baseAlias, 0, tone, color, out var defaultOto)) {
+                list.Add(new AltCandidate { Alt = 0, Oto = defaultOto, WavNorm = "", PaddedWav = "", IsPhonetic = false });
             }
-            return highestScore >= 0 ? bestAlt : 0;
+
+            return list;
+        }
+
+        private int ScoreTransition(AltCandidate curr, AltCandidate prev, string currChunk, string prevChunk) {
+            if (curr == null) return 0;
+            int score = 0;
+
+            // Single emission match (does the WAV filename contain this phoneme chunk?)
+            if (!string.IsNullOrEmpty(curr.PaddedWav) && !string.IsNullOrEmpty(currChunk)) {
+                if (curr.PaddedWav.Contains($"_{currChunk}_")) score += 30;
+            }
+
+            // Direct same-WAV connection (Baton continuity across transitions)
+            if (prev != null && !string.IsNullOrEmpty(prev.Oto?.File) && !string.IsNullOrEmpty(curr.Oto?.File)) {
+                if (string.Equals(curr.Oto.File, prev.Oto.File, StringComparison.OrdinalIgnoreCase)) {
+                    score += curr.IsPhonetic ? 150 : 250; // Priority connection bonus
+                }
+            }
+
+            // Multi-phoneme chunk overlaps in recording filename
+            if (!string.IsNullOrEmpty(prevChunk) && !string.IsNullOrEmpty(currChunk)) {
+                string backwardOverlap = MergeChunks(prevChunk, currChunk);
+                if (!string.IsNullOrEmpty(backwardOverlap)) {
+                    if (curr.PaddedWav != null && curr.PaddedWav.Contains($"_{backwardOverlap}_")) score += 180;
+                    if (prev?.PaddedWav != null && prev.PaddedWav.Contains($"_{backwardOverlap}_")) score += 180;
+                }
+            }
+
+            // Cross-chunk presence
+            if (!string.IsNullOrEmpty(prevChunk) && curr.PaddedWav != null && curr.PaddedWav.Contains($"_{prevChunk}_")) score += 40;
+            if (!string.IsNullOrEmpty(currChunk) && prev?.PaddedWav != null && prev.PaddedWav.Contains($"_{currChunk}_")) score += 40;
+
+            return score;
         }
 
         private UOto runningOto = null;
+
         protected override void SyncAttributes(Note[] notes, List<string> phonemeSymbols, int startIndex, List<PhonemeAttributes> attrList) {
-            if (singer == null || !singer.Loaded || phonemeSymbols.Count == 0) return;
+            if (singer == null || !singer.Loaded || phonemeSymbols.Count == 0 || notes == null || notes.Length == 0) return;
 
             int tone = notes[0].tone;
+            int n = phonemeSymbols.Count;
 
-            for (int i = 0; i < phonemeSymbols.Count; i++) {
+            var (curUN, nextUN) = UNoteAt(notes[0].position);
+            int curIdx = curUN != null ? unotes.IndexOf(curUN) : -1;
+            var prevUN = curIdx > 0 ? unotes[curIdx - 1] : null;
+
+            int noteStartPos = notes[0].position;
+            int noteEndPos = notes.Last().position + notes.Last().duration;
+
+            bool isPhraseStart = prevUN == null || noteStartPos > (prevUN.position + prevUN.duration + 10);
+            bool isPhraseEnd = nextUN == null || nextUN.position > (noteEndPos + 10);
+
+            if (isPhraseStart) {
+                runningOto = null;
+            }
+
+            string[] cleanAliases = new string[n];
+            string[] chunks = new string[n];
+            List<AltCandidate>[] candidatesPerPhoneme = new List<AltCandidate>[n];
+
+            for (int i = 0; i < n; i++) {
                 int globalIdx = startIndex + i;
-                int existingIdx = attrList.FindIndex(a => a.index == globalIdx);
-                var attr = existingIdx >= 0 ? attrList[existingIdx] : new PhonemeAttributes { index = globalIdx };
+                var attr = attrList.FirstOrDefault(a => a.index == globalIdx);
 
-                string cleanAlias = GetPureAlias(phonemeSymbols[i], singer);
-                string prevCleanAlias = (i > 0) ? GetPureAlias(phonemeSymbols[i - 1], singer) : "";
-                string nextCleanAlias = (i < phonemeSymbols.Count - 1) ? GetPureAlias(phonemeSymbols[i + 1], singer) : "";
-
-                if (cleanAlias.StartsWith("-") || cleanAlias.StartsWith("_")) runningOto = null;
-                if (cleanAlias.EndsWith("-") || cleanAlias.EndsWith("R")) nextCleanAlias = "";
-                if (prevCleanAlias.EndsWith("-") || prevCleanAlias.EndsWith("R")) {
-                    runningOto = null;
-                    prevCleanAlias = "";
-                }
+                cleanAliases[i] = GetPureAlias(phonemeSymbols[i], singer);
+                chunks[i] = FormatForChunking(cleanAliases[i]);
 
                 string color = attr.voiceColor ?? "";
                 int shiftTone = tone + (attr.toneShift ?? 0);
 
-                if (!attr.alternate.HasValue) {
-                    int bestAlt = FindBestAlt(cleanAlias, prevCleanAlias, nextCleanAlias, runningOto, singer, shiftTone, color, out UOto chosenOto);
-                    runningOto = chosenOto;
+                if (attr.alternate.HasValue) {
+                    // manual selection
+                    if (TryGetMappedOtoAnyFormat(singer, cleanAliases[i].ToLower(), attr.alternate.Value, shiftTone, color, out var manualOto)) {
+                        string norm = Path.GetFileNameWithoutExtension(manualOto.File ?? "").ToLower()
+                            .Replace("-", "").Trim().Replace(" ", "_");
+                        while (norm.Contains("__")) norm = norm.Replace("__", "_");
 
-                    if (bestAlt > 0) {
-                        attr.alternate = bestAlt;
+                        candidatesPerPhoneme[i] = new List<AltCandidate> {
+                            new AltCandidate {
+                                Alt = attr.alternate.Value,
+                                Oto = manualOto,
+                                WavNorm = norm,
+                                PaddedWav = $"_{norm}_",
+                                IsPhonetic = norm.Any(char.IsLetter)
+                            }
+                        };
+                    } else {
+                        candidatesPerPhoneme[i] = GetCandidates(cleanAliases[i], singer, shiftTone, color);
                     }
                 } else {
-                    TryGetMappedOtoAnyFormat(singer, cleanAlias.ToLower(), attr.alternate.Value, shiftTone, color, out runningOto);
+                    candidatesPerPhoneme[i] = GetCandidates(cleanAliases[i], singer, shiftTone, color);
                 }
+            }
+
+            AltCandidate initialPrev = null;
+            string initialPrevChunk = "";
+            if (!isPhraseStart && runningOto != null) {
+                string norm = Path.GetFileNameWithoutExtension(runningOto.File ?? "").ToLower()
+                    .Replace("-", "").Trim().Replace(" ", "_");
+                while (norm.Contains("__")) norm = norm.Replace("__", "_");
+
+                initialPrev = new AltCandidate {
+                    Alt = 0,
+                    Oto = runningOto,
+                    WavNorm = norm,
+                    PaddedWav = $"_{norm}_",
+                    IsPhonetic = norm.Any(char.IsLetter)
+                };
+                initialPrevChunk = FormatForChunking(GetPureAlias(runningOto.Alias, singer));
+            }
+
+            List<AltCandidate> nextNoteCandidates = null;
+            string nextNoteChunk = "";
+            if (!isPhraseEnd && nextUN != null) {
+                var nextSymbols = base.GetSymbols(new Note { lyric = nextUN.lyric, tone = nextUN.tone });
+                if (nextSymbols != null && nextSymbols.Length > 0) {
+                    string nextFirstClean = GetPureAlias(nextSymbols[0], singer);
+                    nextNoteChunk = FormatForChunking(nextFirstClean);
+                    nextNoteCandidates = GetCandidates(nextFirstClean, singer, nextUN.tone, "");
+                }
+            }
+
+            int[][] dp = new int[n][];
+            int[][] parent = new int[n][];
+
+            for (int i = 0; i < n; i++) {
+                dp[i] = new int[candidatesPerPhoneme[i].Count];
+                parent[i] = new int[candidatesPerPhoneme[i].Count];
+            }
+
+            // Score with initialPrev
+            for (int c = 0; c < candidatesPerPhoneme[0].Count; c++) {
+                var curr = candidatesPerPhoneme[0][c];
+                dp[0][c] = ScoreTransition(curr, initialPrev, chunks[0], initialPrevChunk);
+                parent[0][c] = -1;
+            }
+
+            // n-1: Propagate pairwise path scores
+            for (int i = 1; i < n; i++) {
+                string prevChunk = chunks[i - 1];
+                string currChunk = chunks[i];
+
+                for (int currIdx = 0; currIdx < candidatesPerPhoneme[i].Count; currIdx++) {
+                    var curr = candidatesPerPhoneme[i][currIdx];
+                    int maxScore = int.MinValue;
+                    int bestParent = 0;
+
+                    for (int prevIdx = 0; prevIdx < candidatesPerPhoneme[i - 1].Count; prevIdx++) {
+                        var prev = candidatesPerPhoneme[i - 1][prevIdx];
+                        int transScore = ScoreTransition(curr, prev, currChunk, prevChunk);
+                        int total = dp[i - 1][prevIdx] + transScore;
+
+                        if (total > maxScore) {
+                            maxScore = total;
+                            bestParent = prevIdx;
+                        }
+                    }
+
+                    dp[i][currIdx] = maxScore;
+                    parent[i][currIdx] = bestParent;
+                }
+            }
+
+            if (nextNoteCandidates != null && nextNoteCandidates.Count > 0) {
+                for (int c = 0; c < candidatesPerPhoneme[n - 1].Count; c++) {
+                    var curr = candidatesPerPhoneme[n - 1][c];
+                    int bestNextBonus = 0;
+                    foreach (var nextCand in nextNoteCandidates) {
+                        int forwardScore = ScoreTransition(nextCand, curr, nextNoteChunk, chunks[n - 1]);
+                        if (forwardScore > bestNextBonus) {
+                            bestNextBonus = forwardScore;
+                        }
+                    }
+                    dp[n - 1][c] += bestNextBonus;
+                }
+            }
+
+            // Backtrack optimal path
+            int bestEndIdx = 0;
+            int highestFinalScore = int.MinValue;
+            for (int c = 0; c < candidatesPerPhoneme[n - 1].Count; c++) {
+                if (dp[n - 1][c] > highestFinalScore) {
+                    highestFinalScore = dp[n - 1][c];
+                    bestEndIdx = c;
+                }
+            }
+
+            int[] optimalAltIndices = new int[n];
+            int currTrackIdx = bestEndIdx;
+            for (int i = n - 1; i >= 0; i--) {
+                optimalAltIndices[i] = currTrackIdx;
+                currTrackIdx = parent[i][currTrackIdx];
+            }
+
+            // Apply selected alternates and update continuity
+            for (int i = 0; i < n; i++) {
+                int globalIdx = startIndex + i;
+                int existingIdx = attrList.FindIndex(a => a.index == globalIdx);
+                var attr = existingIdx >= 0 ? attrList[existingIdx] : new PhonemeAttributes { index = globalIdx };
+
+                var chosenCandidate = candidatesPerPhoneme[i][optimalAltIndices[i]];
+                if (!attr.alternate.HasValue && chosenCandidate.Alt > 0) {
+                    attr.alternate = chosenCandidate.Alt;
+                }
+
+                runningOto = chosenCandidate.Oto;
 
                 if (existingIdx >= 0) attrList[existingIdx] = attr;
                 else attrList.Add(attr);
+            }
+
+            if (isPhraseEnd) {
+                runningOto = null;
             }
         }
 
