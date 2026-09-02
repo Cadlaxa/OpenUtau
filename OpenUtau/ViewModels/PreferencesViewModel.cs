@@ -117,8 +117,8 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial int OtoEditor { get; set; }
         public string VLabelerPath => Preferences.Default.VLabelerPath;
         public string SetParamPath => Preferences.Default.SetParamPath;
-        [Reactive] public bool PhraseLevelMorphing { get; set; }
-        [Reactive] public bool PhaseLocked { get; set; }
+        [Reactive] public partial bool PhraseLevelMorphing { get; set; }
+        [Reactive] public partial bool PhaseLocked { get; set; }
 
         // Diffsinger
         public List<int> DiffSingerStepsOptions { get; } = new List<int> { 2, 5, 10, 20, 50, 100, 200, 500, 1000 };
