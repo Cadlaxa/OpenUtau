@@ -44,7 +44,6 @@ namespace OpenUtau.Classic {
         public USingerType SingerType => USingerType.Classic;
 
         public bool SupportsRenderPitch => false;
-
         public bool SupportsExpression(UExpressionDescriptor descriptor) {
             return descriptor.isFlag
                 || !string.IsNullOrEmpty(descriptor.flag)
@@ -60,7 +59,7 @@ namespace OpenUtau.Classic {
             };
         }
 
-        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
+        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender, RenderPhraseEvents? renderEvents = null) {
             if (phrase.wavtool == SharpWavtool.nameConvergence || phrase.wavtool == SharpWavtool.nameSimple) {
                 return RenderInternal(phrase, progress, trackNo, cancellation, isPreRender);
             } else {
@@ -677,6 +676,10 @@ namespace OpenUtau.Classic {
                 if (result.samples != null) {
                     WriteFloatsToWav(result.samples, wavPath); 
                     Renderers.ApplyDynamics(phrase, result);
+                    PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    Task.Factory.StartNew(() => {
+                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                 }
                 return result;
             });
@@ -706,6 +709,10 @@ namespace OpenUtau.Classic {
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
                     return result;
+                    PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    Task.Factory.StartNew(() => {
+                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                 }
 
                 var otoField = typeof(RenderPhone).GetField("oto", BindingFlags.Public | BindingFlags.Instance);

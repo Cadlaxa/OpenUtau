@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reactive.Disposables;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -9,6 +8,8 @@ using OpenUtau.App;
 using OpenUtau.Classic;
 using OpenUtau.Core;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 using Serilog;
 
 namespace OpenUtau.App.Views {
@@ -20,10 +21,10 @@ namespace OpenUtau.App.Views {
                 .Subscribe(_ => UpdateLogo())
                 .DisposeWith(disposable);
             this.Cursor = new Cursor(StandardCursorType.AppStarting);
-            this.Opened += SplashWindow_Opened;
+            this.Activated += SplashWindow_Opened;
         }
 
-        private readonly CompositeDisposable disposable = new();
+        private readonly MultipleDisposable disposable = new();
 
         private void UpdateLogo() {
             LogoTypeDark.IsVisible = ThemeManager.IsDarkMode;
