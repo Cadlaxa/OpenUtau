@@ -253,6 +253,11 @@ namespace OpenUtau.Plugin.Builtin {
                 list.Add(new AltCandidate { Alt = 0, Oto = defaultOto, WavNorm = "", PaddedWav = "", IsPhonetic = false });
             }
 
+            // Fallback: If no candidate was found at all, provide a blank/safe placeholder candidate
+            if (list.Count == 0) {
+                list.Add(new AltCandidate { Alt = 0, Oto = null, WavNorm = "", PaddedWav = "", IsPhonetic = false });
+            }
+
             return list;
         }
 
@@ -454,12 +459,22 @@ namespace OpenUtau.Plugin.Builtin {
                 int existingIdx = attrList.FindIndex(a => a.index == globalIdx);
                 var attr = existingIdx >= 0 ? attrList[existingIdx] : new PhonemeAttributes { index = globalIdx };
 
-                var chosenCandidate = candidatesPerPhoneme[i][optimalAltIndices[i]];
-                if (!attr.alternate.HasValue && chosenCandidate.Alt > 0) {
-                    attr.alternate = chosenCandidate.Alt;
+                var candidates = candidatesPerPhoneme[i];
+                int pickIdx = optimalAltIndices[i];
+                if (pickIdx < 0 || pickIdx >= candidates.Count) {
+                    pickIdx = 0;
                 }
 
-                runningOto = chosenCandidate.Oto;
+                if (candidates.Count > 0) {
+                    var chosenCandidate = candidates[pickIdx];
+                    if (!attr.alternate.HasValue && chosenCandidate.Alt > 0) {
+                        attr.alternate = chosenCandidate.Alt;
+                    }
+
+                    if (chosenCandidate.Oto != null) {
+                        runningOto = chosenCandidate.Oto;
+                    }
+                }
 
                 if (existingIdx >= 0) attrList[existingIdx] = attr;
                 else attrList.Add(attr);
