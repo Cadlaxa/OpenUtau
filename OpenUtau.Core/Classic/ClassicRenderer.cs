@@ -504,10 +504,23 @@ namespace OpenUtau.Classic {
                         standardItems.Add(item);
                     }
 
+                    Parallel.ForEach(standardItems, new ParallelOptions() { MaxDegreeOfParallelism = Preferences.Default.NumRenderThreads }, item => {
+                        if (cancellation.IsCancellationRequested) return;
+                        if (!File.Exists(item.outputFile)) {
+                            if (!(item.resampler is WorldlineResampler)) VoicebankFiles.Inst.CopySourceTemp(item.inputFile, item.inputTemp);
+                            lock (Renderers.GetCacheLock(item.outputFile)) item.resampler.DoResamplerReturnsFile(item, Log.Logger);
+                            if (!File.Exists(item.outputFile)) {
+                                DocManager.Inst.Project.timeAxis.TickPosToBarBeat(item.phrase.position + item.phone.position, out int bar, out int beat, out int tick);
+                                throw new InvalidDataException($"{item.resampler} failed to resample \"{item.phone.oto.Alias}\" at {bar}:{beat}.{string.Format("{0:000}", tick)}");
+                            }
+                            if (!(item.resampler is WorldlineResampler)) VoicebankFiles.Inst.CopyBackMetaFiles(item.inputFile, item.inputTemp);
+                        }
+                        progress.Complete(1, $"Track {trackNo + 1}: {item.resampler} \"{item.phone.oto.Alias}\"");
+                    });
+
                     foreach (var item in standardItems) VoicebankFiles.Inst.CopySourceTemp(item.inputFile, item.inputTemp);
                     result.samples = wavtool.Concatenate(standardItems, wavPath, cancellation);
                     foreach (var item in standardItems) VoicebankFiles.Inst.CopyBackMetaFiles(item.inputFile, item.inputTemp);
-                    progress.Complete(phrase.phones.Length, $"Track {trackNo + 1} : {phrase.wavtool}");
                 }
 
                 foreach (var phone in phrase.phones) otoField.SetValue(phone, baseOtos[phone]);
@@ -801,7 +814,7 @@ namespace OpenUtau.Classic {
                                 } catch { }
                             }
                         }
-                        progress.Complete(1, $"Track {trackNo + 1}: Morph: {phrase.wavtool} \"{phone.oto.Alias}\"");
+                        progress.Complete(1, $"Track {trackNo + 1}: Morph: {itemBase.resampler} \"{phone.oto.Alias}\"");
                     } else {
                         otoField.SetValue(phone, baseOtos[phone]);
                         var item = new ResamplerItem(phrase, phone);
@@ -836,7 +849,7 @@ namespace OpenUtau.Classic {
                             }
                             if (!(item.resampler is WorldlineResampler)) VoicebankFiles.Inst.CopyBackMetaFiles(item.inputFile, item.inputTemp);
                         }
-                        progress.Complete(1, $"Track {trackNo + 1}: {phrase.wavtool} \"{phone.oto.Alias}\"");
+                        progress.Complete(1, $"Track {trackNo + 1}: {item.resampler} \"{phone.oto.Alias}\"");
                     }
                 });
 
