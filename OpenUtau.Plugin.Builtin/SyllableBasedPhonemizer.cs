@@ -192,7 +192,7 @@ namespace OpenUtau.Plugin.Builtin {
             }
 
             var allPhonemeSymbols = new List<string>();
-            var syllablePhonemeBuckets = new List<(List<string> symbols, int duration, int position, bool isEnding, int tone)>();
+            var syllablePhonemeBuckets = new List<(List<string> symbols, int duration, int position, bool isEnding, int tone, string vowel)>();
             string runningPrevBasePhoneme = string.Empty;
 
             for (int i = 0; i < syllables.Length; i++) {
@@ -215,7 +215,7 @@ namespace OpenUtau.Plugin.Builtin {
                     
                     var endingPhonemes = ProcessEnding(ending);
                     if (endingPhonemes != null && endingPhonemes.Count > 0) {
-                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone));
+                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, ""));
                         allPhonemeSymbols.AddRange(endingPhonemes);
                     }
                     runningPrevBasePhoneme = modifiedSyllable.v;
@@ -224,7 +224,7 @@ namespace OpenUtau.Plugin.Builtin {
                 
                 var syllablePhonemes = ProcessSyllable(modifiedSyllable);
                 if (syllablePhonemes != null && syllablePhonemes.Count > 0) {
-                    syllablePhonemeBuckets.Add((syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone));
+                    syllablePhonemeBuckets.Add((syllablePhonemes, modifiedSyllable.duration, modifiedSyllable.position, false, modifiedSyllable.tone, modifiedSyllable.v));
                     allPhonemeSymbols.AddRange(syllablePhonemes);
                     runningPrevBasePhoneme = syllablePhonemes.LastOrDefault() ?? "";
                 }
@@ -238,7 +238,7 @@ namespace OpenUtau.Plugin.Builtin {
                     var endingPhonemes = ProcessEnding(modifiedEnding);
 
                     if (endingPhonemes != null && endingPhonemes.Count > 0) {
-                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedEnding.duration, modifiedEnding.position, true, ending.tone));
+                        syllablePhonemeBuckets.Add((endingPhonemes, modifiedEnding.duration, modifiedEnding.position, true, ending.tone, ""));
                         allPhonemeSymbols.AddRange(endingPhonemes);
                     }
                 }
@@ -254,13 +254,19 @@ namespace OpenUtau.Plugin.Builtin {
             int globalPhonemeIndex = 0;
 
             foreach (var bucket in syllablePhonemeBuckets) {
-                var madePhonemes = MakePhonemes(bucket.symbols, bucket.duration, bucket.position, bucket.isEnding, bucket.tone, workingAttributes.ToArray(), globalPhonemeIndex).ToList();
-                int currentSyllablePhonemeCount = bucket.symbols.Count;
+            var madePhonemes = MakePhonemes(bucket.symbols, bucket.duration, bucket.position, bucket.isEnding, bucket.tone, workingAttributes.ToArray(), globalPhonemeIndex).ToList();
+            int currentSyllablePhonemeCount = bucket.symbols.Count;
 
-                var basePhoneme = madePhonemes.LastOrDefault();
+            if (!bucket.isEnding && madePhonemes.Count > 0) {
+                var basePhoneme = madePhonemes.Last();
                 string baseAlias = basePhoneme.phoneme ?? "";
 
-                if (vowelSustains.TryGetValue(baseAlias, out var sustainData)) {
+                // Check exact alias match first, then fall back to the underlying vowel symbol
+                (string sustain, double offset) sustainData = default;
+                bool hasSustain = vowelSustains.TryGetValue(baseAlias, out sustainData)
+                            || (!string.IsNullOrEmpty(bucket.vowel) && vowelSustains.TryGetValue(bucket.vowel, out sustainData));
+
+                if (hasSustain) {
                     string mappedSustain = ValidateAliasIfNeeded(sustainData.sustain, bucket.tone);
                     if (HasOto(mappedSustain, bucket.tone) || HasOto(sustainData.sustain, bucket.tone)) {
                         int offsetTicks = MsToTick(GetTransitionBasicLengthMsByConstant() * sustainData.offset);
@@ -272,9 +278,10 @@ namespace OpenUtau.Plugin.Builtin {
                         currentSyllablePhonemeCount++;
                     }
                 }
-                phonemes.AddRange(madePhonemes);
-                globalPhonemeIndex += currentSyllablePhonemeCount;
             }
+            phonemes.AddRange(madePhonemes);
+            globalPhonemeIndex += currentSyllablePhonemeCount;
+        }
 
             var phonemesArray = phonemes.ToArray();
             var finalPhonemes = AssignAllAffixes(phonemesArray.ToList(), notes, prevNeighbours, workingAttributes);
