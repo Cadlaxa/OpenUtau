@@ -42,7 +42,8 @@ namespace OpenUtau.App.ViewModels {
             get => sortingOrder;
             set => this.RaiseAndSetIfChanged(ref sortingOrder, value);
         }
-        [Reactive] public partial bool Beta { get; set; }
+        // Release channel index: 0 = stable, 1 = beta, 2 = alpha.
+        [Reactive] public partial int Channel { get; set; }
 
         // Playback
         private List<AudioOutputDevice>? audioOutputDevices;
@@ -58,6 +59,7 @@ namespace OpenUtau.App.ViewModels {
         }
         [Reactive] public partial bool UseSystemDefaultDevice { get; set; }
         [Reactive] public partial int PreferPortAudio { get; set; }
+        [Reactive] public partial uint AudioBackEnd { get; set; }
         [Reactive] public partial int LockStartTime { get; set; }
         [Reactive] public partial int PlaybackAutoScroll { get; set; }
         [Reactive] public partial double PlayPosMarkerMargin { get; set; }
@@ -151,7 +153,7 @@ namespace OpenUtau.App.ViewModels {
                 }
             }
             UseSystemDefaultDevice = Preferences.Default.UseSystemDefaultAudioDevice;
-            PreferPortAudio = Preferences.Default.PreferPortAudio ? 1 : 0;
+            AudioBackEnd = Preferences.Default.AudioBackEnd;
             PlaybackAutoScroll = Preferences.Default.PlaybackAutoScroll;
             PlayPosMarkerMargin = Preferences.Default.PlayPosMarkerMargin;
             LockStartTime = Preferences.Default.LockStartTime;
@@ -203,7 +205,11 @@ namespace OpenUtau.App.ViewModels {
             ShowIcon = Preferences.Default.ShowIcon;
             ShowGhostNotes = Preferences.Default.ShowGhostNotes;
             DetachPianoRoll = Preferences.Default.DetachPianoRoll;
-            Beta = Preferences.Default.Beta;
+            Channel = Preferences.Default.Channel switch {
+                "beta" => 1,
+                "alpha" => 2,
+                _ => 0
+            };
             LyricsHelper = LyricsHelpers.FirstOrDefault(option => option.klass.Equals(ActiveLyricsHelper.Inst.GetPreferred()));
             LyricsHelperBrackets = Preferences.Default.LyricsHelperBrackets;
             OtoEditor = Preferences.Default.OtoEditor;
@@ -238,9 +244,9 @@ namespace OpenUtau.App.ViewModels {
                         }
                     }
                 });
-            this.WhenAnyValue(vm => vm.PreferPortAudio)
+            this.WhenAnyValue(vm => vm.AudioBackEnd)
                 .Subscribe(index => {
-                    Preferences.Default.PreferPortAudio = index > 0;
+                    Preferences.Default.AudioBackEnd = index;
                     Preferences.Save();
                 });
             this.WhenAnyValue(vm => vm.PlaybackAutoScroll)
@@ -336,9 +342,13 @@ namespace OpenUtau.App.ViewModels {
                     Preferences.Save();
                     MessageBus.Current.SendMessage(new PianorollRefreshEvent("Attachment"));
                 });
-            this.WhenAnyValue(vm => vm.Beta)
-                .Subscribe(beta => {
-                    Preferences.Default.Beta = beta;
+            this.WhenAnyValue(vm => vm.Channel)
+                .Subscribe(channel => {
+                    Preferences.Default.Channel = channel switch {
+                        1 => "beta",
+                        2 => "alpha",
+                        _ => "stable"
+                    };
                     Preferences.Save();
                 });
             this.WhenAnyValue(vm => vm.LyricsHelper)
