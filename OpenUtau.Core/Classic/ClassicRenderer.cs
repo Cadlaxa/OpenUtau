@@ -88,7 +88,10 @@ namespace OpenUtau.Classic {
                 result.samples = wavtool.Concatenate(resamplerItems, string.Empty, cancellation);
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
-                    PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    string phraseKey = phrase.hash.ToString();
+                    if (!PlaybackManager.Inst.LiveWaveformCache.ContainsKey(phraseKey)) {
+                        PlaybackManager.Inst.LiveWaveformCache[phraseKey] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    }
                     Task.Factory.StartNew(() => {
                         DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
                     }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
@@ -131,7 +134,10 @@ namespace OpenUtau.Classic {
                 progress.Complete(phrase.phones.Length, progressInfo);
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
-                    PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    string phraseKey = phrase.hash.ToString();
+                    if (!PlaybackManager.Inst.LiveWaveformCache.ContainsKey(phraseKey)) {
+                        PlaybackManager.Inst.LiveWaveformCache[phraseKey] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
+                    }
                     Task.Factory.StartNew(() => {
                         DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
                     }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
