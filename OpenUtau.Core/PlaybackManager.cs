@@ -191,6 +191,8 @@ namespace OpenUtau.Core {
         double startMs;
         public int StartTick => DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs);
         CancellationTokenSource renderCancellation;
+        UVoicePart preRenderFocusPart;
+        int preRenderFocusTick = -1;
 
         // Active playback range captured when playback starts. Its end remains a stop
         // boundary even when looping is disabled.
@@ -213,6 +215,9 @@ namespace OpenUtau.Core {
         }
 
         public void PlayTone(double freq) {
+            if (!Core.Util.Preferences.Default.PlayTone) {
+                return;
+            }
             toneGenerator.StartTone(freq);
 
             // If nothing is playing, start editing mix
@@ -323,18 +328,27 @@ namespace OpenUtau.Core {
                 try {
                     LiveWaveformCache.Clear();
                     IsWaveformBlanked = false;
-                    DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    
+                    Task.Factory.StartNew(() => {
+                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
+
                     RenderEngine engine = new RenderEngine(project, startTick: tick, endTick: endTick, trackNo: trackNo);
                     var result = engine.RenderProject(DocManager.Inst.MainScheduler, ref renderCancellation);
                     faders = result.Item2;
-                    StartingToPlay = false;
                     StartPlayback(project.timeAxis.TickPosToMsPos(tick), result.Item1);
-                    DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    StartingToPlay = false;
+
+                    Task.Factory.StartNew(() => {
+                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                 } catch (Exception e) {
                     Log.Error(e, "Failed to render.");
                     StopPlayback();
                     var customEx = new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>", e);
-                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(customEx));
+                    Task.Factory.StartNew(() => {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(customEx));
+                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                 }
             });
         }
@@ -447,7 +461,10 @@ namespace OpenUtau.Core {
 
         void SchedulePreRender() {
             Log.Information("SchedulePreRender");
-            var engine = new RenderEngine(DocManager.Inst.Project);
+            var engine = new RenderEngine(
+                DocManager.Inst.Project,
+                focusPart: preRenderFocusPart,
+                focusTick: preRenderFocusTick);
             engine.PreRenderProject(ref renderCancellation);
         }
 
@@ -474,7 +491,24 @@ namespace OpenUtau.Core {
                 renderCancellation?.Cancel();
                 LiveWaveformCache.Clear();
                 DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                preRenderFocusPart = null;
+                preRenderFocusTick = -1;
                 DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(0));
+            } else if (cmd is LoadPartNotification loadPart) {
+                preRenderFocusPart = loadPart.part as UVoicePart;
+                preRenderFocusTick = loadPart.tick;
+            } else if (cmd is FocusNoteNotification focusNote) {
+                preRenderFocusPart = focusNote.part as UVoicePart;
+                preRenderFocusTick = focusNote.part?.position + focusNote.note.position ?? preRenderFocusTick;
+            } else if (cmd is SetPlayPosTickNotification setPlayPosTick) {
+                preRenderFocusTick = setPlayPosTick.playPosTick;
+            } else if (cmd is PreRenderNotification preRender) {
+                if (preRender.part is UVoicePart voicePart) {
+                    preRenderFocusPart = voicePart;
+                }
+                if (preRender.focusTick >= 0) {
+                    preRenderFocusTick = preRender.focusTick;
+                }
             }
             if (cmd is PreRenderNotification || cmd is LoadProjectNotification) {
                 if (Util.Preferences.Default.PreRender) {

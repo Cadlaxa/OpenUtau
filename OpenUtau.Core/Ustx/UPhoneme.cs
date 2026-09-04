@@ -135,7 +135,7 @@ namespace OpenUtau.Core.Ustx {
                     maxPreutter = gapMs;
                 }
                 if (autoPreutter > maxPreutter) {
-                    double ratio = maxPreutter / autoPreutter;
+                    double ratio = autoPreutter > 0 ? maxPreutter / autoPreutter : 0d;
                     autoPreutter = maxPreutter;
                     autoOverlap *= ratio;
                 }
@@ -276,6 +276,17 @@ namespace OpenUtau.Core.Ustx {
                 return null;
             }
             return track.VoiceColorExp.options[index];
+        }
+
+        public string GetVoiceColor2(UProject project, UTrack track) {
+            if (track.VoiceColor2Exp == null) {
+                return null;
+            }
+            int index = (int)GetExpression(project, track, Format.Ustx.CLRY).Item1;
+            if (index < 0 || index >= track.VoiceColor2Exp.options.Length) {
+                return null;
+            }
+            return track.VoiceColor2Exp.options[index];
         }
     }
 

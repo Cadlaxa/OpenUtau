@@ -53,7 +53,7 @@ namespace OpenUtau.Core.Vogen {
             };
         }
 
-        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender = false) {
+        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender = false, RenderPhraseEvents? renderEvents = null) {
             var task = Task.Run(() => {
                 lock (lockObj) {
                     if (cancellation.IsCancellationRequested) {
@@ -82,7 +82,9 @@ namespace OpenUtau.Core.Vogen {
                     if (result.samples != null) {
                         Renderers.ApplyDynamics(phrase, result);
                         PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
-                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                        Task.Factory.StartNew(() => {
+                            DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                        }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                     }
                     progress.Complete(phrase.phones.Length, progressInfo);
                     return result;

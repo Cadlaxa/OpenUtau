@@ -79,7 +79,7 @@ namespace OpenUtau.Core.DiffSinger {
             };
         }
 
-        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
+        public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender, RenderPhraseEvents? renderEvents = null) {
             var task = Task.Run(() => {
                 lock (lockObj) {
                     if (cancellation.IsCancellationRequested) {
@@ -114,7 +114,7 @@ namespace OpenUtau.Core.DiffSinger {
                         }
                     }
                     if (result.samples == null) {
-                        result.samples = InvokeDiffsinger(phrase, depth, steps, cancellation);
+                        result.samples = InvokeDiffsinger(phrase, depth, steps, cancellation, renderEvents);
                         if (result.samples != null) {
                             var source = new WaveSource(0, 0, 0, 1);
                             source.SetSamples(result.samples);
@@ -124,7 +124,9 @@ namespace OpenUtau.Core.DiffSinger {
                     if (result.samples != null) {
                         Renderers.ApplyDynamics(phrase, result);
                         PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
-                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                        Task.Factory.StartNew(() => {
+                            DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
+                        }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                     }
                     progress.Complete(phrase.phones.Length, progressInfo);
                     return result;
@@ -137,7 +139,7 @@ namespace OpenUtau.Core.DiffSinger {
         leadingMs、positionMs、estimatedLengthMs: timeaxis layout in Ms, double
          */
 
-        float[] InvokeDiffsinger(RenderPhrase phrase, double depth, int steps, CancellationTokenSource cancellation) {
+        float[] InvokeDiffsinger(RenderPhrase phrase, double depth, int steps, CancellationTokenSource cancellation, RenderPhraseEvents? renderEvents) {
             var singer = phrase.singer as DiffSingerSinger;
             //Check if dsconfig.yaml is correct
             if(String.IsNullOrEmpty(singer.dsConfig.vocoder) ||
@@ -355,14 +357,14 @@ namespace OpenUtau.Core.DiffSinger {
                     throw new Exception(
                         "This singer has no variance predictor but its acoustic model requires one.");
                 }
-                var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
-                lock(variancePredictor){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
                     varianceResult = singer.getVariancePredictor().Process(phrase);
                 }
+                renderEvents?.ReportRealCurves(BuildRenderedRealCurves(phrase, varianceResult));
                 //TODO: let user edit variance curves
                 if(singer.dsConfig.useEnergyEmbed){
                     var energyCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == ENE);
@@ -453,7 +455,7 @@ namespace OpenUtau.Core.DiffSinger {
                 : null;
             var acousticOutputs = acousticCache?.Load();
             if (acousticOutputs is null) {
-                lock(acousticModel){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
@@ -493,7 +495,7 @@ namespace OpenUtau.Core.DiffSinger {
                 : null;
             var vocoderOutputs = vocoderCache?.Load();
             if (vocoderOutputs is null) {
-                lock(vocoder){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
@@ -523,7 +525,7 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new Exception("This singer has no pitch predictor.");
             }
             var pitchPredictor = singer.getPitchPredictor()!;
-            lock (pitchPredictor) {
+            lock (singer.SessionLock) {
                 return pitchPredictor.Process(phrase);
             }
         }
@@ -544,7 +546,7 @@ namespace OpenUtau.Core.DiffSinger {
             var retakeNoteIndexes = DiffSingerRetake.MapSelectedPositionsToNoteIndexes(
                 phrase.position, noteRelativePositions, selectedNotePositions);
             if (retakeNoteIndexes.Count == 0 || retakeNoteIndexes.Count == phrase.notes.Length) {
-                lock (pitchPredictor) {
+                lock (singer.SessionLock) {
                     return pitchPredictor.Process(phrase);
                 }
             }
@@ -555,9 +557,13 @@ namespace OpenUtau.Core.DiffSinger {
             int totalFrames = ph_dur.Sum();
             var existingPitch = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames,
                 x => x * 0.01).Select(f => (float)f).ToArray();
-            lock (pitchPredictor) {
+            lock (singer.SessionLock) {
                 return pitchPredictor.Process(phrase, retakeNoteIndexes, existingPitch);
             }
+        }
+
+        public void ScheduleRealCurveRefresh(UProject project, UVoicePart part, UCommand command) {
+            DiffSingerRealCurveScheduler.TrySchedule(project, part, command);
         }
 
         public List<RenderRealCurveResult> LoadRenderedRealCurves(RenderPhrase phrase) {
@@ -569,59 +575,70 @@ namespace OpenUtau.Core.DiffSinger {
                 return new List<RenderRealCurveResult>(0);
             }
             var variancePredictor = singer.getVariancePredictor()!;
-            lock (variancePredictor) {
+            lock (singer.SessionLock) {
                 var result = variancePredictor.Process(phrase);
-                var frameMs = result.frameMs;
-                var headFrames = result.headFrames;
-                var tailFrames = result.tailFrames;
-                var startMs = phrase.positionMs - headFrames * frameMs;
-                var realCurves = new (string, float[], float[], Func<float, float>)[] {
-                    (
-                        ENE, result.energy ?? Array.Empty<float>(),
-                        phrase.curves.FirstOrDefault(curve => curve.Item1 == ENE)?.Item2
-                        ?? Array.Empty<float>(),
-                        x => Math.Clamp(x, -96f, 0f) / 96f + 1f
-                    ),
-                    (
-                        Format.Ustx.BREC, result.breathiness ?? Array.Empty<float>(), phrase.breathiness,
-                        x => Math.Clamp(x, -96f, 0f) / 96f + 1f
-                    ),
-                    (
-                        Format.Ustx.VOIC, result.voicing ?? Array.Empty<float>(), phrase.voicing,
-                        x => Math.Clamp(x, -96f, 0f) / 96f + 1f
-                    ),
-                    (
-                        Format.Ustx.TENC, result.tension ?? Array.Empty<float>(), phrase.tension,
-                        x => Math.Clamp(x, -10f, 10f) / 20f + 0.5f
-                    ),
-                }.Select(t => {
-                    var abbr = t.Item1;
-                    var realCurve = t.Item2;
-                    if (realCurve.Length == 0) {
-                        return new RenderRealCurveResult {
-                            abbr = abbr,
-                            ticks = Array.Empty<float>(),
-                            values = Array.Empty<float>(),
-                        };
-                    }
-                    var deltaCurve = DiffSingerUtils.SampleCurve(
-                        phrase, t.Item3, 0, frameMs, realCurve.Length,
-                        headFrames, tailFrames, x => x)
-                        .Select(x => (float)x)
-                        .ToArray();
-                    var normFunc = t.Item4;
+                return BuildRenderedRealCurves(phrase, result);
+            }
+        }
+
+        internal static bool ShouldRefreshRealCurvesOnCurveEdit(string abbr) {
+            return abbr == ENE ||
+                abbr == Format.Ustx.BREC ||
+                abbr == Format.Ustx.VOIC ||
+                abbr == Format.Ustx.TENC;
+        }
+
+        private List<RenderRealCurveResult> BuildRenderedRealCurves(RenderPhrase phrase, VarianceResult result) {
+            var frameMs = result.frameMs;
+            var headFrames = result.headFrames;
+            var tailFrames = result.tailFrames;
+            var startMs = phrase.positionMs - headFrames * frameMs;
+            var realCurves = new (string, float[], float[], Func<float, float>)[] {
+                (
+                    ENE, result.energy ?? Array.Empty<float>(),
+                    phrase.curves.FirstOrDefault(curve => curve.Item1 == ENE)?.Item2
+                    ?? Array.Empty<float>(),
+                    x => Math.Clamp(x, -96f, 0f) / 96f + 1f
+                ),
+                (
+                    Format.Ustx.BREC, result.breathiness ?? Array.Empty<float>(), phrase.breathiness,
+                    x => Math.Clamp(x, -96f, 0f) / 96f + 1f
+                ),
+                (
+                    Format.Ustx.VOIC, result.voicing ?? Array.Empty<float>(), phrase.voicing,
+                    x => Math.Clamp(x, -96f, 0f) / 96f + 1f
+                ),
+                (
+                    Format.Ustx.TENC, result.tension ?? Array.Empty<float>(), phrase.tension,
+                    x => Math.Clamp(x, -10f, 10f) / 20f + 0.5f
+                ),
+            }.Select(t => {
+                var abbr = t.Item1;
+                var realCurve = t.Item2;
+                if (realCurve.Length == 0) {
                     return new RenderRealCurveResult {
                         abbr = abbr,
-                        ticks = Enumerable.Range(0, realCurve.Length)
-                            .Select(i => (float)phrase.timeAxis.MsPosToTickPos(startMs + i * frameMs) - phrase.position)
-                            .ToArray(),
-                        values = realCurve.Zip(deltaCurve, varianceDeltaFunctions[abbr])
-                            .Select(normFunc)
-                            .ToArray()
+                        ticks = Array.Empty<float>(),
+                        values = Array.Empty<float>(),
                     };
-                }).ToList();
-                return realCurves;
-            }
+                }
+                var deltaCurve = DiffSingerUtils.SampleCurve(
+                    phrase, t.Item3, 0, frameMs, realCurve.Length,
+                    headFrames, tailFrames, x => x)
+                    .Select(x => (float)x)
+                    .ToArray();
+                var normFunc = t.Item4;
+                return new RenderRealCurveResult {
+                    abbr = abbr,
+                    ticks = Enumerable.Range(0, realCurve.Length)
+                        .Select(i => (float)phrase.timeAxis.MsPosToTickPos(startMs + i * frameMs) - phrase.position)
+                        .ToArray(),
+                    values = realCurve.Zip(deltaCurve, varianceDeltaFunctions[abbr])
+                        .Select(normFunc)
+                        .ToArray()
+                };
+            }).ToList();
+            return realCurves;
         }
 
         public UExpressionDescriptor[] GetSuggestedExpressions(USinger singer, URenderSettings renderSettings) {
