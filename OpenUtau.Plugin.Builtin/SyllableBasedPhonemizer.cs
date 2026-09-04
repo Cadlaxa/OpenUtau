@@ -377,6 +377,39 @@ namespace OpenUtau.Plugin.Builtin {
             .IgnoreUnmatchedProperties()
             .Build();
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime lastModified, YAMLData data)> YamlCache = new();
+
+        private static string ReadVersionFast(string filePath) {
+            try {
+                using var reader = new StreamReader(filePath, Encoding.UTF8);
+                string line;
+                while ((line = reader.ReadLine()) != null) {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("version:", StringComparison.OrdinalIgnoreCase)) {
+                        var parts = trimmed.Split(new[] { ':' }, 2);
+                        if (parts.Length > 1) {
+                            return parts[1].Trim().Trim('"', '\'');
+                        }
+                    }
+                }
+            } catch {
+                // Fall back if file reading fails
+            }
+            return string.Empty;
+        }
+
+        private static YAMLData LoadYamlCached(string filePath) {
+            var lastWrite = File.GetLastWriteTimeUtc(filePath);
+            if (YamlCache.TryGetValue(filePath, out var cached) && cached.lastModified == lastWrite) {
+                return cached.data;
+            }
+
+            using var reader = new StreamReader(filePath, Encoding.UTF8);
+            var parsed = TolerantDeserializer.Deserialize<YAMLData>(reader);
+            YamlCache[filePath] = (lastWrite, parsed);
+            return parsed;
+        }
+
         public override void SetSinger(USinger singer) {
             if (this.singer != singer) {
                 this.singer = singer;
@@ -424,8 +457,7 @@ namespace OpenUtau.Plugin.Builtin {
                     if (File.Exists(filePath)) {
                         if (YamlTemplate != null && !string.IsNullOrEmpty(YamlVersion)) {
                             try {
-                                var checkData = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(filePath));
-                                currentVersion = checkData?.version?.Trim() ?? "";
+                                currentVersion = ReadVersionFast(filePath);
 
                                 // Update if missing, or if the parsed decimal is strictly lower than the target YamlVersion
                                 if (string.IsNullOrEmpty(currentVersion)) {
@@ -525,51 +557,64 @@ namespace OpenUtau.Plugin.Builtin {
                 // parse the files sequentially (Singer configs seamlessly overwrite global configs)
                 foreach (var file in filesToParse) {
                     try {
-                        var data = TolerantDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
+                        var data = LoadYamlCached(file);
                         
-                        var yamlVowels = data.symbols?.Where(s => s.type == "vowel" || s.type == "diphthong").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        vowels = yamlVowels.Concat(vowels).Distinct().ToArray();
+                        if (data.symbols != null && data.symbols.Length > 0) {
+                            var symbolLookup = data.symbols
+                                .Where(s => !string.IsNullOrEmpty(s.symbol) && !string.IsNullOrEmpty(s.type))
+                                .ToLookup(s => s.type, s => s.symbol);
 
-                        var yamlTails = data.symbols?.Where(s => s.type == "tail").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        tails = yamlTails.Concat(tails).Distinct().ToArray();
-                        
-                        if (data?.isglides != null) enableGlides = data.isglides.Value; 
-                        
-                        var yFricative = data.symbols?.Where(s => s.type == "fricative").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        fricative = yFricative.Concat(fricative).Distinct().ToArray();
-                        var yAspirate = data.symbols?.Where(s => s.type == "aspirate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        aspirate = yAspirate.Concat(aspirate).Distinct().ToArray();
-                        var ySemivowel = data.symbols?.Where(s => s.type == "semivowel").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        semivowel = ySemivowel.Concat(semivowel).Distinct().ToArray();
-                        var yLiquid = data.symbols?.Where(s => s.type == "liquid").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        liquid = yLiquid.Concat(liquid).Distinct().ToArray();
-                        var yNasal = data.symbols?.Where(s => s.type == "nasal").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        nasal = yNasal.Concat(nasal).Distinct().ToArray();
-                        var yStop = data.symbols?.Where(s => s.type == "stop").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        stop = yStop.Concat(stop).Distinct().ToArray();
-                        var yTap = data.symbols?.Where(s => s.type == "tap").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        tap = yTap.Concat(tap).Distinct().ToArray();
-                        var yAffricate = data.symbols?.Where(s => s.type == "affricate").Select(s => s.symbol).ToArray() ?? Array.Empty<string>();
-                        affricate = yAffricate.Concat(affricate).Distinct().ToArray();
+                            var yamlVowels = symbolLookup["vowel"].Concat(symbolLookup["diphthong"]).ToArray();
+                            vowels = yamlVowels.Concat(vowels).Distinct().ToArray();
 
-                        var yamlConsonants = yFricative.Concat(yAspirate).Concat(ySemivowel).Concat(yLiquid)
-                            .Concat(yNasal).Concat(yStop).Concat(yTap).Concat(yAffricate).ToArray();
-                        consonants = yamlConsonants.Concat(consonants).Distinct().ToArray();
+                            var yamlTails = symbolLookup["tail"].ToArray();
+                            tails = yamlTails.Concat(tails).Distinct().ToArray();
 
-                        // DIPHTHONG AUTO-TAIL DETECTION
-                        var yamlDiphthongs = data.symbols?.Where(s => s.type == "diphthong").Select(s => s.symbol).Distinct().ToArray() ?? Array.Empty<string>();
-                        var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
+                            var yFricative = symbolLookup["fricative"].ToArray();
+                            fricative = yFricative.Concat(fricative).Distinct().ToArray();
 
-                        foreach (var d in yamlDiphthongs) {
-                            if (!diphthongSplits.ContainsKey(d)) {
-                                foreach (var tail in dynamicTails) {
-                                    if (d.EndsWith(tail) && d != tail) {
-                                        diphthongTails[d] = tail;
-                                        break;
+                            var yAspirate = symbolLookup["aspirate"].ToArray();
+                            aspirate = yAspirate.Concat(aspirate).Distinct().ToArray();
+
+                            var ySemivowel = symbolLookup["semivowel"].ToArray();
+                            semivowel = ySemivowel.Concat(semivowel).Distinct().ToArray();
+
+                            var yLiquid = symbolLookup["liquid"].ToArray();
+                            liquid = yLiquid.Concat(liquid).Distinct().ToArray();
+
+                            var yNasal = symbolLookup["nasal"].ToArray();
+                            nasal = yNasal.Concat(nasal).Distinct().ToArray();
+
+                            var yStop = symbolLookup["stop"].ToArray();
+                            stop = yStop.Concat(stop).Distinct().ToArray();
+
+                            var yTap = symbolLookup["tap"].ToArray();
+                            tap = yTap.Concat(tap).Distinct().ToArray();
+
+                            var yAffricate = symbolLookup["affricate"].ToArray();
+                            affricate = yAffricate.Concat(affricate).Distinct().ToArray();
+
+                            var yamlConsonants = yFricative.Concat(yAspirate).Concat(ySemivowel).Concat(yLiquid)
+                                .Concat(yNasal).Concat(yStop).Concat(yTap).Concat(yAffricate).ToArray();
+                            consonants = yamlConsonants.Concat(consonants).Distinct().ToArray();
+
+                            // DIPHTHONG AUTO-TAIL DETECTION
+                            var yamlDiphthongs = symbolLookup["diphthong"].Distinct().ToArray();
+                            var dynamicTails = consonants.OrderByDescending(c => c.Length).ToArray();
+
+                            foreach (var d in yamlDiphthongs) {
+                                if (!diphthongSplits.ContainsKey(d)) {
+                                    foreach (var tail in dynamicTails) {
+                                        if (d.EndsWith(tail) && d != tail) {
+                                            diphthongTails[d] = tail;
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
+                        
+                        if (data?.isglides != null) enableGlides = data.isglides.Value; 
 
                         // OVERRIDES & DICTIONARIES (Singer keys overwrite global keys)
                         if (data?.timings != null) {
@@ -607,13 +652,9 @@ namespace OpenUtau.Plugin.Builtin {
                                     where = rawReplacement.where
                                 };
 
-                                if (parsedFrom is string fromString) {
-                                    // FIX: Treat all 1:1 replacements as splitting rules.
-                                    // This prevents them from becoming global fallbacks
-                                    // and forces them to respect string-length priority.
+                                if (parsedFrom is string) {
                                     localSplit.Add(cleanReplacement);
                                 } else {
-                                    // Many-to-Any goes to Merge
                                     localMerge.Add(cleanReplacement);
                                 }
                             }
