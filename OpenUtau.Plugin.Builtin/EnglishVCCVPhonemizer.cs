@@ -202,16 +202,35 @@ namespace OpenUtau.Plugin.Builtin {
         public override void SetUp(Note[][] notes, UProject project, UTrack track) {
             base.SetUp(notes, project, track);
             utrack = track;
-            int trackNo = project.tracks.IndexOf(track);
-            int firstNotePos = notes.FirstOrDefault(n => n.Length > 0)?[0].position ?? 0;
-            var part = project.parts.OfType<UVoicePart>()
-                .FirstOrDefault(p => p.trackNo == trackNo && 
-                                     firstNotePos >= p.position && 
-                                     firstNotePos < p.End);
-            partPos = part?.position ?? 0;
-            unotes = part?.notes.OrderBy(n => n.position).ToList() ?? new List<UNote>();
-        }
 
+            var firstNote = notes.FirstOrDefault(n => n.Length > 0)?[0];
+            int firstNotePos = firstNote?.position ?? 0;
+
+            int trackNo = project.tracks.IndexOf(track);
+            var parts = project.parts.OfType<UVoicePart>()
+                .Where(p => trackNo < 0 || p.trackNo == trackNo)
+                .ToList();
+
+            var part = parts.FirstOrDefault(p => firstNotePos >= p.position && firstNotePos < (p.position + p.Duration))
+                       ?? parts.FirstOrDefault();
+
+            if (part != null && part.notes.Count > 0) {
+                partPos = part.position;
+                unotes = part.notes.OrderBy(n => n.position).ToList();
+            } else {
+                // Test fixture fallback: create synthetic UNotes from the passed Note[][]
+                partPos = 0;
+                unotes = notes.SelectMany(group => group)
+                              .Select(n => new UNote {
+                                  position = n.position,
+                                  duration = n.duration,
+                                  tone = n.tone,
+                                  lyric = n.lyric
+                              })
+                              .OrderBy(n => n.position)
+                              .ToList();
+            }
+        }
         private (Regex pattern, string type)[] patterns;
 
         private void InitPatterns() {
@@ -254,8 +273,10 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         float CalcConvel(UNote note) {
+            if (note == null) return 100f;
             int absTick = partPos + note.position;
-            float baseConvel = 100 * ((float)timeAxis.GetBpmAtTick(absTick) / 120);
+            float bpm = timeAxis != null ? (float)timeAxis.GetBpmAtTick(absTick) : 120f;
+            float baseConvel = 100 * (bpm / 120f);
             float finalConvel;
             var trackVel = utrack?.TrackExpressions?.FirstOrDefault(e => e.abbr == "vel");
             float velMin = trackVel?.min ?? 0f;
@@ -271,7 +292,6 @@ namespace OpenUtau.Plugin.Builtin {
 
         private (UNote un, UNote unNext) UNoteAt(int absPos) {
             if (unotes.Count == 0) return (null, null);
-            // Convert absolute project position to part-relative position
             int relPos = absPos - partPos;
             var un = unotes.LastOrDefault(n => n.position <= relPos) ?? unotes[0];
             int idx = unotes.IndexOf(un);
