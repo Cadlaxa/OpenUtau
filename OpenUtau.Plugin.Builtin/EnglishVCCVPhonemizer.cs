@@ -197,13 +197,18 @@ namespace OpenUtau.Plugin.Builtin {
         // this lets us get the unotes and utrack for convel
         private List<UNote> unotes = new();
         private UTrack utrack;
+        private int partPos = 0;
 
         public override void SetUp(Note[][] notes, UProject project, UTrack track) {
             base.SetUp(notes, project, track);
             utrack = track;
             int trackNo = project.tracks.IndexOf(track);
+            int firstNotePos = notes.FirstOrDefault(n => n.Length > 0)?[0].position ?? 0;
             var part = project.parts.OfType<UVoicePart>()
-                .FirstOrDefault(p => p.trackNo == trackNo);
+                .FirstOrDefault(p => p.trackNo == trackNo && 
+                                     firstNotePos >= p.position && 
+                                     firstNotePos < p.End);
+            partPos = part?.position ?? 0;
             unotes = part?.notes.OrderBy(n => n.position).ToList() ?? new List<UNote>();
         }
 
@@ -249,7 +254,8 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         float CalcConvel(UNote note) {
-            float baseConvel = 100 * ((float)timeAxis.GetBpmAtTick(note.position) / 120);
+            int absTick = partPos + note.position;
+            float baseConvel = 100 * ((float)timeAxis.GetBpmAtTick(absTick) / 120);
             float finalConvel;
             var trackVel = utrack?.TrackExpressions?.FirstOrDefault(e => e.abbr == "vel");
             float velMin = trackVel?.min ?? 0f;
@@ -265,7 +271,9 @@ namespace OpenUtau.Plugin.Builtin {
 
         private (UNote un, UNote unNext) UNoteAt(int absPos) {
             if (unotes.Count == 0) return (null, null);
-            var un = unotes.LastOrDefault(n => n.position <= absPos) ?? unotes[0];
+            // Convert absolute project position to part-relative position
+            int relPos = absPos - partPos;
+            var un = unotes.LastOrDefault(n => n.position <= relPos) ?? unotes[0];
             int idx = unotes.IndexOf(un);
             return (un, idx + 1 < unotes.Count ? unotes[idx + 1] : null);
         }
