@@ -55,6 +55,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool PlayPosWaitingRendering { get; set; }
         [Reactive] public partial int PlayPosTick { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteHighlight { get; set; }
+        [Reactive] public partial bool ShowPlaybackNoteBounce { get; set; }
         [Reactive] public partial bool ShowTips { get; set; }
         [Reactive] public partial bool PlayTone { get; set; }
         [Reactive] public partial bool ShowVibrato { get; set; }
@@ -273,6 +274,7 @@ namespace OpenUtau.App.ViewModels {
                 Preferences.Save();
             });
             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
+            ShowPlaybackNoteBounce = Preferences.Default.ShowPlaybackNoteBounce;
 
             TickWidth = ViewConstants.PianoRollTickWidthDefault;
             TrackHeight = ViewConstants.NoteHeightDefault;
@@ -305,6 +307,9 @@ namespace OpenUtau.App.ViewModels {
                             break;
                         case "PlaybackNoteHighlight":
                             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
+                            break;
+                        case "PlaybackNoteBounce":
+                            ShowPlaybackNoteBounce = Preferences.Default.ShowPlaybackNoteBounce;
                             break;
                     }
                 });

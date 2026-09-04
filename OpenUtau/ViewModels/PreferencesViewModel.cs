@@ -110,6 +110,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool ShowGhostNotes { get; set; }
         [Reactive] public partial bool NoteHoverGlow { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteHighlight { get; set; }
+        [Reactive] public partial bool ShowPlaybackNoteBounce { get; set; }
         [Reactive] public partial bool DetachPianoRoll { get; set; }
         [Reactive] public partial bool ThemeEditable { get; set; }
         public List<string> ThemeItems => ThemeManager.GetAvailableThemes();
@@ -208,6 +209,7 @@ namespace OpenUtau.App.ViewModels {
             ShowGhostNotes = Preferences.Default.ShowGhostNotes;
             NoteHoverGlow = Preferences.Default.NoteHoverGlow;
             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
+            ShowPlaybackNoteBounce = Preferences.Default.ShowPlaybackNoteBounce;
             DetachPianoRoll = Preferences.Default.DetachPianoRoll;
             Channel = Preferences.Default.Channel switch {
                 "beta" => 1,
@@ -351,6 +353,12 @@ namespace OpenUtau.App.ViewModels {
                     Preferences.Default.ShowPlaybackNoteHighlight = showPlaybackNoteHighlight;
                     Preferences.Save();
                     MessageBus.Current.SendMessage(new PianorollRefreshEvent("PlaybackNoteHighlight"));
+                });
+            this.WhenAnyValue(vm => vm.ShowPlaybackNoteBounce)
+                .Subscribe(showPlaybackNoteBounce => {
+                    Preferences.Default.ShowPlaybackNoteBounce = showPlaybackNoteBounce;
+                    Preferences.Save();
+                    MessageBus.Current.SendMessage(new PianorollRefreshEvent("PlaybackNoteBounce"));
                 });
             this.WhenAnyValue(vm => vm.DetachPianoRoll)
                 .Subscribe(detachPianoRoll => {
