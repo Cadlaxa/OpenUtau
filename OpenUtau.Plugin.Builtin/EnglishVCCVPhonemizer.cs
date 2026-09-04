@@ -325,7 +325,7 @@ namespace OpenUtau.Plugin.Builtin {
                     switch (type) {
                         case "V C": case "VC": case "VC-":
                         case "VCC": case "VCC-": case "codaCC": case "C C":
-                        case "VC C":
+                        case "VC C": case "V-": case "CC-": 
                             var n = GetNoteForPhoneme(phoneme, notes);
                             if (n.lyric == "+" || n.lyric == "+~" || n.lyric.StartsWith("+")) {
                                 vel = noteVel;
@@ -1081,7 +1081,7 @@ namespace OpenUtau.Plugin.Builtin {
             int targetPos = notes[0].position;
             if (notes.Length > 1) {
                 bool isTransition = (type == "VC" || type == "V C" || type == "VC-" || type == "VCC" 
-                    || type == "VCC-" || type == "codaCC" || type == "C C" || type == "VC C");
+                    || type == "VCC-" || type == "codaCC" || type == "C C" || type == "VC C" || type == "V-" || type == "CC-");
 
                 int noteIdx = Math.Clamp(index / 2, 0, notes.Length - 1);
                 if (isTransition && noteIdx > 0) {
