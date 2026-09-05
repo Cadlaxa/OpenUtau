@@ -9,6 +9,7 @@ using OpenUtau.App.Views;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
 using ReactiveUI;
+using ReactiveUI.Primitives;
 using Serilog;
 using SharpCompress;
 
@@ -20,15 +21,15 @@ namespace OpenUtau.App.Controls {
             InitializeComponent();
             DataContext = ViewModel = new NotePropertiesViewModel();
 
-            this.GetLogicalDescendants().OfType<TextBox>().ForEach(box => {
-                box.AddHandler(GotFocusEvent, OnTextBoxGotFocus);
-                box.AddHandler(LostFocusEvent, OnTextBoxLostFocus);
-            });
-            this.GetLogicalDescendants().OfType<Slider>().ForEach(slider => {
-                slider.AddHandler(PointerPressedEvent, SliderPointerPressed, RoutingStrategies.Tunnel);
-                slider.AddHandler(PointerReleasedEvent, SliderPointerReleased, RoutingStrategies.Tunnel);
-                slider.AddHandler(PointerMovedEvent, SliderPointerMoved, RoutingStrategies.Tunnel);
-            });
+foreach (var box in this.GetLogicalDescendants().OfType<TextBox>()) {
+                  box.AddHandler(GotFocusEvent, OnTextBoxGotFocus);
+                  box.AddHandler(LostFocusEvent, OnTextBoxLostFocus);
+              }
+              foreach (var slider in this.GetLogicalDescendants().OfType<Slider>()) {
+                  slider.AddHandler(PointerPressedEvent, SliderPointerPressed, RoutingStrategies.Tunnel);
+                  slider.AddHandler(PointerReleasedEvent, SliderPointerReleased, RoutingStrategies.Tunnel);
+                  slider.AddHandler(PointerMovedEvent, SliderPointerMoved, RoutingStrategies.Tunnel);
+              }
           
             MessageBus.Current.Listen<PianorollRefreshEvent>()
                 .Subscribe(e => {
@@ -58,13 +59,13 @@ namespace OpenUtau.App.Controls {
         }
 
         private string textBoxValue = string.Empty;
-        void OnTextBoxGotFocus(object? sender, GotFocusEventArgs args) {
+        void OnTextBoxGotFocus(object? sender, FocusChangedEventArgs args) {
             Log.Debug("Note property textbox got focus");
             if(sender is TextBox text) {
                 textBoxValue = text.Text ?? string.Empty;
             }
         }
-        void OnTextBoxLostFocus(object? sender, RoutedEventArgs args) {
+        void OnTextBoxLostFocus(object? sender, FocusChangedEventArgs args) {
             Log.Debug("Note property textbox lost focus");
             if (sender is TextBox textBox && textBoxValue != textBox.Text && textBox.Tag is string tag && !string.IsNullOrEmpty(tag)) {
                 DocManager.Inst.StartUndoGroup("command.property.edit");
@@ -172,6 +173,13 @@ namespace OpenUtau.App.Controls {
                 }
             } else if (cmd is ConfigureExpressionsCommand && ViewModel.Part != null) {
                 LoadPart(ViewModel.Part);
+            }
+        }
+
+        public void OnPhonemizerButtonClicked(object? sender, RoutedEventArgs e) {
+            if (ViewModel.IsPhonemizerEnabled && sender is Button button && button.ContextMenu != null) {
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.Open();
             }
         }
     }

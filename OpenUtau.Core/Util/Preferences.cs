@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using OpenUtau.Core.Render;
@@ -111,8 +112,27 @@ namespace OpenUtau.Core.Util {
 
                     if (!ValidString(new Action(() => CultureInfo.GetCultureInfo(Default.Language)))) Default.Language = string.Empty;
                     if (!ValidString(new Action(() => CultureInfo.GetCultureInfo(Default.SortingOrder)))) Default.SortingOrder = string.Empty;
+                    if (Default.Beta) {
+                        Default.Channel = "beta";
+                        Default.Beta = false;
+                    }
+                    if (!new[] { "stable", "beta", "alpha" }.Contains(Default.Channel)) Default.Channel = "stable";
                     if (!Renderers.getRendererOptions().Contains(Default.DefaultRenderer)) Default.DefaultRenderer = string.Empty;
                     if (!Onnx.getRunnerOptions().Contains(Default.OnnxRunner)) Default.OnnxRunner = string.Empty;
+                    if (Default.Theme != null) {
+                        Default.ThemeName = Default.Theme switch {
+                            1 => "Dark",
+                            _ => "Light"
+                        };
+                        Default.Theme = null;
+                    }
+                    if (Default.PreferPortAudio != null) {
+                        Default.AudioBackEnd = Default.PreferPortAudio switch {
+                            false => 0,
+                            true => 1
+                        };
+                        Default.PreferPortAudio = null;
+                    }
                 } else {
                     Reset();
                 }
@@ -143,7 +163,6 @@ namespace OpenUtau.Core.Util {
             public bool ShowPrefs = true;
             public bool ShowTips = true;
             public string ThemeName = "Light";
-            public bool PenPlusDefault = false;
             public int DegreeStyle;
             public bool UseTrackColor = false;
             public bool ClearCacheOnQuit = false;
@@ -153,12 +172,19 @@ namespace OpenUtau.Core.Util {
             public int WorldlineR = 0;
             public string OnnxRunner = string.Empty;
             public int OnnxGpu = 0;
+            /// <summary>
+            /// GAME MIDI extractor backend preference: "onnx" (default) or "ggml".
+            /// Affects which inference engine Game uses; see GameBackendFactory.
+            /// </summary>
+            public string GameBackend = "onnx";
             public double DiffSingerDepth = 1.0;
             public int DiffSingerSteps = 20;
             public int DiffSingerStepsVariance = 20;
             public int DiffSingerStepsPitch = 10;
             public bool DiffSingerTensorCache = true;
+            public bool DiffSingerVarianceLocalPitchPatch = false;
             public bool DiffSingerLangCodeHide = false;
+            public bool DiffSingerLocalRetaking = false;
             public bool SkipRenderingMutedTracks = false;
             public string Language = string.Empty;
             public string? SortingOrder = null;
@@ -173,7 +199,8 @@ namespace OpenUtau.Core.Util {
             public List<string> FavoriteSingers = new List<string>();
             public Dictionary<string, string> SingerPhonemizers = new Dictionary<string, string>();
             public List<string> RecentPhonemizers = new List<string>();
-            public bool PreferPortAudio = false;
+            public uint AudioBackEnd = 0; // 0 = Automatic, 1 = MiniAudio, 2 = SDL
+            public bool UseSystemDefaultAudioDevice = true;
             public double PlayPosMarkerMargin = 0.9;
             public int LockStartTime = 0;
             public int PlaybackAutoScroll = 2;
@@ -181,6 +208,10 @@ namespace OpenUtau.Core.Util {
             public bool ShowPortrait = true;
             public bool ShowIcon = true;
             public bool ShowGhostNotes = true;
+            public bool NoteHoverGlow = true;
+            public bool ShowPlaybackNoteHighlight = true;
+            public bool ShowPlaybackNoteBounce = false;
+            public EditTool EditTool = new EditTool();
             public bool PlayTone = true;
             public bool ShowVibrato = true;
             public bool ShowPitch = true;
@@ -188,6 +219,7 @@ namespace OpenUtau.Core.Util {
             public bool ShowWaveform = true;
             public bool ShowPhoneme = true;
             public bool ShowExpressions = true;
+            public bool ShowPhonemizerTags = true;
             public bool ShowNoteParams = true;
             public Dictionary<string, string> DefaultResamplers = new Dictionary<string, string>();
             public Dictionary<string, string> DefaultWavtools = new Dictionary<string, string>();
@@ -196,17 +228,25 @@ namespace OpenUtau.Core.Util {
             public int OtoEditor = 0;
             public string VLabelerPath = string.Empty;
             public string SetParamPath = string.Empty;
-            public bool Beta = false;
+            public bool Beta = false; // deprecated, migrated to Channel
+            /// <summary>
+            /// Release channel for the auto updater: "stable", "beta" or "alpha".
+            /// </summary>
+            public string Channel = "stable";
             public bool RememberMid = false;
             public bool RememberUst = true;
             public bool RememberVsqx = true;
             public string WinePath = string.Empty;
+            public bool UseWayland  = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null
+                                         || Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") == "wayland"; //Check for Wayland
             public string PhoneticAssistant = string.Empty;
             public string RecentOpenSingerDirectory = string.Empty;
             public string RecentOpenProjectDirectory = string.Empty;
             public bool LockUnselectedNotesPitch = true;
             public bool LockUnselectedNotesVibrato = true;
             public bool LockUnselectedNotesExpressions = true;
+            public bool LyricLivePreview = true;
+            public bool LyricApplySelectionOnly = true;
             public bool VoicebankPublishUseIgnore = true;
             public string VoicebankPublishIgnores = @"#Adobe Audition
 *.pkf
@@ -241,7 +281,28 @@ namespace OpenUtau.Core.Util {
 errors.txt
 ";
             public string RecoveryPath = string.Empty;
-            public bool DetachPianoRoll = false;
+            public bool DetachPianoRoll = true;
+
+            // ----- Mix FX (post-processing) -----
+            // Per-track FX state lives in UTrack.MixFx and the project ustx.
+            // Preferences only stores the global "apply on mixdown export" toggle
+            // and the user preset library (named full-rack snapshots).
+            public bool MixFxApplyOnExportMixdown = true;
+            public List<MixFxUserPreset> MixFxUserPresets = new List<MixFxUserPreset>();
+
+            // Legacy
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public int? Theme;
+            public bool? PreferPortAudio = false;
+        }
+
+        /// <summary>
+        /// Named full-rack FX snapshot (EQ + Comp + Reverb together).
+        /// Persisted in Preferences so users can save and recall their own presets.
+        /// </summary>
+        public class MixFxUserPreset {
+            public string Name { get; set; } = string.Empty;
+            public Ustx.UMixFx Fx { get; set; } = new Ustx.UMixFx();
         }
     }
 }
