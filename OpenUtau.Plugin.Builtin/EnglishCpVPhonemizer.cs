@@ -245,14 +245,6 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
-
-
             // STARTING V
             if (syllable.IsStartingV) {
                 // TRIES - V THEN -V AND SO ON
@@ -840,12 +832,6 @@ namespace OpenUtau.Plugin.Builtin {
                     alias = alias.Replace(fb.Key, fb.Value);
                 }
             }
-            if (isYamlFallbacks) {
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-
             return alias;
 
         }
