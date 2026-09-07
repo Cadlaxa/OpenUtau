@@ -81,6 +81,19 @@ namespace OpenUtau.Core.Render {
             if (oldCancellation != null) {
                 oldCancellation.Cancel();
                 oldCancellation.Dispose();
+                
+                // Evict stale live preview waveforms to prevent visual stacking
+                if (trackNo != -1) {
+                    var keysToRemove = PlaybackManager.Inst.LiveWaveformCache
+                        .Where(kvp => kvp.Value.trackNo == trackNo)
+                        .Select(kvp => kvp.Key)
+                        .ToList();
+                    foreach (var k in keysToRemove) {
+                        PlaybackManager.Inst.LiveWaveformCache.TryRemove(k, out _);
+                    }
+                } else {
+                    PlaybackManager.Inst.LiveWaveformCache.Clear();
+                }
             }
             double startMs = project.timeAxis.TickPosToMsPos(startTick);
             double endMs = endTick == -1 ? double.PositiveInfinity : project.timeAxis.TickPosToMsPos(endTick);
@@ -191,6 +204,7 @@ namespace OpenUtau.Core.Render {
             if (oldCancellation != null) {
                 oldCancellation.Cancel();
                 oldCancellation.Dispose();
+                PlaybackManager.Inst.LiveWaveformCache.Clear();
             }
             Task.Run(() => {
                 try {
@@ -291,12 +305,18 @@ namespace OpenUtau.Core.Render {
                         string.Join(",", morphTracks.Select(t => $"{t.TargetColor}:{t.Flag}:{t.Abbr}"));
 
                     if (!MorphBlendCache.TryGetValue(morphKey, out var blended)) {
-                        // Pass A: Render Base Voice
-                        phrase.renderSalt = 0;
+                        ulong passASalt = 0x0101010101010101UL;
+                        phrase.renderSalt = passASalt;
                         var taskA = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true, renderEvents);
                         taskA.Wait();
+                        phrase.renderSalt = 0;
                         if (cancellation.IsCancellationRequested) break;
                         float[] samplesA = taskA.Result.samples;
+
+                        if (samplesA == null || samplesA.Length == 0) {
+                            source.SetSamples(samplesA);
+                            continue;
+                        }
 
                         var otoField = typeof(RenderPhone).GetField("oto", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                         var hashField = typeof(RenderPhone).GetField("hash", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -311,11 +331,9 @@ namespace OpenUtau.Core.Render {
                         var singer = DocManager.Inst.Project.tracks[request.trackNo].Singer;
                         var colorAudios = new List<float[]>();
                         var tempAuxCacheFiles = new List<string>();
-
                         int pitchStart = phrase.position - phrase.leading;
 
                         try {
-                            // Pass B..N: Render each active auxiliary target
                             for (int t = 0; t < morphTracks.Count; t++) {
                                 var track = morphTracks[t];
                                 ulong salt = (ulong)(t + 1) * 0x5858585858585858UL;
@@ -324,7 +342,6 @@ namespace OpenUtau.Core.Render {
                                 try {
                                     phrase.renderSalt = salt;
 
-                                    // SELECTIVE HIJACKING: Only hijack phones where the curve is actually active (> 0)
                                     for (int i = 0; i < phrase.phones.Length; i++) {
                                         var phone = phrase.phones[i];
 
@@ -341,10 +358,7 @@ namespace OpenUtau.Core.Render {
                                             }
                                         }
 
-                                        if (!isPhoneActive) {
-                                            // Leave as base voice: renderer will hit cache and reuse Pass A audio
-                                            continue;
-                                        }
+                                        if (!isPhoneActive) continue;
 
                                         if (!string.IsNullOrEmpty(track.TargetColor)) {
                                             if (TryHijackOto(singer, phone, track.TargetColor, out var secondaryOto)) {
@@ -384,40 +398,62 @@ namespace OpenUtau.Core.Render {
                                 }
 
                                 if (cancellation.IsCancellationRequested) break;
-                                colorAudios.Add(samplesB ?? samplesA);
+
+                                float[] alignedB = new float[samplesA.Length];
+                                if (samplesB != null) {
+                                    int copyLen = Math.Min(samplesA.Length, samplesB.Length);
+                                    Array.Copy(samplesB, alignedB, copyLen);
+                                } else {
+                                    Array.Copy(samplesA, alignedB, samplesA.Length);
+                                }
+                                colorAudios.Add(alignedB);
                             }
 
                             if (cancellation.IsCancellationRequested) break;
 
                             const int fftSize = 2048;
                             const int hopSize = 512;
-                            int totalSamples = samplesA.Length;
-                            foreach (var ca in colorAudios) {
-                                if (ca.Length > totalSamples) totalSamples = ca.Length;
-                            }
-                            int frameCount = Math.Max(1, (totalSamples - fftSize) / hopSize + 1);
+                            int targetLength = samplesA.Length;
+                            int frameCount = Math.Max(1, (targetLength - fftSize) / hopSize + 1);
 
-                            // Frame-accurate ratio sampling aligned directly to STFT frame centers
                             var colorCurves = new List<float[]>();
                             for (int t = 0; t < morphTracks.Count; t++) {
-                                var track = morphTracks[t];
-                                float[] frameRatios = new float[frameCount];
-                                for (int f = 0; f < frameCount; f++) {
-                                    double timeMs = phrase.positionMs - phrase.leadingMs
-                                        + (double)(f * hopSize + fftSize / 2) / 44100.0 * 1000.0;
-                                    double tick = project.timeAxis.MsPosToTickPos(timeMs);
-                                    int curveIndex = (int)Math.Max(0, (tick - pitchStart) / 5.0);
-                                    if (track.RawCurve.Length > 0) {
-                                        float rawVal = curveIndex < track.RawCurve.Length
-                                            ? track.RawCurve[curveIndex]
-                                            : track.RawCurve.Last();
-                                        frameRatios[f] = track.WeightFunc(rawVal);
+                                colorCurves.Add(new float[frameCount]);
+                            }
+
+                            for (int f = 0; f < frameCount; f++) {
+                                double timeMs = phrase.positionMs - phrase.leadingMs
+                                    + (double)(f * hopSize + fftSize / 2) / 44100.0 * 1000.0;
+                                double tick = project.timeAxis.MsPosToTickPos(timeMs);
+                                int curveIndex = (int)Math.Max(0, (tick - pitchStart) / 5.0);
+
+                                float totalWeight = 0f;
+                                for (int t = 0; t < morphTracks.Count; t++) {
+                                    var track = morphTracks[t];
+                                    float weight = 0f;
+                                    if (track.RawCurve.Length > 0 && curveIndex < track.RawCurve.Length) {
+                                        weight = track.WeightFunc(track.RawCurve[curveIndex]);
+                                    }
+                                    colorCurves[t][f] = weight;
+                                    totalWeight += weight;
+                                }
+
+                                // Clamp total combined weight to 100% to prevent amplitude swelling
+                                if (totalWeight > 100f) {
+                                    float scale = 100f / totalWeight;
+                                    for (int t = 0; t < morphTracks.Count; t++) {
+                                        colorCurves[t][f] *= scale;
                                     }
                                 }
-                                colorCurves.Add(frameRatios);
                             }
 
                             blended = CrossSynthDSP.MorphN(samplesA, colorAudios, colorCurves);
+
+                            // Force blended buffer length to match samples
+                            if (blended.Length != targetLength) {
+                                Array.Resize(ref blended, targetLength);
+                            }
+
                             if (MorphBlendCache.Count > 1024) {
                                 MorphBlendCache.Clear();
                             }
@@ -437,8 +473,6 @@ namespace OpenUtau.Core.Render {
                                 ulong salt = (ulong)(t + 1) * 0x5858585858585858UL;
                                 PlaybackManager.Inst.LiveWaveformCache.TryRemove((originalPhraseHash ^ salt).ToString(), out _);
                             }
-
-                            source.SetSamples(blended);
                         } finally {
                             if (Preferences.Default.AutoDeleteMorphCache) {
                                 Task.Run(() => {
@@ -488,15 +522,14 @@ namespace OpenUtau.Core.Render {
                 if (curveSamples == null || curveSamples.Length == 0) continue;
 
                 project.expressions.TryGetValue(abbr, out var exp);
-
                 string matchedColor = null;
 
-                // 1. Voice Color Matching (cl01..N)
+                // Voice Color Matching (cl01..N or using MorphingCurves)
                 if (abbr.StartsWith("cl", StringComparison.OrdinalIgnoreCase) && int.TryParse(abbr.Substring(2), out int idx)) {
                     if (idx > 0 && idx <= uniqueColors.Count) {
                         matchedColor = uniqueColors[idx - 1];
                     }
-                } else if (exp != null && !string.IsNullOrEmpty(exp.name)) {
+                } else if (exp != null && exp.type == UExpressionType.MorphingCurve && !string.IsNullOrEmpty(exp.name)) {
                     matchedColor = uniqueColors.FirstOrDefault(c => exp.name.IndexOf(c, StringComparison.OrdinalIgnoreCase) >= 0);
                 }
 
@@ -513,8 +546,8 @@ namespace OpenUtau.Core.Render {
                     continue;
                 }
 
-                // 2. Bipolar & Unipolar Flag Curves
-                if (exp != null && (exp.isFlag || !string.IsNullOrEmpty(exp.flag) || exp.type == UExpressionType.MorphingCurve)) {
+                // Morphing Flag Curves (ONLY if explicitly configured as MorphingCurve)
+                if (exp != null && exp.type == UExpressionType.MorphingCurve && (exp.isFlag || !string.IsNullOrEmpty(exp.flag))) {
                     string flagBase = string.IsNullOrEmpty(exp.flag) ? exp.abbr : exp.flag;
                     float defVal = exp.defaultValue;
                     float cMax = curveSamples.Max();
