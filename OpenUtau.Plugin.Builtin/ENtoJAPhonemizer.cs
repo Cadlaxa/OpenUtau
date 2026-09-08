@@ -14,7 +14,7 @@ namespace OpenUtau.Plugin.Builtin {
     public class ENtoJAPhonemizer : SyllableBasedPhonemizer {
         protected override string YamlFileName => "en2ja.yaml";
         protected override byte[] YamlTemplate => Data.Resources.en2ja_template;
-        protected override string YamlVersion => "1.2";
+        protected override string YamlVersion => "1.2.1";
 
         public ENtoJAPhonemizer() {
             this.vowels = new string[] {
