@@ -26,7 +26,7 @@ namespace OpenUtau.Plugin.Builtin {
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
-b        protected override bool EnablePhonemeTokenization => true;
+        protected override bool EnablePhonemeTokenization => true;
 
         public Dictionary<string, List<string>> WanaKanaDictionary = new Dictionary<string, List<string>>();
 
