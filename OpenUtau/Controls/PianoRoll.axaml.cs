@@ -820,6 +820,9 @@ namespace OpenUtau.App.Controls {
                     ViewModel.NotesViewModel.DeselectNotes();
                     editState = new NoteSplitEditState(
                             control, ViewModel, this, noteHitInfo.note);
+                } else if (args.KeyModifiers == KeyModifiers.Alt) {
+                    editState = new NoteMoveEditState(control, ViewModel, this, noteHitInfo.note, true);
+                    Cursor = ViewConstants.cursorSizeAll;
                 } else {
                     editState = new NoteMoveEditState(control, ViewModel, this, noteHitInfo.note);
                     Cursor = ViewConstants.cursorSizeAll;
@@ -1252,7 +1255,6 @@ namespace OpenUtau.App.Controls {
             }
             var hitInfoAlias = ViewModel.NotesViewModel.HitTest.HitTestAlias(point);
             var phoneme = hitInfoAlias.phoneme;
-            Log.Debug($"PhonemeCanvasDoubleTapped, hit = {hitInfoAlias.hit}, point = {{{hitInfoAlias.point}}}, phoneme = {phoneme?.phoneme}");
             if (hitInfoAlias.hit) {
                 LyricBox?.Show(ViewModel.NotesViewModel.Part, new LyricBoxPhoneme(phoneme!), phoneme!.phoneme);
                 return;
@@ -1561,15 +1563,16 @@ namespace OpenUtau.App.Controls {
                     case Key.D2: ViewModel.ToolIndex = 1; return true;
                     case Key.D3: ViewModel.ToolIndex = 2; return true;
                     case Key.D4: ViewModel.ToolIndex = 3; return true;
+                    case Key.D5: ViewModel.ToolIndex = 4; return true;
                 }
             }
             if (isShift) {
                 switch (args.Key) {
-                    case Key.D1: ViewModel.ToolIndex = 4; return true;
-                    case Key.D2: ViewModel.ToolIndex = 5; return true;
-                    case Key.D3: ViewModel.ToolIndex = 6; return true;
-                    case Key.D4: ViewModel.ToolIndex = 7; return true;
-                    case Key.D5: ViewModel.ToolIndex = 8; return true;
+                    case Key.D1: ViewModel.ToolIndex = 5; return true;
+                    case Key.D2: ViewModel.ToolIndex = 6; return true;
+                    case Key.D3: ViewModel.ToolIndex = 7; return true;
+                    case Key.D4: ViewModel.ToolIndex = 8; return true;
+                    case Key.D5: ViewModel.ToolIndex = 9; return true;
                 }
             }
             if (isAlt) {
@@ -2076,10 +2079,6 @@ namespace OpenUtau.App.Controls {
                 } else {
                     LoadingWindow.EndLoading();
                 }
-            } else if (cmd is WaveformReadyNotification) {
-                Dispatcher.UIThread.Post(() => {
-                    MessageBus.Current.SendMessage(new WaveformRefreshEvent());
-                }, Avalonia.Threading.DispatcherPriority.Normal);
             }
         }
     }
