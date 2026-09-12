@@ -1,0 +1,99 @@
+%YAML 1.2
+---
+
+version: 1.3
+symbols:
+  - {symbol: a, type: vowel}
+  - {symbol: b, type: stop}
+  - {symbol: ch, type: affricate}
+  - {symbol: d, type: stop}
+  - {symbol: dh, type: fricative}
+  - {symbol: e, type: vowel}
+  - {symbol: f, type: fricative}
+  - {symbol: ff, type: fricative}
+  - {symbol: g, type: stop}
+  - {symbol: h, type: aspirate}
+  - {symbol: hh, type: aspirate}
+  - {symbol: i, type: vowel}
+  - {symbol: j, type: affricate}
+  - {symbol: k, type: stop}
+  - {symbol: l, type: liquid}
+  - {symbol: m, type: nasal}
+  - {symbol: M, type: nasal}
+  - {symbol: n, type: nasal}
+  - {symbol: N, type: nasal}
+  - {symbol: ng, type: nasal}
+  - {symbol: o, type: vowel}
+  - {symbol: p, type: stop}
+  - {symbol: r, type: tap}
+  - {symbol: rr, type: tap}
+  - {symbol: R, type: liquid}
+  - {symbol: s, type: fricative}
+  - {symbol: sf, type: fricative}
+  - {symbol: sh, type: fricative}
+  - {symbol: sk, type: fricative}
+  - {symbol: sm, type: fricative}
+  - {symbol: sn, type: fricative}
+  - {symbol: sp, type: fricative}
+  - {symbol: st, type: fricative}
+  - {symbol: t, type: stop}
+  - {symbol: th, type: fricative}
+  - {symbol: ts, type: affricate}
+  - {symbol: u, type: vowel}
+  - {symbol: v, type: fricative}
+  - {symbol: w, type: semivowel}
+  - {symbol: y, type: semivowel}
+  - {symbol: z, type: fricative}
+  - {symbol: zh, type: fricative}
+
+# the N used as [ん]
+  - {symbol: ん, type: vowel}
+
+# vowels that for other languages
+  - {symbol: I, type: vowel}
+  - {symbol: '{', type: vowel}
+  - {symbol: V, type: vowel}
+  - {symbol: U, type: vowel}
+  - {symbol: '3', type: vowel}
+
+# Basic+
+  - {symbol: aI, type: vowel}
+  - {symbol: aU, type: vowel}
+  - {symbol: eI, type: vowel}
+  - {symbol: OI, type: vowel}
+  - {symbol: oU, type: vowel}
+
+# extended
+  - {symbol: dd, type: tap}
+  - {symbol: dz, type: affricate}
+  - {symbol: kh, type: fricative}
+  - {symbol: kk, type: stop}
+  - {symbol: pp, type: stop}
+  - {symbol: rh, type: liquid}
+  - {symbol: tt, type: stop}
+
+# if you record extras
+  - {symbol: '・', type: stop}
+  - {symbol: "'", type: stop}
+
+replacements:
+  - {from: dz, to: [d, z]}
+
+timings:
+# example entries, you can further customize each phoneme lengths in seconds
+  - {symbol: l, value: 1.3}
+  - {symbol: r, value: 0.7}
+
+entries:
+  - grapheme: openutau
+    phonemes: [ow, p, e, n, u, t, a, u]
+  - grapheme: n
+    phonemes: [ん]
+  - grapheme: N
+    phonemes: [ん]
+  - grapheme: m
+    phonemes: [ん]
+  - grapheme: M
+    phonemes: [ん]
+  - grapheme: ng
+    phonemes: [ん]
