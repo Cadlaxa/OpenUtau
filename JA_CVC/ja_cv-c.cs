@@ -21,7 +21,7 @@ namespace OpenUtau.Plugin.Builtin {
     public class JACVC : SyllableBasedPhonemizer {
         protected override string YamlFileName => "ja-cvc.yaml";
         protected override byte[] YamlTemplate => JA_CVC.Data.Resources.template;
-        protected override string YamlVersion => "1.4";
+        protected override string YamlVersion => "1.4.2";
         private static readonly Dictionary<string, string> hiraToRoma = new Dictionary<string, string> {
             {"りゃ","rya"}, {"りぇ","rye"}, {"りゅ","ryu"}, {"りょ","ryo"},
             {"ぴゃ","pya"}, {"ぴぇ","pye"}, {"ぴゅ","pyu"}, {"ぴょ","pyo"},

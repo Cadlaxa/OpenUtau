@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 
-version: 1.4
+version: 1.4.2
 isglide: true
 symbols:
   - {symbol: a, type: vowel}
@@ -298,6 +298,30 @@ fallbacks:
   - {from: e pw, to: e p}
   - {from: o pw, to: o p}
   - {from: n pw, to: n p}
+  - {from: pya, to: py} 
+  - {from: pyu, to: py} 
+  - {from: pye, to: py} 
+  - {from: pyo, to: py} 
+  - {from: pwa, to: pw} 
+  - {from: pwi, to: pw} 
+  - {from: pwe, to: pw} 
+  - {from: pwo, to: pw} 
+  - {from: mya, to: my} 
+  - {from: myu, to: my} 
+  - {from: mye, to: my} 
+  - {from: myo, to: my} 
+  - {from: mwa, to: mw} 
+  - {from: mwi, to: mw} 
+  - {from: mwe, to: mw} 
+  - {from: mwo, to: mw} 
+  - {from: rya, to: ry} 
+  - {from: ryu, to: ry} 
+  - {from: rye, to: ry} 
+  - {from: ryo, to: ry} 
+  - {from: rwa, to: rw} 
+  - {from: rwi, to: rw} 
+  - {from: rwe, to: rw} 
+  - {from: rwo, to: rw} 
   - {from: spya, to: spy} 
   - {from: spyu, to: spy} 
   - {from: spye, to: spy} 
@@ -326,6 +350,17 @@ fallbacks:
   - {from: vwi, to: vw} 
   - {from: vwe, to: vw} 
   - {from: vwo, to: vw} 
+  - {from: m m, to: n m}
+  - {from: m p, to: n p}
+  - {from: m pp, to: n pp}
+  - {from: m b, to: n b}
+  - {from: ng k, to: n k}
+  - {from: ng kk, to: n kk}
+  - {from: ng g, to: n g}
+  - {from: ng ng, to: n ng}
+  - {from: kk, to: k}
+  - {from: tt, to: t}
+  - {from: pp, to: p}
 
 vowelsustains: 
   - {symbol: kya, sustain: _ya, offset: 0.4}
