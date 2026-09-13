@@ -21,7 +21,7 @@ namespace OpenUtau.Plugin.Builtin {
     public class JACVC : SyllableBasedPhonemizer {
         protected override string YamlFileName => "ja-cvc.yaml";
         protected override byte[] YamlTemplate => JA_CVC.Data.Resources.template;
-        protected override string YamlVersion => "1.3";
+        protected override string YamlVersion => "1.4";
         private static readonly Dictionary<string, string> hiraToRoma = new Dictionary<string, string> {
             {"りゃ","rya"}, {"りぇ","rye"}, {"りゅ","ryu"}, {"りょ","ryo"},
             {"ぴゃ","pya"}, {"ぴぇ","pye"}, {"ぴゅ","pyu"}, {"ぴょ","pyo"},
@@ -628,6 +628,12 @@ namespace OpenUtau.Plugin.Builtin {
                 if (CurrentWordCc.Length >= 2 && !PreviousWordCc.Contains(cc1)) {
                     cc1 = $"{string.Join("", cc.Skip(i))}";
                 }
+                if (CurrentWordCc.Length >= 2) {
+                    if (liquid.Contains(cc.Last()) || semivowel.Contains(cc.Last())
+                        || liquid.Contains(ValidateAlias(cc.Last())) || semivowel.Contains(ValidateAlias(cc.Last()))) {
+                        glides(cc1);
+                    }
+                }
                 if (!HasOto(cc1, syllable.tone)) {
                     cc1 = ValidateAlias(cc1);
                 }
@@ -660,6 +666,12 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                     if (!HasOto(cc2, syllable.tone)) {
                         cc2 = ValidateAlias(cc2);
+                    }
+                    if (CurrentWordCc.Length >= 2) {
+                        if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])
+                            || liquid.Contains(ValidateAlias(cc[i + 1])) || semivowel.Contains(ValidateAlias(cc[i + 1]))) {
+                            glides(cc1);
+                        }
                     }
                     // Use [C2C3] when current word has 2 consonants or more and [C2C3C4...] does not exist
                     if (!HasOto(cc2, syllable.tone) && CurrentWordCc.Length >= 2 && CurrentWordCc.Contains(cc2)) {

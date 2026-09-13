@@ -1,7 +1,8 @@
 %YAML 1.2
 ---
 
-version: 1.3
+version: 1.4
+isglide: true
 symbols:
   - {symbol: a, type: vowel}
   - {symbol: b, type: stop}
@@ -83,6 +84,370 @@ timings:
 # example entries, you can further customize each phoneme lengths in seconds
   - {symbol: l, value: 1.3}
   - {symbol: r, value: 0.7}
+
+fallbacks:
+  - {from: a ky, to: a k}
+  - {from: i ky, to: i k}
+  - {from: u ky, to: u k}
+  - {from: e ky, to: e k}
+  - {from: o ky, to: o k}
+  - {from: n ky, to: n k}
+  - {from: a kw, to: a k}
+  - {from: i kw, to: i k}
+  - {from: u kw, to: u k}
+  - {from: e kw, to: e k}
+  - {from: o kw, to: o k}
+  - {from: n kw, to: n k}
+  - {from: kya, to: ky} 
+  - {from: kyu, to: ky} 
+  - {from: kye, to: ky} 
+  - {from: kyo, to: ky} 
+  - {from: kwa, to: kw} 
+  - {from: kwi, to: kw} 
+  - {from: kwe, to: kw} 
+  - {from: kwo, to: kw} 
+  - {from: a gy, to: a g}
+  - {from: i gy, to: i g}
+  - {from: u gy, to: u g}
+  - {from: e gy, to: e g}
+  - {from: o gy, to: o g}
+  - {from: n gy, to: n g}
+  - {from: a gw, to: a g}
+  - {from: i gw, to: i g}
+  - {from: u gw, to: u g}
+  - {from: e gw, to: e g}
+  - {from: o gw, to: o g}
+  - {from: n gw, to: n g}
+  - {from: gya, to: gy} 
+  - {from: gyu, to: gy} 
+  - {from: gye, to: gy} 
+  - {from: gyo, to: gy} 
+  - {from: gwa, to: gw} 
+  - {from: gwi, to: gw} 
+  - {from: gwe, to: gw} 
+  - {from: gwo, to: gw} 
+  - {from: a sy, to: a s}
+  - {from: i sy, to: i s}
+  - {from: u sy, to: u s}
+  - {from: e sy, to: e s}
+  - {from: o sy, to: o s}
+  - {from: n sy, to: n s}
+  - {from: a sw, to: a s}
+  - {from: i sw, to: i s}
+  - {from: u sw, to: u s}
+  - {from: e sw, to: e s}
+  - {from: o sw, to: o s}
+  - {from: n sw, to: n s}
+  - {from: sya, to: sy} 
+  - {from: syu, to: sy} 
+  - {from: sye, to: sy} 
+  - {from: syo, to: sy} 
+  - {from: swa, to: sw} 
+  - {from: swi, to: sw} 
+  - {from: swe, to: sw} 
+  - {from: swo, to: sw} 
+  - {from: a zy, to: a z}
+  - {from: i zy, to: i z}
+  - {from: u zy, to: u z}
+  - {from: e zy, to: e z}
+  - {from: o zy, to: o z}
+  - {from: n zy, to: n z}
+  - {from: a zw, to: a z}
+  - {from: i zw, to: i z}
+  - {from: u zw, to: u z}
+  - {from: e zw, to: e z}
+  - {from: o zw, to: o z}
+  - {from: n zw, to: n z}
+  - {from: zya, to: zy} 
+  - {from: zyu, to: zy} 
+  - {from: zye, to: zy} 
+  - {from: zyo, to: zy} 
+  - {from: zwa, to: zw} 
+  - {from: zwi, to: zw} 
+  - {from: zwe, to: zw} 
+  - {from: zwo, to: zw} 
+  - {from: a ty, to: a t}
+  - {from: i ty, to: i t}
+  - {from: u ty, to: u t}
+  - {from: e ty, to: e t}
+  - {from: o ty, to: o t}
+  - {from: n ty, to: n t}
+  - {from: a tw, to: a t}
+  - {from: i tw, to: i t}
+  - {from: u tw, to: u t}
+  - {from: e tw, to: e t}
+  - {from: o tw, to: o t}
+  - {from: n tw, to: n t}
+  - {from: tya, to: ty} 
+  - {from: tyu, to: ty} 
+  - {from: tye, to: ty} 
+  - {from: tyo, to: ty} 
+  - {from: twa, to: tw} 
+  - {from: twi, to: tw} 
+  - {from: twe, to: tw} 
+  - {from: two, to: tw} 
+  - {from: a dy, to: a d}
+  - {from: i dy, to: i d}
+  - {from: u dy, to: u d}
+  - {from: e dy, to: e d}
+  - {from: o dy, to: o d}
+  - {from: n dy, to: n d}
+  - {from: a dw, to: a d}
+  - {from: i dw, to: i d}
+  - {from: u dw, to: u d}
+  - {from: e dw, to: e d}
+  - {from: o dw, to: o d}
+  - {from: n dw, to: n d}
+  - {from: dya, to: dy} 
+  - {from: dyu, to: dy} 
+  - {from: dye, to: dy} 
+  - {from: dyo, to: dy} 
+  - {from: dwa, to: dw} 
+  - {from: dwi, to: dw} 
+  - {from: dwe, to: dw} 
+  - {from: dwo, to: dw} 
+  - {from: a ny, to: a n}
+  - {from: i ny, to: i n}
+  - {from: u ny, to: u n}
+  - {from: e ny, to: e n}
+  - {from: o ny, to: o n}
+  - {from: n ny, to: n n}
+  - {from: a nw, to: a n}
+  - {from: i nw, to: i n}
+  - {from: u nw, to: u n}
+  - {from: e nw, to: e n}
+  - {from: o nw, to: o n}
+  - {from: n nw, to: n n}
+  - {from: nya, to: ny} 
+  - {from: nyu, to: ny} 
+  - {from: nye, to: ny} 
+  - {from: nyo, to: ny} 
+  - {from: nwa, to: nw} 
+  - {from: nwi, to: nw} 
+  - {from: nwe, to: nw} 
+  - {from: nwo, to: nw} 
+  - {from: a hhy, to: a hh}
+  - {from: i hhy, to: i hh}
+  - {from: u hhy, to: u hh}
+  - {from: e hhy, to: e hh}
+  - {from: o hhy, to: o hh}
+  - {from: n hhy, to: n hh}
+  - {from: a hw, to: a h}
+  - {from: i hw, to: i h}
+  - {from: u hw, to: u h}
+  - {from: e hw, to: e h}
+  - {from: o hw, to: o h}
+  - {from: n hw, to: n h}
+  - {from: hhya, to: hhy} 
+  - {from: hhyu, to: hhy} 
+  - {from: hhye, to: hhy} 
+  - {from: hhyo, to: hhy} 
+  - {from: hwa, to: hw} 
+  - {from: hwi, to: hw} 
+  - {from: hwe, to: hw} 
+  - {from: hwo, to: hw} 
+  - {from: a ffy, to: a ff}
+  - {from: i ffy, to: i ff}
+  - {from: u ffy, to: u ff}
+  - {from: e ffy, to: e ff}
+  - {from: o ffy, to: o ff}
+  - {from: n ffy, to: n ff}
+  - {from: a ffw, to: a ff}
+  - {from: i ffw, to: i ff}
+  - {from: u ffw, to: u ff}
+  - {from: e ffw, to: e ff}
+  - {from: o ffw, to: o ff}
+  - {from: n ffw, to: n ff}
+  - {from: hhya, to: hhy} 
+  - {from: hhyu, to: hhy} 
+  - {from: hhye, to: hhy} 
+  - {from: hhyo, to: hhy} 
+  - {from: hwa, to: hw} 
+  - {from: hwi, to: hw} 
+  - {from: hwe, to: hw} 
+  - {from: hwo, to: hw} 
+  - {from: a by, to: a b}
+  - {from: i by, to: i b}
+  - {from: u by, to: u b}
+  - {from: e by, to: e b}
+  - {from: o by, to: o b}
+  - {from: n by, to: n b}
+  - {from: a bw, to: a b}
+  - {from: i bw, to: i b}
+  - {from: u bw, to: u b}
+  - {from: e bw, to: e b}
+  - {from: o bw, to: o b}
+  - {from: n bw, to: n b}
+  - {from: bya, to: by} 
+  - {from: byu, to: by} 
+  - {from: bye, to: by} 
+  - {from: byo, to: by} 
+  - {from: bwa, to: bw} 
+  - {from: bwi, to: bw} 
+  - {from: bwe, to: bw} 
+  - {from: bwo, to: bw} 
+  - {from: a py, to: a p}
+  - {from: i py, to: i p}
+  - {from: u py, to: u p}
+  - {from: e py, to: e p}
+  - {from: o py, to: o p}
+  - {from: n py, to: n p}
+  - {from: a pw, to: a p}
+  - {from: i pw, to: i p}
+  - {from: u pw, to: u p}
+  - {from: e pw, to: e p}
+  - {from: o pw, to: o p}
+  - {from: n pw, to: n p}
+  - {from: spya, to: spy} 
+  - {from: spyu, to: spy} 
+  - {from: spye, to: spy} 
+  - {from: spyo, to: spy} 
+  - {from: thwa, to: thw} 
+  - {from: thwi, to: thw} 
+  - {from: thwe, to: thw} 
+  - {from: thwo, to: thw} 
+  - {from: a spy, to: a sp}
+  - {from: i spy, to: i sp}
+  - {from: u spy, to: u sp}
+  - {from: e spy, to: e sp}
+  - {from: o spy, to: o sp}
+  - {from: n spy, to: n sp}
+  - {from: a thw, to: a th}
+  - {from: i thw, to: i th}
+  - {from: u thw, to: u th}
+  - {from: e thw, to: e th}
+  - {from: o thw, to: o th}
+  - {from: n thw, to: n th}
+  - {from: vya, to: vy} 
+  - {from: vyu, to: vy} 
+  - {from: vye, to: vy} 
+  - {from: vyo, to: vy} 
+  - {from: vwa, to: vw} 
+  - {from: vwi, to: vw} 
+  - {from: vwe, to: vw} 
+  - {from: vwo, to: vw} 
+
+vowelsustains: 
+  - {symbol: kya, sustain: _ya, offset: 0.4}
+  - {symbol: kyu, sustain: _yu, offset: 0.4}
+  - {symbol: kyo, sustain: _yo, offset: 0.4}
+  - {symbol: kye, sustain: _ye, offset: 0.4}
+  - {symbol: kwa, sustain: _wa, offset: 0.4}
+  - {symbol: kwi, sustain: _wi, offset: 0.4}
+  - {symbol: kwo, sustain: _wo, offset: 0.4}
+  - {symbol: kwe, sustain: _we, offset: 0.4}
+  - {symbol: gya, sustain: _ya, offset: 0.4}
+  - {symbol: gyu, sustain: _yu, offset: 0.4}
+  - {symbol: gyo, sustain: _yo, offset: 0.4}
+  - {symbol: gye, sustain: _ye, offset: 0.4}
+  - {symbol: gwa, sustain: _wa, offset: 0.4}
+  - {symbol: gwi, sustain: _wi, offset: 0.4}
+  - {symbol: gwo, sustain: _wo, offset: 0.4}
+  - {symbol: gwe, sustain: _we, offset: 0.4}
+  - {symbol: sya, sustain: _ya, offset: 0.4}
+  - {symbol: syu, sustain: _yu, offset: 0.4}
+  - {symbol: syo, sustain: _yo, offset: 0.4}
+  - {symbol: sye, sustain: _ye, offset: 0.4}
+  - {symbol: swa, sustain: _wa, offset: 0.4}
+  - {symbol: swi, sustain: _wi, offset: 0.4}
+  - {symbol: swo, sustain: _wo, offset: 0.4}
+  - {symbol: swe, sustain: _we, offset: 0.4}
+  - {symbol: zya, sustain: _ya, offset: 0.4}
+  - {symbol: zyu, sustain: _yu, offset: 0.4}
+  - {symbol: zyo, sustain: _yo, offset: 0.4}
+  - {symbol: zye, sustain: _ye, offset: 0.4}
+  - {symbol: zwa, sustain: _wa, offset: 0.4}
+  - {symbol: zwi, sustain: _wi, offset: 0.4}
+  - {symbol: zwo, sustain: _wo, offset: 0.4}
+  - {symbol: zwe, sustain: _we, offset: 0.4}
+  - {symbol: tya, sustain: _ya, offset: 0.4}
+  - {symbol: tyu, sustain: _yu, offset: 0.4}
+  - {symbol: tyo, sustain: _yo, offset: 0.4}
+  - {symbol: tye, sustain: _ye, offset: 0.4}
+  - {symbol: twa, sustain: _wa, offset: 0.4}
+  - {symbol: twi, sustain: _wi, offset: 0.4}
+  - {symbol: two, sustain: _wo, offset: 0.4}
+  - {symbol: twe, sustain: _we, offset: 0.4}
+  - {symbol: dya, sustain: _ya, offset: 0.4}
+  - {symbol: dyu, sustain: _yu, offset: 0.4}
+  - {symbol: dyo, sustain: _yo, offset: 0.4}
+  - {symbol: dye, sustain: _ye, offset: 0.4}
+  - {symbol: dwa, sustain: _wa, offset: 0.4}
+  - {symbol: dwi, sustain: _wi, offset: 0.4}
+  - {symbol: dwo, sustain: _wo, offset: 0.4}
+  - {symbol: dwe, sustain: _we, offset: 0.4}
+  - {symbol: nya, sustain: _ya, offset: 0.4}
+  - {symbol: nyu, sustain: _yu, offset: 0.4}
+  - {symbol: nyo, sustain: _yo, offset: 0.4}
+  - {symbol: nye, sustain: _ye, offset: 0.4}
+  - {symbol: nwa, sustain: _wa, offset: 0.4}
+  - {symbol: nwi, sustain: _wi, offset: 0.4}
+  - {symbol: nwo, sustain: _wo, offset: 0.4}
+  - {symbol: nwe, sustain: _we, offset: 0.4}
+  - {symbol: hhya, sustain: _ya, offset: 0.4}
+  - {symbol: hhyu, sustain: _yu, offset: 0.4}
+  - {symbol: hhyo, sustain: _yo, offset: 0.4}
+  - {symbol: hhye, sustain: _ye, offset: 0.4}
+  - {symbol: hwa, sustain: _wa, offset: 0.4}
+  - {symbol: hwi, sustain: _wi, offset: 0.4}
+  - {symbol: hwo, sustain: _wo, offset: 0.4}
+  - {symbol: hwe, sustain: _we, offset: 0.4}
+  - {symbol: ffya, sustain: _ya, offset: 0.4}
+  - {symbol: ffyu, sustain: _yu, offset: 0.4}
+  - {symbol: ffyo, sustain: _yo, offset: 0.4}
+  - {symbol: ffye, sustain: _ye, offset: 0.4}
+  - {symbol: ffwa, sustain: _wa, offset: 0.4}
+  - {symbol: ffwi, sustain: _wi, offset: 0.4}
+  - {symbol: ffwo, sustain: _wo, offset: 0.4}
+  - {symbol: ffwe, sustain: _we, offset: 0.4}
+  - {symbol: bya, sustain: _ya, offset: 0.4}
+  - {symbol: byu, sustain: _yu, offset: 0.4}
+  - {symbol: byo, sustain: _yo, offset: 0.4}
+  - {symbol: bye, sustain: _ye, offset: 0.2}
+  - {symbol: bwa, sustain: _wa, offset: 0.4}
+  - {symbol: bwi, sustain: _wi, offset: 0.4}
+  - {symbol: bwo, sustain: _wo, offset: 0.4}
+  - {symbol: bwe, sustain: _we, offset: 0.4}
+  - {symbol: pya, sustain: _ya, offset: 0.4}
+  - {symbol: pyu, sustain: _yu, offset: 0.4}
+  - {symbol: pyo, sustain: _yo, offset: 0.4}
+  - {symbol: pye, sustain: _ye, offset: 0.4}
+  - {symbol: pwa, sustain: _wa, offset: 0.4}
+  - {symbol: pwi, sustain: _wi, offset: 0.4}
+  - {symbol: pwo, sustain: _wo, offset: 0.4}
+  - {symbol: pwe, sustain: _we, offset: 0.4}
+  - {symbol: mya, sustain: _ya, offset: 0.4}
+  - {symbol: myu, sustain: _yu, offset: 0.4}
+  - {symbol: myo, sustain: _yo, offset: 0.4}
+  - {symbol: mye, sustain: _ye, offset: 0.4}
+  - {symbol: mwa, sustain: _wa, offset: 0.4}
+  - {symbol: mwi, sustain: _wi, offset: 0.4}
+  - {symbol: mwo, sustain: _wo, offset: 0.4}
+  - {symbol: mwe, sustain: _we, offset: 0.4}
+  - {symbol: rya, sustain: _ya, offset: 0.4}
+  - {symbol: ryu, sustain: _yu, offset: 0.4}
+  - {symbol: ryo, sustain: _yo, offset: 0.4}
+  - {symbol: rye, sustain: _ye, offset: 0.4}
+  - {symbol: rwa, sustain: _wa, offset: 0.4}
+  - {symbol: rwi, sustain: _wi, offset: 0.4}
+  - {symbol: rwo, sustain: _wo, offset: 0.4}
+  - {symbol: rwe, sustain: _we, offset: 0.4}
+  - {symbol: vya, sustain: _ya, offset: 0.4}
+  - {symbol: vyu, sustain: _yu, offset: 0.4}
+  - {symbol: vyo, sustain: _yo, offset: 0.4}
+  - {symbol: vye, sustain: _ye, offset: 0.4}
+  - {symbol: vwa, sustain: _wa, offset: 0.4}
+  - {symbol: vwi, sustain: _wi, offset: 0.4}
+  - {symbol: vwo, sustain: _wo, offset: 0.4}
+  - {symbol: vwe, sustain: _we, offset: 0.4}
+  - {symbol: spya, sustain: _ya, offset: 0.4}
+  - {symbol: spyu, sustain: _yu, offset: 0.4}
+  - {symbol: spyo, sustain: _yo, offset: 0.4}
+  - {symbol: spye, sustain: _ye, offset: 0.4}
+  - {symbol: thwa, sustain: _wa, offset: 0.4}
+  - {symbol: thwi, sustain: _wi, offset: 0.4}
+  - {symbol: thwo, sustain: _wo, offset: 0.4}
+  - {symbol: thwe, sustain: _we, offset: 0.4}
 
 entries:
   - grapheme: openutau
