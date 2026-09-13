@@ -1,0 +1,89 @@
+%YAML 1.2
+---
+symbols:
+#Delta-style (X-SAMPA) symbols
+  - {symbol: a, type: vowel}
+  - {symbol: e, type: vowel}
+  - {symbol: i, type: vowel}
+  - {symbol: o, type: vowel}
+  - {symbol: u, type: vowel}
+  - {symbol: I, type: vowel}
+  - {symbol: O, type: vowel}
+  - {symbol: U, type: vowel}
+  - {symbol: '{', type: vowel}
+  - {symbol: V, type: vowel}
+  - {symbol: 3, type: vowel}
+  - {symbol: aI, type: vowel}
+  - {symbol: eI, type: vowel}
+  - {symbol: OI, type: vowel}
+  - {symbol: aU, type: vowel}
+  - {symbol: oU, type: vowel}
+  - {symbol: h, type: aspirate}
+  - {symbol: j, type: semivowel}
+#Arpasing
+  - {symbol: aa, type: vowel}
+  - {symbol: ae, type: vowel}
+  - {symbol: ah, type: vowel}
+  - {symbol: ao, type: vowel}
+  - {symbol: aw, type: vowel}
+  - {symbol: ax, type: vowel}
+  - {symbol: ay, type: vowel}
+  - {symbol: b, type: stop}
+  - {symbol: ch, type: affricate}
+  - {symbol: d, type: stop}
+  - {symbol: dd, type: stop}
+  - {symbol: dh, type: fricative}
+  - {symbol: dr, type: fricative}
+  - {symbol: dx, type: tap}
+  - {symbol: eh, type: vowel}
+  - {symbol: er, type: vowel}
+  - {symbol: ey, type: vowel}
+  - {symbol: f, type: fricative}
+  - {symbol: ff, type: fricative}
+  - {symbol: g, type: stop}
+  - {symbol: hh, type: aspirate}
+  - {symbol: ih, type: vowel}
+  - {symbol: iy, type: vowel}
+  - {symbol: jh, type: affricate}
+  - {symbol: k, type: stop}
+  - {symbol: l, type: liquid}
+  - {symbol: m, type: nasal}
+  - {symbol: n, type: nasal}
+  - {symbol: ng, type: nasal}
+  - {symbol: ow, type: vowel}
+  - {symbol: oy, type: vowel}
+  - {symbol: p, type: stop}
+  - {symbol: pp, type: stop}
+  - {symbol: q, type: stop}
+  - {symbol: r, type: liquid}
+  - {symbol: s, type: fricative}
+  - {symbol: sh, type: fricative}
+  - {symbol: t, type: stop}
+  - {symbol: tt, type: stop}
+  - {symbol: th, type: fricative}
+  - {symbol: tr, type: fricative}
+  - {symbol: uh, type: vowel}
+  - {symbol: uw, type: vowel}
+  - {symbol: v, type: fricative}
+  - {symbol: w, type: semivowel}
+  - {symbol: y, type: semivowel}
+  - {symbol: z, type: fricative}
+  - {symbol: zh, type: fricative}
+  #bonus symbols
+  - {symbol: L, type: vowel}
+  - {symbol: M, type: vowel}
+  - {symbol: N, type: vowel}
+  - {symbol: eIR, type: vowel}
+  - {symbol: 0r, type: vowel}
+  - {symbol: 6r, type: vowel}
+  - {symbol: 9, type: vowel}
+  - {symbol: 0, type: vowel}
+  - {symbol: eo, type: vowel}
+  - {symbol: eu, type: vowel}
+  - {symbol: y0, type: vowel}
+  - {symbol: Q, type: vowel}
+  - {symbol: 1, type: vowel}
+  - {symbol: '@r', type: vowel}
+entries:
+  - grapheme: openutau
+    phonemes: [ou, p, V, n, u, tt, V, u]
