@@ -1,0 +1,43 @@
+%YAML 1.2
+---
+symbols:
+  - {symbol: a, type: vowel}
+  - {symbol: e, type: vowel}
+  - {symbol: i, type: vowel}
+  - {symbol: o, type: vowel}
+  - {symbol: u, type: vowel}
+  - {symbol: eo, type: vowel}
+  - {symbol: oe, type: vowel}
+  - {symbol: eu, type: vowel}
+  - {symbol: eui, type: vowel}
+  - {symbol: ui, type: vowel}
+  - {symbol: ae, type: vowel}
+  - {symbol: b, type: stop}
+  - {symbol: bb, type: stop}
+  - {symbol: ch, type: affricate}
+  - {symbol: d, type: stop}
+  - {symbol: dd, type: fricative}
+  - {symbol: f, type: fricative}
+  - {symbol: g, type: stop}
+  - {symbol: gg, type: stop}
+  - {symbol: h, type: aspirate}
+  - {symbol: j, type: affricate}
+  - {symbol: jj, type: affricate}
+  - {symbol: k, type: stop}
+  - {symbol: kk, type: stop}
+  - {symbol: l, type: liquid}
+  - {symbol: m, type: nasal}
+  - {symbol: n, type: nasal}
+  - {symbol: ng, type: nasal}
+  - {symbol: p, type: stop}
+  - {symbol: r, type: liquid}
+  - {symbol: s, type: fricative}
+  - {symbol: ss, type: fricative}
+  - {symbol: t, type: stop}
+  - {symbol: tt, type: fricative}
+  - {symbol: w, type: semivowel}
+  - {symbol: y, type: semivowel}
+
+entries:
+  - grapheme: openutau
+    phonemes: [eo, p, e, n, u, t, a, eu]
