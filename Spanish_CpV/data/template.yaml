@@ -1,0 +1,150 @@
+%YAML 1.2
+---
+version: 1.1
+symbols:
+  - {symbol: a, type: vowel}
+  - {symbol: e, type: vowel}
+  - {symbol: i, type: vowel}
+  - {symbol: o, type: vowel}
+  - {symbol: u, type: vowel}
+  - {symbol: b, type: stop}
+  - {symbol: d, type: stop}
+  - {symbol: g, type: stop}
+  - {symbol: k, type: stop}
+  - {symbol: p, type: stop}
+  - {symbol: t, type: stop}
+  - {symbol: B, type: fricative}
+  - {symbol: D, type: fricative}
+  - {symbol: G, type: fricative}
+  - {symbol: f, type: fricative}
+  - {symbol: h, type: fricative}
+  - {symbol: ll, type: fricative}
+  - {symbol: s, type: fricative}
+  - {symbol: ks, type: stop}
+  - {symbol: x, type: fricative}
+  - {symbol: z, type: fricative}
+  - {symbol: sh, type: fricative}
+  - {symbol: Z, type: fricative}
+  - {symbol: v, type: fricative}
+  - {symbol: ch, type: affricate}
+  - {symbol: dZ, type: affricate}
+  - {symbol: JJ, type: affricate}
+  - {symbol: n, type: nasal}
+  - {symbol: m, type: nasal}
+  - {symbol: N, type: nasal}
+  - {symbol: J, type: nasal}
+  - {symbol: l, type: liquid}
+  - {symbol: r, type: tap}
+  - {symbol: rr, type: liquid}
+  - {symbol: w, type: semivowel}
+  - {symbol: y, type: semivowel}
+  - {symbol: Y, type: semivowel}
+  - {symbol: I, type: semivowel}
+  - {symbol: U, type: semivowel}
+
+replacements:
+  - {from: [k, s], to: ks}
+  - {from: gn, to: J}
+  - {from: Y, to: ll}
+  - {from: [n, p], to: [m, p], where: all}
+  - {from: [n, B], to: [m, b], where: all}
+  - {from: [m, B], to: [m, b], where: all}
+  - {from: [n, b], to: [m, b], where: all}
+  - {from: [m, b], to: [m, b], where: all}
+  - {from: [n, m], to: [m, m], where: all}
+  - {from: [n, D], to: [n, d], where: all}
+  - {from: [l, D], to: [l, d], where: all}
+  - {from: [l, d], to: [l, d], where: all}
+  - {from: [n, G], to: [N, g], where: all}
+  - {from: [n, g], to: [N, g], where: all}
+  - {from: [s, b], to: [s, B], where: all}
+  - {from: [s, d], to: [s, D], where: all}
+  - {from: [s, g], to: [s, G], where: all}
+  - {from: [z, b], to: [z, B], where: all}
+  - {from: [z, d], to: [z, D], where: all}
+  - {from: [z, g], to: [z, G], where: all}
+  - {from: [f, b], to: [f, B], where: all}
+  - {from: [f, d], to: [f, D], where: all}
+  - {from: [f, g], to: [f, G], where: all}
+  - {from: [l, b], to: [l, B], where: all}
+  - {from: [l, g], to: [l, G], where: all}
+  - {from: [r, b], to: [r, B], where: all}
+  - {from: [r, d], to: [r, D], where: all}
+  - {from: [r, g], to: [r, G], where: all}
+  - {from: [x, b], to: [x, B], where: all}
+  - {from: [x, d], to: [x, D], where: all}
+  - {from: [x, g], to: [x, G], where: all}
+  - {from: [n, ch], to: [J2, ch], where: all}
+  - {from: [n, f], to: [m, f], where: all}
+  - {from: [n, J], to: [J2, J], where: all}
+  - {from: [n, k], to: [N, k], where: all}
+  - {from: [n, ll], to: [J2, ll], where: all}
+  - {from: [n, x], to: [N, x], where: all}
+  - {from: [ch, r], to: [ch, rr], where: all}
+  - {from: [l, r], to: [l, rr], where: all}
+  - {from: [ll, r], to: [ll, rr], where: all}
+  - {from: [m, r], to: [n, rr], where: all}
+  - {from: [n, r], to: [n, rr], where: all}
+  - {from: [s, r], to: [s, rr], where: all}
+  - {from: [x, r], to: [x, rr], where: all}
+  - {from: [r, r], to: [r, rr], where: all}
+  - {from: [a, b], to: [a, B], where: all}
+  - {from: [e, b], to: [e, B], where: all}
+  - {from: [i, b], to: [i, B], where: all}
+  - {from: [o, b], to: [o, B], where: all}
+  - {from: [u, b], to: [u, B], where: all}
+  - {from: [I, b], to: [I, B], where: all}
+  - {from: [U, b], to: [U, B], where: all}
+  - {from: [a, g], to: [a, G], where: all}
+  - {from: [e, g], to: [e, G], where: all}
+  - {from: [i, g], to: [i, G], where: all}
+  - {from: [o, g], to: [o, G], where: all}
+  - {from: [u, g], to: [u, G], where: all}
+  - {from: [I, g], to: [I, G], where: all}
+  - {from: [U, g], to: [U, G], where: all}
+  - {from: [a, d], to: [a, D], where: all}
+  - {from: [e, d], to: [e, D], where: all}
+  - {from: [i, d], to: [i, D], where: all}
+  - {from: [o, d], to: [o, D], where: all}
+  - {from: [u, d], to: [u, D], where: all}
+  - {from: [I, d], to: [I, D], where: all}
+  - {from: [U, d], to: [U, D], where: all}
+  - {from: [U, a], to: [w, a], where: all}
+  - {from: [U, e], to: [w, e], where: all}
+  - {from: [U, i], to: [w, i], where: all}
+  - {from: [U, o], to: [w, o], where: all}
+  - {from: [U, u], to: [w, u], where: all}
+  - {from: [I, a], to: [y, a], where: all}
+  - {from: [I, e], to: [y, e], where: all}
+  - {from: [I, i], to: [y, i], where: all}
+  - {from: [I, o], to: [y, o], where: all}
+  - {from: [I, u], to: [y, u], where: all}
+  - {from: [I, y], to: [y, y], where: all}
+  - {from: [U, w], to: [U, w], where: all}
+  - {from: [I, w], to: [I, w], where: all}
+  - {from: [U, y], to: [U, y], where: all}
+
+fallbacks:
+  - {from: z, to: s}
+  - {from: v, to: B}
+
+timings:
+  - {symbol: b, value: 0.5}
+  - {symbol: d, value: 0.5}
+  - {symbol: g, value: 0.5}
+  - {symbol: k, value: 0.5}
+  - {symbol: p, value: 0.5}
+  - {symbol: t, value: 0.5}
+  - {symbol: J, value: 2.0}
+  - {symbol: J2, value: 2.0}
+  - {symbol: rr, value: 3.0}
+  - {symbol: r, value: 0.5}
+  - {symbol: s, value: 2.0}
+  - {symbol: U, value: 2.0}
+  - {symbol: I, value: 2.0}
+
+entries:
+  - grapheme: openutau
+    phonemes: [o, p, e, n, u, t, a, U]
+  - grapheme: c+v
+    phonemes: [z, e, m, a, s, B, e]
