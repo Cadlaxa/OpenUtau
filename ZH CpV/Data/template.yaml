@@ -1,0 +1,637 @@
+version: 1.3.1
+
+symbols:
+  - {symbol: "1", type: vowel}
+  - {symbol: "7", type: vowel}
+  - {symbol: "@", type: vowel}
+  - {symbol: "@U", type: diphthong}
+  - {symbol: a, type: vowel}
+  - {symbol: ai, type: diphthong}
+  - {symbol: A, type: vowel}
+  - {symbol: AU, type: diphthong}
+  - {symbol: b, type: stop}
+  - {symbol: d, type: stop}
+  - {symbol: e, type: vowel}
+  - {symbol: ei, type: diphthong}
+  - {symbol: er, type: vowel}
+  - {symbol: f, type: fricative}
+  - {symbol: g, type: stop}
+  - {symbol: H, type: semivowel}
+  - {symbol: h, type: fricative}
+  - {symbol: i, type: vowel}
+  - {symbol: i@U, type: diphthong}
+  - {symbol: ia, type: vowel}
+  - {symbol: ian, type: diphtong}
+  - {symbol: iA, type: vowel}
+  - {symbol: iAU, type: diphthong}
+  - {symbol: ie, type: vowel}
+  - {symbol: iE, type: vowel}
+  - {symbol: iU, type: vowel}
+  - {symbol: i`, type: vowel}
+  - {symbol: I, type: tail}
+  - {symbol: j, type: semivowel}
+  - {symbol: k, type: stop}
+  - {symbol: kh, type: stop}
+  - {symbol: l, type: liquid}
+  - {symbol: m, type: nasal}
+  - {symbol: n, type: nasal}
+  - {symbol: N, type: tail}
+  - {symbol: ":n", type: tail}
+  - {symbol: o, type: vowel}
+  - {symbol: ou, type: diphthong}
+  - {symbol: p, type: stop}
+  - {symbol: ph, type: stop}
+  - {symbol: "r\\`", type: tail}
+  - {symbol: s, type: fricative}
+  - {symbol: s`, type: fricative}
+  - {symbol: z`, type: fricative}
+  - {symbol: s\, type: fricative}
+  - {symbol: t, type: stop}
+  - {symbol: th, type: stop}
+  - {symbol: ts, type: affricate}
+  - {symbol: ts`, type: affricate}
+  - {symbol: ts\, type: affricate}
+  - {symbol: tsh, type: affricate}
+  - {symbol: ts`h, type: affricate}
+  - {symbol: ts\h, type: affricate}
+  - {symbol: u, type: vowel}
+  - {symbol: uai, type: diphthong}
+  - {symbol: U, type: vowel}
+  - {symbol: u@, type: vowel}
+  - {symbol: ua, type: vowel}
+  - {symbol: uA, type: vowel}
+  - {symbol: ue, type: vowel}
+  - {symbol: ui, type: vowel}
+  - {symbol: uo, type: vowel}
+  - {symbol: v, type: fricative}
+  - {symbol: w, type: semivowel}
+  - {symbol: x, type: aspirate}
+  - {symbol: y, type: vowel}
+  - {symbol: "y{", type: vowel}
+  - {symbol: yE, type: vowel}
+  - {symbol: zh, type: fricative}
+
+diphthongs:
+  # Default diphthong split is [V-] even without this section
+  # you can change them by editing this section.
+  - {from: AU, to: AU-}
+  - {from: "@U", to: "@U-"}
+  - {from: i@U, to: i@U-}
+  - {from: iAU, to: iAU-}
+
+replacements:
+  - {from: a, to: a}
+  - {from: ai, to: [a, I]}
+  - {from: an, to: [a, ":n"]}
+  - {from: ang, to: [A, N]}
+  - {from: ao, to: AU}
+  - {from: [a, r], to: [a, r\`]}
+  - {from: b, to: p}
+  - {from: c, to: tsh}
+  - {from: ch, to: ts`h}
+  - {from: d, to: t}
+  - {from: ei, to: [e, I]}
+  - {from: e, to: "7"}
+  - {from: en, to: ["@", ":n"]}
+  - {from: eng, to: ["@", N]}
+  - {from: f, to: f}
+  - {from: g, to: k}
+  - {from: zh, to: ts`}
+  - {from: h, to: x}
+  - {from: h-i, to: i`}
+  - {from: -i, to: "1"}
+  - {from: i, to: i}
+  - {from: ia, to: ia}
+  - {from: ian, to: [iE, ":n"]}
+  - {from: iang, to: [iA, N]}
+  - {from: iao, to: iAU}
+  - {from: ie, to: ie}
+  - {from: in, to: [i, ":n"]}
+  - {from: ing, to: [i, N]}
+  - {from: iong, to: [iU, N]}
+  - {from: iu, to: i@U}
+  - {from: j, to: ts\}
+  - {from: k, to: kh}
+  - {from: l, to: l}
+  - {from: m, to: m}
+  - {from: n, to: n}
+  - {from: ny, to: [n, j]}
+  - {from: o, to: o}
+  - {from: ou, to: "@U"}
+  - {from: ong, to: [U, N]}
+  - {from: p, to: ph}
+  - {from: q, to: ts\h}
+  - {from: r, to: z`}
+  - {from: r1, to: l}
+  - {from: ry, to: [l, j]}
+  - {from: s, to: s}
+  - {from: sh, to: s`}
+  - {from: t, to: th}
+  - {from: u, to: u}
+  - {from: ua, to: ua}
+  - {from: uai, to: [ua, I]}
+  - {from: uan, to: [ua, ":n"]}
+  - {from: uang, to: [uA, N]}
+  - {from: ue, to: ue}
+  - {from: ui, to: [ue, I]}
+  - {from: un, to: [u@, ":n"]}
+  - {from: uo, to: uo}
+  - {from: v, to: y}
+  - {from: w, to: w}
+  - {from: [w, a], to: [w, ua]}
+  - {from: [w, ai], to: [w, ua, I]}
+  - {from: [w, an], to: [w, ua, ":n"]}
+  - {from: [w, ang], to: [w, uA, N]}
+  - {from: [w, ei], to: [w, w, ue, I]}
+  - {from: [w, en], to: [w, u@, ":n"]}
+  - {from: [w, e, ng], to: [w, u@, N]}
+  - {from: [w, o], to: [w, uo]}
+  - {from: [w, u], to: [w, u]}
+  - {from: x, to: s\}
+  - {from: y, to: j}
+  - {from: [y, a], to: [j, ia]}
+  - {from: [y, an], to: [j, iE, ":n"]}
+  - {from: [y, ao], to: [j, iAU]}
+  - {from: [y, e], to: [j, ie]}
+  - {from: [y, i], to: [j, i]}
+  - {from: [y, in], to: [j, i, ":n"]}
+  - {from: [y, ing], to: [j, i, N]}
+  - {from: [y, ong], to: [j, iU, N]}
+  - {from: [y, ou], to: [j, i@U]}
+  - {from: [y, u], to: y}
+  - {from: [y, uan], to: ["y{", ":n"]}
+  - {from: [y, ue], to: yE}
+  - {from: [y, uen], to: [y, ":n"]}
+  - {from: [y, un], to: [y, ":n"]}
+  - {from: z, to: ts}
+  - {from: ["vowel=@,a,ua,i,y,iE,u@,y{", n], to: ["vowel=@,a,ua,i,y,iE,u@,y{", ":n"], where: inside}
+  - {from: [r, "null"], to: [r\`, "null"], where: all}
+
+timings:
+  # example entries, you can further customize each phoneme lengths in seconds
+  - {symbol: p, value: 0.5}
+  - {symbol: t, value: 0.5}
+  - {symbol: k, value: 0.5}
+  - {symbol: ph, value: 1.3}
+  - {symbol: th, value: 1.3}
+  - {symbol: kh, value: 1.3}
+  - {symbol: r\`, value: 2.0}
+  - {symbol: ":n", value: 2.0}
+  - {symbol: s, value: 2.0}
+  - {symbol: s`, value: 2.0}
+  - {symbol: s\, value: 2.0}
+  - {symbol: ts, value: 0.8}
+  - {symbol: ts`, value: 0.8}
+  - {symbol: ts\, value: 0.8}
+  - {symbol: tsh, value: 2.0}
+  - {symbol: ts`h, value: 2.0}
+  - {symbol: ts\h, value: 2.0}
+  - {symbol: "z`", value: 0.8}
+
+entries:
+  # Conversion from the Pinyin to the phonemes
+  - {grapheme: a, phonemes: [a]}
+  - {grapheme: ai, phonemes: [ai]}
+  - {grapheme: an, phonemes: [a, ":n"]}
+  - {grapheme: ang, phonemes: [A, N]}
+  - {grapheme: ao, phonemes: [AU]}
+  - {grapheme: ar, phonemes: [a, r\`]}
+  - {grapheme: ba, phonemes: [b, a]}
+  - {grapheme: bai, phonemes: [b, ai]}
+  - {grapheme: ban, phonemes: [b, a, ":n"]}
+  - {grapheme: bang, phonemes: [b, A, N]}
+  - {grapheme: bao, phonemes: [b, AU]}
+  - {grapheme: bei, phonemes: [b, ei]}
+  - {grapheme: ben, phonemes: [b, "@", n]}
+  - {grapheme: beng, phonemes: [b, "@", N]}
+  - {grapheme: bi, phonemes: [b, i]}
+  - {grapheme: bian, phonemes: [b, ian]}
+  - {grapheme: biao, phonemes: [b, iAU]}
+  - {grapheme: bie, phonemes: [b, ie]}
+  - {grapheme: bin, phonemes: [b, i, ":n"]}
+  - {grapheme: bing, phonemes: [b, i, N]}
+  - {grapheme: bo, phonemes: [b, uo]}
+  - {grapheme: bu, phonemes: [b, u]}
+  - {grapheme: ca, phonemes: [tsh, a]}
+  - {grapheme: cai, phonemes: [tsh, ai]}
+  - {grapheme: can, phonemes: [tsh, a, ":n"]}
+  - {grapheme: cang, phonemes: [tsh, A, N]}
+  - {grapheme: cao, phonemes: [tsh, AU]}
+  - {grapheme: ce, phonemes: [tsh, "7"]}
+  - {grapheme: cen, phonemes: [tsh, "@", n]}
+  - {grapheme: ceng, phonemes: [tsh, "@", N]}
+  - {grapheme: ci, phonemes: [tsh, "1"]}
+  - {grapheme: cong, phonemes: [tsh, U, N]}
+  - {grapheme: cou, phonemes: [tsh, "@U"]}
+  - {grapheme: cu, phonemes: [tsh, u]}
+  - {grapheme: cun, phonemes: [tsh, v, ":n"]}
+  - {grapheme: cuo, phonemes: [tsh, uo]}
+  - {grapheme: cha, phonemes: [ts`h, a]}
+  - {grapheme: chai, phonemes: [ts`h, ai]}
+  - {grapheme: chan, phonemes: [ts`h, a, ":n"]}
+  - {grapheme: chang, phonemes: [ts`h, A, N]}
+  - {grapheme: chao, phonemes: [ts`h, AU]}
+  - {grapheme: che, phonemes: [ts`h, "7"]}
+  - {grapheme: chen, phonemes: [ts`h, "@", n]}
+  - {grapheme: cheng, phonemes: [ts`h, "@", N]}
+  - {grapheme: chi, phonemes: [ts`h, i`]}
+  - {grapheme: chong, phonemes: [ts`h, U, N]}
+  - {grapheme: chou, phonemes: [ts`h, "@U"]}
+  - {grapheme: chu, phonemes: [ts`h, u]}
+  - {grapheme: chua, phonemes: [ts`h, ua]}
+  - {grapheme: chuai, phonemes: [ts`h, uai]}
+  - {grapheme: chuan, phonemes: [ts`h, ua, ":n"]}
+  - {grapheme: chuang, phonemes: [ts`h, uA, N]}
+  - {grapheme: chui, phonemes: [ts`h, ui]}
+  - {grapheme: chun, phonemes: [ts`h, u@, ":n"]}
+  - {grapheme: chuo, phonemes: [ts`h, uo]}
+  - {grapheme: da, phonemes: [d, a]}
+  - {grapheme: dai, phonemes: [d, ai]}
+  - {grapheme: dan, phonemes: [d, a, ":n"]}
+  - {grapheme: dang, phonemes: [d, A, N]}
+  - {grapheme: dao, phonemes: [d, AU]}
+  - {grapheme: de, phonemes: [d, "7"]}
+  - {grapheme: dei, phonemes: [d, ei]}
+  - {grapheme: den, phonemes: [d, "@", n]}
+  - {grapheme: deng, phonemes: [d, "@", N]}
+  - {grapheme: di, phonemes: [d, i]}
+  - {grapheme: dia, phonemes: [d, ia]}
+  - {grapheme: dian, phonemes: [d, ian]}
+  - {grapheme: diao, phonemes: [d, iAU]}
+  - {grapheme: die, phonemes: [d, ie]}
+  - {grapheme: din, phonemes: [d, i, ":n"]}
+  - {grapheme: ding, phonemes: [d, i, N]}
+  - {grapheme: diu, phonemes: [d, i@U]}
+  - {grapheme: dong, phonemes: [d, U, N]}
+  - {grapheme: dou, phonemes: [d, "@U"]}
+  - {grapheme: du, phonemes: [d, u]}
+  - {grapheme: duan, phonemes: [d, ua, ":n"]}
+  - {grapheme: dui, phonemes: [d, ui]}
+  - {grapheme: dun, phonemes: [d, u@, ":n"]}
+  - {grapheme: duo, phonemes: [d, uo]}
+  - {grapheme: e, phonemes: ["7"]}
+  - {grapheme: ei, phonemes: [ei]}
+  - {grapheme: en, phonemes: ["@", n]}
+  - {grapheme: eng, phonemes: ["@", N]}
+  - {grapheme: er, phonemes: [er]}
+  - {grapheme: fa, phonemes: [f, a]}
+  - {grapheme: fan, phonemes: [f, a, ":n"]}
+  - {grapheme: fang, phonemes: [f, A, N]}
+  - {grapheme: fei, phonemes: [f, ei]}
+  - {grapheme: fen, phonemes: [f, "@", n]}
+  - {grapheme: feng, phonemes: [f, "@", N]}
+  - {grapheme: fo, phonemes: [f, uo]}
+  - {grapheme: fou, phonemes: [f, "@U"]}
+  - {grapheme: fu, phonemes: [f, u]}
+  - {grapheme: ga, phonemes: [g, a]}
+  - {grapheme: gai, phonemes: [g, ai]}
+  - {grapheme: gan, phonemes: [g, a, ":n"]}
+  - {grapheme: gang, phonemes: [g, A, N]}
+  - {grapheme: gao, phonemes: [g, AU]}
+  - {grapheme: ge, phonemes: [g, "7"]}
+  - {grapheme: gei, phonemes: [g, ei]}
+  - {grapheme: gen, phonemes: [g, "@", n]}
+  - {grapheme: geng, phonemes: [g, "@", N]}
+  - {grapheme: gian, phonemes: [g, ian]}
+  - {grapheme: gong, phonemes: [g, U, N]}
+  - {grapheme: gou, phonemes: [g, "@U"]}
+  - {grapheme: gu, phonemes: [g, u]}
+  - {grapheme: gua, phonemes: [g, ua]}
+  - {grapheme: guai, phonemes: [g, uai]}
+  - {grapheme: guan, phonemes: [g, ua, ":n"]}
+  - {grapheme: guang, phonemes: [g, uA, N]}
+  - {grapheme: gui, phonemes: [g, ui]}
+  - {grapheme: gun, phonemes: [g, u@, ":n"]}
+  - {grapheme: guo, phonemes: [g, uo]}
+  - {grapheme: ha, phonemes: [h, a]}
+  - {grapheme: hai, phonemes: [h, ai]}
+  - {grapheme: han, phonemes: [h, a, ":n"]}
+  - {grapheme: hang, phonemes: [h, A, N]}
+  - {grapheme: hao, phonemes: [h, AU]}
+  - {grapheme: he, phonemes: [h, "7"]}
+  - {grapheme: hei, phonemes: [h, ei]}
+  - {grapheme: hen, phonemes: [h, "@", n]}
+  - {grapheme: heng, phonemes: [h, "@", N]}
+  - {grapheme: hong, phonemes: [h, U, N]}
+  - {grapheme: hou, phonemes: [h, "@U"]}
+  - {grapheme: hu, phonemes: [h, u]}
+  - {grapheme: hua, phonemes: [h, ua]}
+  - {grapheme: huai, phonemes: [h, uai]}
+  - {grapheme: huan, phonemes: [h, ua, ":n"]}
+  - {grapheme: huang, phonemes: [h, uA, N]}
+  - {grapheme: hui, phonemes: [h, ui]}
+  - {grapheme: hun, phonemes: [h, u@, ":n"]}
+  - {grapheme: huo, phonemes: [h, uo]}
+  - {grapheme: i, phonemes: [i]}
+  - {grapheme: ia, phonemes: [y, ia]}
+  - {grapheme: ian, phonemes: [y, ian]}
+  - {grapheme: iang, phonemes: [y, iA, N]}
+  - {grapheme: iao, phonemes: [y, iAU]}
+  - {grapheme: ie, phonemes: [y, ie]}
+  - {grapheme: in, phonemes: [i, ":n"]}
+  - {grapheme: ing, phonemes: [i, N]}
+  - {grapheme: iong, phonemes: [y, iU, N]}
+  - {grapheme: iou, phonemes: [y, i@U]}
+  - {grapheme: iu, phonemes: [y, i@U]}
+  - {grapheme: ji, phonemes: [ts\, i]}
+  - {grapheme: jia, phonemes: [ts\, ia]}
+  - {grapheme: jian, phonemes: [ts\, ian]}
+  - {grapheme: jiang, phonemes: [ts\, iA, N]}
+  - {grapheme: jiao, phonemes: [ts\, iAU]}
+  - {grapheme: jie, phonemes: [ts\, ie]}
+  - {grapheme: jin, phonemes: [ts\, i, ":n"]}
+  - {grapheme: jing, phonemes: [ts\, i, N]}
+  - {grapheme: jiong, phonemes: [ts\, iU, N]}
+  - {grapheme: jiu, phonemes: [ts\, i@U]}
+  - {grapheme: ju, phonemes: [ts\, v]}
+  - {grapheme: jun, phonemes: [ts\, v, ":n"]}
+  - {grapheme: juan, phonemes: [ts\, "y{", ":n"]}
+  - {grapheme: jue, phonemes: [ts\, yE]}
+  - {grapheme: jv, phonemes: [ts\, v]}
+  - {grapheme: jvn, phonemes: [ts\, v, ":n"]}
+  - {grapheme: jvan, phonemes: [ts\, "y{", ":n"]}
+  - {grapheme: jve, phonemes: [ts\, yE]}
+  - {grapheme: ka, phonemes: [kh, a]}
+  - {grapheme: kai, phonemes: [kh, ai]}
+  - {grapheme: kan, phonemes: [kh, a, ":n"]}
+  - {grapheme: kang, phonemes: [kh, A, N]}
+  - {grapheme: kao, phonemes: [kh, AU]}
+  - {grapheme: ke, phonemes: [kh, "7"]}
+  - {grapheme: kei, phonemes: [kh, ei]}
+  - {grapheme: ken, phonemes: [kh, "@", n]}
+  - {grapheme: keng, phonemes: [kh, "@", N]}
+  - {grapheme: kian, phonemes: [kh, ian]}
+  - {grapheme: kong, phonemes: [kh, U, N]}
+  - {grapheme: kou, phonemes: [kh, "@U"]}
+  - {grapheme: ku, phonemes: [kh, u]}
+  - {grapheme: kua, phonemes: [kh, ua]}
+  - {grapheme: kuai, phonemes: [kh, uai]}
+  - {grapheme: kuan, phonemes: [kh, ua, ":n"]}
+  - {grapheme: kuang, phonemes: [kh, uA, N]}
+  - {grapheme: kui, phonemes: [kh, ui]}
+  - {grapheme: kun, phonemes: [kh, u@, ":n"]}
+  - {grapheme: kuo, phonemes: [kh, uo]}
+  - {grapheme: la, phonemes: [l, a]}
+  - {grapheme: lai, phonemes: [l, ai]}
+  - {grapheme: lan, phonemes: [l, a, ":n"]}
+  - {grapheme: lang, phonemes: [l, A, N]}
+  - {grapheme: lao, phonemes: [l, AU]}
+  - {grapheme: le, phonemes: [l, "7"]}
+  - {grapheme: lei, phonemes: [l, ei]}
+  - {grapheme: len, phonemes: [l, "@", n]}
+  - {grapheme: leng, phonemes: [l, "@", N]}
+  - {grapheme: li, phonemes: [l, i]}
+  - {grapheme: lia, phonemes: [l, ia]}
+  - {grapheme: lian, phonemes: [l, ian]}
+  - {grapheme: liang, phonemes: [l, iA, N]}
+  - {grapheme: liao, phonemes: [l, iAU]}
+  - {grapheme: lie, phonemes: [l, ie]}
+  - {grapheme: lin, phonemes: [l, i, ":n"]}
+  - {grapheme: ling, phonemes: [l, i, N]}
+  - {grapheme: liu, phonemes: [l, i@U]}
+  - {grapheme: lo, phonemes: [l, o]}
+  - {grapheme: lu, phonemes: [l, u]}
+  - {grapheme: luan, phonemes: [l, ua, ":n"]}
+  - {grapheme: luang, phonemes: [l, uA, N]}
+  - {grapheme: lun, phonemes: [l, u@, ":n"]}
+  - {grapheme: luo, phonemes: [l, uo]}
+  - {grapheme: lvu, phonemes: [l, v]}
+  - {grapheme: lyue, phonemes: [l, yE]}
+  - {grapheme: lv, phonemes: [l, v]}
+  - {grapheme: lve, phonemes: [l, yE]}
+  - {grapheme: ma, phonemes: [m, a]}
+  - {grapheme: mai, phonemes: [m, ai]}
+  - {grapheme: man, phonemes: [m, a, ":n"]}
+  - {grapheme: mang, phonemes: [m, A, N]}
+  - {grapheme: mao, phonemes: [m, AU]}
+  - {grapheme: me, phonemes: [m, "7"]}
+  - {grapheme: mei, phonemes: [m, ei]}
+  - {grapheme: men, phonemes: [m, "@", n]}
+  - {grapheme: meng, phonemes: [m, "@", N]}
+  - {grapheme: mi, phonemes: [m, i]}
+  - {grapheme: mian, phonemes: [m, ian]}
+  - {grapheme: miao, phonemes: [m, iAU]}
+  - {grapheme: mie, phonemes: [m, ie]}
+  - {grapheme: min, phonemes: [m, i, ":n"]}
+  - {grapheme: ming, phonemes: [m, i, N]}
+  - {grapheme: miu, phonemes: [m, i@U]}
+  - {grapheme: mo, phonemes: [m, uo]}
+  - {grapheme: mou, phonemes: [m, "@U"]}
+  - {grapheme: mu, phonemes: [m, u]}
+  - {grapheme: na, phonemes: [n, a]}
+  - {grapheme: nai, phonemes: [n, ai]}
+  - {grapheme: nan, phonemes: [n, a, ":n"]}
+  - {grapheme: nang, phonemes: [n, A, N]}
+  - {grapheme: nao, phonemes: [n, AU]}
+  - {grapheme: ne, phonemes: [n, "7"]}
+  - {grapheme: nei, phonemes: [n, ei]}
+  - {grapheme: nen, phonemes: [n, "@", n]}
+  - {grapheme: neng, phonemes: [n, "@", N]}
+  - {grapheme: ni, phonemes: [n, i]}
+  - {grapheme: nian, phonemes: [n, ian]}
+  - {grapheme: niang, phonemes: [n, iA, N]}
+  - {grapheme: niao, phonemes: [n, iAU]}
+  - {grapheme: nie, phonemes: [n, ie]}
+  - {grapheme: nin, phonemes: [n, i, ":n"]}
+  - {grapheme: ning, phonemes: [n, i, N]}
+  - {grapheme: niu, phonemes: [n, i@U]}
+  - {grapheme: nong, phonemes: [n, U, N]}
+  - {grapheme: nou, phonemes: [n, "@U"]}
+  - {grapheme: nu, phonemes: [n, u]}
+  - {grapheme: nuan, phonemes: [n, ua, ":n"]}
+  - {grapheme: nuo, phonemes: [n, uo]}
+  - {grapheme: nv, phonemes: [n, v]}
+  - {grapheme: nve, phonemes: [n, yE]}
+  - {grapheme: nyu, phonemes: [n, v]}
+  - {grapheme: nyue, phonemes: [n, yE]}
+  - {grapheme: o, phonemes: [o]}
+  - {grapheme: ou, phonemes: ["@U"]}
+  - {grapheme: pa, phonemes: [ph, a]}
+  - {grapheme: pai, phonemes: [ph, ai]}
+  - {grapheme: pan, phonemes: [ph, a, ":n"]}
+  - {grapheme: pang, phonemes: [ph, A, N]}
+  - {grapheme: pao, phonemes: [ph, AU]}
+  - {grapheme: pei, phonemes: [ph, ei]}
+  - {grapheme: pen, phonemes: [ph, "@", n]}
+  - {grapheme: peng, phonemes: [ph, "@", N]}
+  - {grapheme: pi, phonemes: [ph, i]}
+  - {grapheme: pian, phonemes: [ph, ian]}
+  - {grapheme: piao, phonemes: [ph, iAU]}
+  - {grapheme: pie, phonemes: [ph, ie]}
+  - {grapheme: pin, phonemes: [ph, i, ":n"]}
+  - {grapheme: ping, phonemes: [ph, i, N]}
+  - {grapheme: po, phonemes: [ph, uo]}
+  - {grapheme: qia, phonemes: [ts\h, ia]}
+  - {grapheme: qian, phonemes: [ts\h, ian]}
+  - {grapheme: qiang, phonemes: [ts\h, iA, N]}
+  - {grapheme: qiao, phonemes: [ts\h, iAU]}
+  - {grapheme: qie, phonemes: [ts\h, ie]}
+  - {grapheme: qin, phonemes: [ts\h, i, ":n"]}
+  - {grapheme: qing, phonemes: [ts\h, i, N]}
+  - {grapheme: qiong, phonemes: [ts\h, iU, N]}
+  - {grapheme: qiu, phonemes: [ts\h, i@U]}
+  - {grapheme: qu, phonemes: [ts\h, v]}
+  - {grapheme: quan, phonemes: [ts\h, "y{", ":n"]}
+  - {grapheme: que, phonemes: [ts\h, yE]}
+  - {grapheme: qun, phonemes: [ts\h, v, ":n"]}
+  - {grapheme: r, phonemes: [er]}
+  - {grapheme: ran, phonemes: [z`, a, ":n"]}
+  - {grapheme: rang, phonemes: [z`, A, N]}
+  - {grapheme: rao, phonemes: [z`, AU]}
+  - {grapheme: re, phonemes: [z`, "7"]}
+  - {grapheme: ren, phonemes: [z`, "@", n]}
+  - {grapheme: reng, phonemes: [z`, "@", N]}
+  - {grapheme: ri, phonemes: [z`, i`]}
+  - {grapheme: rong, phonemes: [z`, U, N]}
+  - {grapheme: rou, phonemes: [z`, "@U"]}
+  - {grapheme: ru, phonemes: [z`, u]}
+  - {grapheme: ruan, phonemes: [z`, ua, ":n"]}
+  - {grapheme: rui, phonemes: [z`, ui]}
+  - {grapheme: run, phonemes: [z`, u@, ":n"]}
+  - {grapheme: ruo, phonemes: [z`, uo]}
+  - {grapheme: sa, phonemes: [s, a]}
+  - {grapheme: sai, phonemes: [s, ai]}
+  - {grapheme: san, phonemes: [s, a, ":n"]}
+  - {grapheme: sang, phonemes: [s, A, N]}
+  - {grapheme: sao, phonemes: [s, AU]}
+  - {grapheme: se, phonemes: [s, "7"]}
+  - {grapheme: sen, phonemes: [s, "@", n]}
+  - {grapheme: seng, phonemes: [s, "@", N]}
+  - {grapheme: si, phonemes: [s, 1]}
+  - {grapheme: song, phonemes: [s, U, N]}
+  - {grapheme: sou, phonemes: [s, "@U"]}
+  - {grapheme: su, phonemes: [s, u]}
+  - {grapheme: suan, phonemes: [s, ua, ":n"]}
+  - {grapheme: sui, phonemes: [s, ui]}
+  - {grapheme: sun, phonemes: [s, u@, ":n"]}
+  - {grapheme: suo, phonemes: [s, uo]}
+  - {grapheme: sha, phonemes: [s`, a]}
+  - {grapheme: shai, phonemes: [s`, ai]}
+  - {grapheme: shan, phonemes: [s`, a, ":n"]}
+  - {grapheme: shang, phonemes: [s`, A, N]}
+  - {grapheme: shao, phonemes: [s`, AU]}
+  - {grapheme: she, phonemes: [s`, "7"]}
+  - {grapheme: shei, phonemes: [s`, ei]}
+  - {grapheme: shen, phonemes: [s`, "@", n]}
+  - {grapheme: sheng, phonemes: [s`, "@", N]}
+  - {grapheme: shi, phonemes: [s`, i`]}
+  - {grapheme: shua, phonemes: [s`, ua]}
+  - {grapheme: shuai, phonemes: [s`, uai]}
+  - {grapheme: shuan, phonemes: [s`, ua, ":n"]}
+  - {grapheme: shuang, phonemes: [s`, uA, N]}
+  - {grapheme: shui, phonemes: [s`, ui]}
+  - {grapheme: shun, phonemes: [s`, u@, ":n"]}
+  - {grapheme: shuo, phonemes: [s`, uo]}
+  - {grapheme: ta, phonemes: [th, a]}
+  - {grapheme: tai, phonemes: [th, ai]}
+  - {grapheme: tan, phonemes: [th, a, ":n"]}
+  - {grapheme: tang, phonemes: [th, A, N]}
+  - {grapheme: tao, phonemes: [th, AU]}
+  - {grapheme: te, phonemes: [th, "7"]}
+  - {grapheme: tei, phonemes: [th, ei]}
+  - {grapheme: ten, phonemes: [th, "@", n]}
+  - {grapheme: teng, phonemes: [th, "@", N]}
+  - {grapheme: ti, phonemes: [th, i]}
+  - {grapheme: tian, phonemes: [th, ian]}
+  - {grapheme: tiao, phonemes: [th, iAU]}
+  - {grapheme: tie, phonemes: [th, ie]}
+  - {grapheme: tin, phonemes: [th, i, ":n"]}
+  - {grapheme: ting, phonemes: [th, i, N]}
+  - {grapheme: tiu, phonemes: [th, i@U]}
+  - {grapheme: tou, phonemes: [th, "@U"]}
+  - {grapheme: tong, phonemes: [th, U, N]}
+  - {grapheme: tu, phonemes: [th, u]}
+  - {grapheme: tuan, phonemes: [th, ua, ":n"]}
+  - {grapheme: tui, phonemes: [th, ui]}
+  - {grapheme: tun, phonemes: [th, u@, ":n"]}
+  - {grapheme: tuo, phonemes: [th, uo]}
+  - {grapheme: uan, phonemes: [w, ua, ":n"]}
+  - {grapheme: uei, phonemes: [w, ui]}
+  - {grapheme: un, phonemes: [w, u@, ":n"]}
+  - {grapheme: uo, phonemes: [w, uo]}
+  - {grapheme: v, phonemes: [v]}
+  - {grapheme: van, phonemes: [H, "y{", ":n"]}
+  - {grapheme: ve, phonemes: [H, yE]}
+  - {grapheme: vn, phonemes: [v, ":n"]}
+  - {grapheme: wa, phonemes: [w, ua]}
+  - {grapheme: wai, phonemes: [w, uai]}
+  - {grapheme: wan, phonemes: [w, ua, ":n"]}
+  - {grapheme: wang, phonemes: [w, uA, N]}
+  - {grapheme: wei, phonemes: [w, ui]}
+  - {grapheme: wen, phonemes: [w, u@, ":n"]}
+  - {grapheme: weng, phonemes: [w, u@, N]}
+  - {grapheme: wo, phonemes: [w, uo]}
+  - {grapheme: wu, phonemes: [u]}
+  - {grapheme: wu1, phonemes: [w, u]}
+  - {grapheme: xi, phonemes: [s\, i]}
+  - {grapheme: xia, phonemes: [s\, ia]}
+  - {grapheme: xian, phonemes: [s\, ian]}
+  - {grapheme: xiang, phonemes: [s\, iA, N]}
+  - {grapheme: xiao, phonemes: [s\, iAU]}
+  - {grapheme: xie, phonemes: [s\, ie]}
+  - {grapheme: xin, phonemes: [s\, i, ":n"]}
+  - {grapheme: xing, phonemes: [s\, i, N]}
+  - {grapheme: xiong, phonemes: [s\, iU, N]}
+  - {grapheme: xiu, phonemes: [s\, i@U]}
+  - {grapheme: xu, phonemes: [s\, v]}
+  - {grapheme: xuan, phonemes: [s\, "y{", ":n"]}
+  - {grapheme: xue, phonemes: [s\, yE]}
+  - {grapheme: xun, phonemes: [s\, v, ":n"]}
+  - {grapheme: xv, phonemes: [s\, v]}
+  - {grapheme: xvan, phonemes: [s\, "y{", ":n"]}
+  - {grapheme: xve, phonemes: [s\, yE]}
+  - {grapheme: xvn, phonemes: [s\, v, ":n"]}
+  - {grapheme: ya, phonemes: [y, ia]}
+  - {grapheme: yan, phonemes: [y, ian]}
+  - {grapheme: yang, phonemes: [y, iA, N]}
+  - {grapheme: yao, phonemes: [y, iAU]}
+  - {grapheme: ye, phonemes: [y, ie]}
+  - {grapheme: yi, phonemes: [i]}
+  - {grapheme: yin, phonemes: [i, ":n"]}
+  - {grapheme: ying, phonemes: [i, N]}
+  - {grapheme: yi1, phonemes: [y, i]}
+  - {grapheme: yin1, phonemes: [y, i, ":n"]}
+  - {grapheme: ying1, phonemes: [y, i, N]}
+  - {grapheme: yong, phonemes: [y, iU, N]}
+  - {grapheme: you, phonemes: [y, i@U]}
+  - {grapheme: yu, phonemes: [v]}
+  - {grapheme: yu1, phonemes: [H, v]}
+  - {grapheme: yuan, phonemes: [H, "y{", ":n"]}
+  - {grapheme: yue, phonemes: [H, yE]}
+  - {grapheme: yun, phonemes: [v, ":n"]}
+  - {grapheme: za, phonemes: [ts, a]}
+  - {grapheme: zai, phonemes: [ts, ai]}
+  - {grapheme: zan, phonemes: [ts, a, ":n"]}
+  - {grapheme: zang, phonemes: [ts, A, N]}
+  - {grapheme: zao, phonemes: [ts, AU]}
+  - {grapheme: ze, phonemes: [ts, "7"]}
+  - {grapheme: zei, phonemes: [ts, ei]}
+  - {grapheme: zen, phonemes: [ts, "@", n]}
+  - {grapheme: zeng, phonemes: [ts, "@", N]}
+  - {grapheme: zi, phonemes: [ts, 1]}
+  - {grapheme: zong, phonemes: [ts, U, N]}
+  - {grapheme: zou, phonemes: [ts, "@U"]}
+  - {grapheme: zu, phonemes: [ts, u]}
+  - {grapheme: zuan, phonemes: [ts, ua, ":n"]}
+  - {grapheme: zui, phonemes: [ts, ui]}
+  - {grapheme: zun, phonemes: [ts, u@, ":n"]}
+  - {grapheme: zuo, phonemes: [ts, uo]}
+  - {grapheme: zha, phonemes: [ts`, a]}
+  - {grapheme: zhai, phonemes: [ts`, ai]}
+  - {grapheme: zhan, phonemes: [ts`, a, ":n"]}
+  - {grapheme: zhang, phonemes: [ts`, A, N]}
+  - {grapheme: zhao, phonemes: [ts`, AU]}
+  - {grapheme: zhe, phonemes: [ts`, "7"]}
+  - {grapheme: zhei, phonemes: [ts`, ei]}
+  - {grapheme: zhen, phonemes: [ts`, "@", n]}
+  - {grapheme: zheng, phonemes: [ts`, "@", N]}
+  - {grapheme: zhi, phonemes: [ts`, i`]}
+  - {grapheme: zhong, phonemes: [ts`, U, N]}
+  - {grapheme: zhou, phonemes: [ts`, "@U"]}
+  - {grapheme: zhua, phonemes: [ts`, ua]}
+  - {grapheme: zhuai, phonemes: [ts`, uai]}
+  - {grapheme: zhuan, phonemes: [ts`, ua, ":n"]}
+  - {grapheme: zhuang, phonemes: [ts`, uA, N]}
+  - {grapheme: zhui, phonemes: [ts`, ui]}
+  - {grapheme: zhun, phonemes: [ts`, u@, ":n"]}
+  - {grapheme: zhuo, phonemes: [ts`, uo]}
