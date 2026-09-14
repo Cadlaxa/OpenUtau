@@ -17,7 +17,7 @@ namespace OpenUtau.Plugin.Builtin {
     public class ArpaEX : SyllableBasedPhonemizer {
         protected override string YamlFileName => "arpaEX.yaml";
         protected override byte[] YamlTemplate => ARPAX.Data.Resources.arpax_template;
-        protected override string YamlVersion => "1.4.2";
+        protected override string YamlVersion => "1.4.3";
         public ArpaEX() {
             this.vowels = new string[] {
                 "aa", "ax", "ae", "ah", "ao", "aw", "ay", "eh", "er", "ey", "ih", "iy", "ow", "oy", "uh", "uw", "a", "e", "i", "o", "u", "ai", "ei", "oi", "au", "ou", "ix", "ux",
@@ -82,69 +82,19 @@ namespace OpenUtau.Plugin.Builtin {
             if (original == null) {
                 return null;
             }
-            List<string> modified = new List<string>(original);
-            List<string> finalPhonemes = ApplyReplacements(modified, false);
             List<string> finalProcessedPhonemes = new List<string>();
 
             // SPLITS UP DR AND TR
             string[] tr = new[] { "tr" };
             string[] dr = new[] { "dr" };
-            string[] wh = new[] { "wh" };
-            string[] av_c = new[] { "al", "am", "an", "ang", "ar" };
-            string[] ev_c = new[] { "el", "em", "en", "eng", "err" };
-            string[] iv_c = new[] { "il", "im", "in", "ing", "ir" };
-            string[] ov_c = new[] { "ol", "om", "on", "ong", "or" };
-            string[] uv_c = new[] { "ul", "um", "un", "ung", "ur" };
-            var consonatsV1 = new List<string> { "l", "m", "n", "r" };
-            var consonatsV2 = new List<string> { "mm", "nn", "ng" };
-            // SPLITS UP 2 SYMBOL VOWELS AND 1 SYMBOL CONSONANT
-            List<string> vowel3S = new List<string>();
-            foreach (string V1 in vowels) {
-                foreach (string C1 in consonatsV1) {
-                    vowel3S.Add($"{V1}{C1}");
-                }
-            }
-            // SPLITS UP 2 SYMBOL VOWELS AND 2 SYMBOL CONSONANT
-            List<string> vowel4S = new List<string>();
-            foreach (string V1 in vowels) {
-                foreach (string C1 in consonatsV2) {
-                    vowel3S.Add($"{V1}{C1}");
-                }
-            }
-            IEnumerable<string> phonemes;
-            phonemes = finalPhonemes;
             
-            foreach (string s in phonemes) {
+            foreach (string s in original) {
                 switch (s) {
                     case var str when dr.Contains(str) && !HasOto($"{str} {vowels}", note.tone) && !HasOto($"ay {str}", note.tone):
                         finalProcessedPhonemes.AddRange(new string[] { "d", s[1].ToString() });
                         break;
                     case var str when tr.Contains(str) && !HasOto($"{str} {vowels}", note.tone) && !HasOto($"ay {str}", note.tone):
                         finalProcessedPhonemes.AddRange(new string[] { "t", s[1].ToString() });
-                        break;
-                    case var str when wh.Contains(str) && !HasOto($"{str} {vowels}", note.tone) && !HasOto($"ay {str}", note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "hh", s[1].ToString() });
-                        break;
-                    case var str when av_c.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "aa", s[1].ToString() });
-                        break;
-                    case var str when ev_c.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "eh", s[1].ToString() });
-                        break;
-                    case var str when iv_c.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "iy", s[1].ToString() });
-                        break;
-                    case var str when ov_c.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "ao", s[1].ToString() });
-                        break;
-                    case var str when uv_c.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { "uw", s[1].ToString() });
-                        break;
-                    case var str when vowel3S.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { s.Substring(0, 2), s[2].ToString() });
-                        break;
-                    case var str when vowel4S.Contains(str) && !HasOto($"b {str}", note.tone) && !HasOto(ValidateAlias(str, note.tone), note.tone):
-                        finalProcessedPhonemes.AddRange(new string[] { s.Substring(0, 2), s.Substring(2, 2) });
                         break;
                     default:
                         finalProcessedPhonemes.Add(s);
@@ -171,14 +121,6 @@ namespace OpenUtau.Plugin.Builtin {
             }
         }
 
-        // prioritize yaml replacements over dictionary replacements
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            return phoneme;
-        }
-        
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -195,14 +137,6 @@ namespace OpenUtau.Plugin.Builtin {
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
 
             bool isAtomicCluster = cc.Length == 2 && ccvException.Contains(cc[0]);
-
-            // Check for missing YAML fallback phonemes
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
 
             // For VC Fallback phonemes
             foreach (var entry in vcFallBacks) {
@@ -974,17 +908,15 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected string ValidateAlias(string alias, int tone) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
             if (HasOto(alias, tone)) return alias;
 
-            // YAML Fallbacks
-            if (yamlFallbacks != null && yamlFallbacks.Count > 0) {
-                string originalYaml = alias;
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
                 }
-                // If YAML changed something, test the NEW string!
-                if (alias != originalYaml && HasOto(alias, tone)) return alias;
+                alias = baseResolved;
             }
 
             // Apply Vowel-Only global fallbacks
@@ -1009,7 +941,7 @@ namespace OpenUtau.Plugin.Builtin {
             string contextualAlias = ApplyContextualFallbacks(alias, tone);
             if (contextualAlias != alias) return contextualAlias;
 
-            return base.ValidateAlias(alias);
+            return alias;
         }
 
         // VV FALLBACKS, START and END

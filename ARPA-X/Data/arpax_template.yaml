@@ -1,12 +1,12 @@
 %YAML 1.2
 ---
-version: 1.4.2
+version: 1.4.3
 isglides: true
 symbols:
   - {symbol: 3, type: diphthong}
   - {symbol: 0r, type: diphthong}
   - {symbol: 0l, type: diphthong}
-  - {symbol: '@r', type: diphthong}
+  #- {symbol: '@r', type: diphthong}
   - {symbol: '@l', type: diphthong} 
   - {symbol: ax, type: vowel}
   - {symbol: ex, type: vowel}
@@ -67,7 +67,7 @@ symbols:
 
 diphthongs:
   - {from: 3, to: rh}
-  - {from: '@r', to: rh}
+  #- {from: '@r', to: rh}
   - {from: '0r', to: rh}
   
 replacements:
@@ -94,8 +94,8 @@ replacements:
   - {from: [0r, l], to: [0r, lx]}
   - {from: [0l, l], to: [0l, lx]}
 
-  - {from: [ax, rh], to: ['@r'], where: all}
-  - {from: [ax, rx], to: ['@r'], where: all}
+  #- {from: [ax, rh], to: ['@r'], where: all}
+  #- {from: [ax, rx], to: ['@r'], where: all}
   - {from: [ax, l], to: ['@l'], where: all}
   - {from: [ax, lx], to: ['@l'], where: all}
 #consonants
