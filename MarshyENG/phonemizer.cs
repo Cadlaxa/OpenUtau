@@ -135,19 +135,6 @@ namespace OpenUtau.Plugin.Builtin {
             {"wi", new [] { "u", "i" } }, {"we", new [] { "u", "e" } }, {"ulo", new [] { "u", "o" } },
         };
 
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            if (yamlFallbacks.TryGetValue(phoneme, out var fallback)) {
-                return fallback;
-            }
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            return phoneme;
-        }
-
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -680,18 +667,15 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias) {
-            foreach (var phoneme in yamlFallbacks) {
-                if (alias == phoneme.Key) {
-                    alias = phoneme.Value;
-                } else if (phoneme.Key != phoneme.Value) {
-                    if (alias.EndsWith(" " + phoneme.Key) || alias.EndsWith("-" + phoneme.Key) || alias.EndsWith("_" + phoneme.Key)) {
-                        alias = alias.Substring(0, alias.Length - phoneme.Key.Length) + phoneme.Value;
-                    } 
-                    else if (alias.StartsWith(phoneme.Key + " ") || alias.StartsWith(phoneme.Key + "-") || alias.StartsWith(phoneme.Key + "_")) {
-                        alias = phoneme.Value + alias.Substring(phoneme.Key.Length);
-                    }
+        protected override string ValidateAlias(string alias, int tone = 0) {
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
                 }
+                alias = baseResolved;
             }
 
             if (alias == "a dx") return alias.Replace("dx", "r");
@@ -830,8 +814,15 @@ namespace OpenUtau.Plugin.Builtin {
                 jpVowel = "-";
             }
 
-            if (yamlFallbacks.TryGetValue(jpVowel, out var fb)) { jpVowel = fb; }
-            if (yamlFallbacks.TryGetValue(safeVowel, out var fb2)) { jpVowel = fb2; }
+            var fbRule = yamlFallbacks.FirstOrDefault(r => r.FromList.Contains(jpVowel));
+            if (fbRule != null && fbRule.ToList.Count > 0) {
+                jpVowel = fbRule.ToList[0];
+            }
+
+            var fbRule2 = yamlFallbacks.FirstOrDefault(r => r.FromList.Contains(safeVowel));
+            if (fbRule2 != null && fbRule2.ToList.Count > 0) {
+                jpVowel = fbRule2.ToList[0];
+            }
 
             var vcv = $"{jpVowel} {cv}";
             var vcvNoSpace = $"{jpVowel}{cv}";
@@ -862,13 +853,16 @@ namespace OpenUtau.Plugin.Builtin {
             string fallbackAlias = alias;
             
             // Romaji Fallbacks
-            foreach (var fallback in yamlFallbacks) {
-                if (fallbackAlias == fallback.Key) {
-                    fallbackAlias = fallback.Value;
+            foreach (var rule in yamlFallbacks) {
+                if (rule.FromList.Count == 0 || rule.ToList.Count == 0) continue;
+                string fromKey = rule.FromList[0];
+                string toVal = rule.ToList[0];
+
+                if (fallbackAlias == fromKey) {
+                    fallbackAlias = toVal;
                     break;
-                } 
-                else if (fallbackAlias.EndsWith(fallback.Key) && fallback.Key != fallback.Value) {
-                    fallbackAlias = fallbackAlias.Substring(0, fallbackAlias.Length - fallback.Key.Length) + fallback.Value;
+                } else if (fallbackAlias.EndsWith(fromKey) && fromKey != toVal) {
+                    fallbackAlias = fallbackAlias.Substring(0, fallbackAlias.Length - fromKey.Length) + toVal;
                     break;
                 }
             }
@@ -924,9 +918,13 @@ namespace OpenUtau.Plugin.Builtin {
                     i++;
                 }
             }
-            foreach (var fallback in yamlFallbacks) {
-                if (fallback.Key.Any(c => c > 0xFF)) {
-                    convertedHiragana = convertedHiragana.Replace(fallback.Key, fallback.Value);
+            foreach (var rule in yamlFallbacks) {
+                if (rule.FromList.Count == 0 || rule.ToList.Count == 0) continue;
+                string fromKey = rule.FromList[0];
+                string toVal = rule.ToList[0];
+
+                if (fromKey.Any(c => c > 0xFF)) {
+                    convertedHiragana = convertedHiragana.Replace(fromKey, toVal);
                 }
             }
 
