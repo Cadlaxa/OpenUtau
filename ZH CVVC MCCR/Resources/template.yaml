@@ -1,0 +1,166 @@
+version: 1.2.1
+
+symbols:
+  - {symbol: "6", type: vowel}
+  - {symbol: "8", type: vowel}
+  - {symbol: eo, type: vowel}
+  - {symbol: "9", type: vowel}
+  - {symbol: a, type: vowel}
+  - {symbol: aa, type: vowel}
+  - {symbol: e, type: vowel}
+  - {symbol: E, type: vowel}
+  - {symbol: f, type: fricative}
+  - {symbol: h, type: aspirate}
+  - {symbol: i, type: vowel}
+  - {symbol: I, type: vowel}
+  - {symbol: ":i", type: semivowel}
+  - {symbol: j, type: semivowel}
+  - {symbol: k, type: stop}
+  - {symbol: kh, type: stop}
+  - {symbol: kw, type: stop}
+  - {symbol: gw, type: stop}
+  - {symbol: kwh, type: stop}
+  - {symbol: ":k", type: stop}
+  - {symbol: l, type: liquid}
+  - {symbol: m, type: nasal}
+  - {symbol: mm, type: vowel}
+  - {symbol: ":m", type: nasal}
+  - {symbol: n, type: nasal}
+  - {symbol: ng, type: nasal}
+  - {symbol: N, type: nasal}
+  - {symbol: ":n", type: nasal}
+  - {symbol: ":N", type: nasal}
+  - {symbol: NN, type: vowel}
+  - {symbol: o, type: vowel}
+  - {symbol: oe, type: vowel}
+  - {symbol: O, type: vowel}
+  - {symbol: p, type: stop}
+  - {symbol: ph, type: stop}
+  - {symbol: s, type: fricative}
+  - {symbol: t, type: stop}
+  - {symbol: th, type: stop}
+  - {symbol: ts, type: affricate}
+  - {symbol: tsh, type: affricate}
+  - {symbol: c, type: affricate}
+  - {symbol: z, type: affricate}
+  - {symbol: u, type: vowel}
+  - {symbol: ":u", type: semivowel}
+  - {symbol: U, type: vowel}
+  - {symbol: w, type: semivowel}
+  - {symbol: y, type: vowel}
+  - {symbol: ":y", type: semivowel}
+
+replacements:
+  # a
+  - {from: a, to: a}
+  - {from: [a, "consonants=k,m,n,N,p,t,y"], to: [6, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [a, ng], to: [6, ":N"]}
+  - {from: [a, "vowel=u,i"], to: [6, ":+vowel=u,i"]}
+  # aa
+  - {from: aa, to: a}
+  - {from: [aa, "consonants=k,m,n,N,p,t,y"], to: [a, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [aa, ng], to: [a, ":N"]}
+  - {from: [aa, "vowel=u,i"], to: [a, ":+vowel=u,i"]}
+  - {from: b, to: p}
+  - {from: c, to: tsh}
+  - {from: d, to: t}
+  # e
+  - {from: e, to: E}
+  - {from: [e, "consonants=k,m,n,N,p,t,y"], to: [E, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [e, ng], to: [E, ":N"]}
+  - {from: [e, "vowel=i"], to: [e, ":+vowel=i"]}
+  - {from: [e, "vowel=u"], to: [E, ":+vowel=u"]}
+  # eo
+  - {from: eo, to: "8"}
+  - {from: [eo, "consonants=k,m,n,N,p,t,y"], to: [8, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [eo, ng], to: [8, ":N"]}
+  - {from: [eo, "vowel=u"], to: [8, ":+vowel=u"]}
+  - {from: [eo, "i"], to: [8, ":y"]}
+  - {from: f, to: f}
+  - {from: g, to: k}
+  - {from: gw, to: [kw, w]}
+  - {from: h, to: h}
+  # i
+  - {from: i, to: i}
+  - {from: [i, "consonants=m,n,N,p,t,y"], to: [i, ":+consonants=m,n,N,p,t,y"]}
+  - {from: [i, ng], to: [I, ":N"]}
+  - {from: [i, k], to: [I, ":k"]}
+  - {from: [i, "vowel=u,i"], to: [i, ":+vowel=u,i"]}
+  - {from: j, to: j}
+  - {from: k, to: kh}
+  - {from: kw, to: [kwh, w]}
+  - {from: l, to: l}
+  - {from: m, to: m}
+  - {from: M, to: m=}
+  - {from: n, to: n}
+  - {from: ng, to: N}
+  - {from: NG, to: N=}
+  # o
+  - {from: o, to: O}
+  - {from: [o, "consonants=k,m,n,N,p,t,y"], to: [O, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [o, ng], to: [O, ":N"]}
+  - {from: [o, "vowel=i"], to: [O, ":+vowel=i"]}
+  - {from: [o, "u"], to: [o, ":u"]}
+  # oe
+  - {from: oe, to: "9"}
+  - {from: [oe, "consonants=k,m,n,N,p,t,y"], to: [9, ":+consonants=k,m,n,N,p,t,y"]}
+  - {from: [oe, ng], to: [9, ":N"]}
+  - {from: [oe, "vowel=u,i"], to: [9, ":+vowel=u,i"]}
+  - {from: p, to: ph}
+  - {from: s, to: s}
+  - {from: t, to: th}
+  # u
+  - {from: u, to: u}
+  - {from: [u, "consonants=m,n,N,p,t,y"], to: [u, ":+consonants=m,n,N,p,t,y"]}
+  - {from: [u, k], to: [U, ":k"]}
+  - {from: [u, ng], to: [U, ":N"]}
+  - {from: [u, "vowel=u,i"], to: [u, ":+vowel=u,i"]}
+  - {from: w, to: w}
+  - {from: yu, to: y}
+  - {from: [y, u], to: y}
+  - {from: [y, u, n], to: [y, ":n"]}
+  - {from: [y, u, t], to: [y, ":t"]}
+  - {from: yun, to: [y, ":n"]}
+  - {from: yut, to: [y, ":t"]}
+  - {from: z, to: ts}
+
+timings:
+  # example entries, you can further customize each phoneme lengths in seconds
+  - {symbol: p, value: 0.5}
+  - {symbol: t, value: 0.5}
+  - {symbol: k, value: 0.5}
+  - {symbol: kw, value: 0.5}
+  - {symbol: ph, value: 1.3}
+  - {symbol: th, value: 1.3}
+  - {symbol: kh, value: 1.3}
+  - {symbol: kwh, value: 1.3}
+  - {symbol: ":i", value: 2.5}
+  - {symbol: ":k", value: 2.5}
+  - {symbol: ":m", value: 2.5}
+  - {symbol: ":n", value: 2.5}
+  - {symbol: ":N", value: 2.5}
+  - {symbol: ":p", value: 2.5}
+  - {symbol: ":t", value: 2.5}
+  - {symbol: ":u", value: 2.5}
+  - {symbol: ":y", value: 2.5}
+  - {symbol: s, value: 2.0}
+  - {symbol: ts, value: 0.8}
+  - {symbol: tsh, value: 2.0}
+
+fallbacks:
+  - {from: ":i", to: ':y'}
+  - {from: ":k", to: kh}
+  - {from: ":m", to: m}
+  - {from: '8 :m', to: '6 :m'}
+  - {from: ":N", to: N}
+  - {from: ":p", to: ph}
+  - {from: ":t", to: th}
+  - {from: ":u", to: w}
+  - {from: ":y", to: j}
+
+entries:
+  - {grapheme: openutau, phonemes: [eo, p, "6", n, ue, t, a, U]}
+  - {grapheme: m, phonemes: [mm]}
+  - {grapheme: mm, phonemes: [mm]}
+  - {grapheme: ng, phonemes: [NN]}
+  - {grapheme: NN, phonemes: [NN]}
