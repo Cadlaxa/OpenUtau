@@ -203,8 +203,14 @@ namespace OpenUtau.Plugin.Builtin {
                 syllable.prevBasePhoneme = runningPrevBasePhoneme;
                 syllable.nextBasePhoneme = (i + 1 < syllables.Length) ? predictedBases[i + 1] : string.Empty;
 
-                var modifiedSyllable = ApplyBoundaryReplacements(syllable);
-                
+                bool isSlurNote = i < notes.Length && IsSyllableVowelExtensionNote(notes[i]);
+
+                // If it's a slur and the vowel is identical to the previous note, 
+                // bypass boundary replacements so YAML does not insert split consonants/glides!
+                var modifiedSyllable = (isSlurNote && syllable.prevV == syllable.v)
+                    ? syllable
+                    : ApplyBoundaryReplacements(syllable);
+
                 if (tails.Contains(modifiedSyllable.v)) {
                     var ending = new Ending {
                         prevV = modifiedSyllable.prevV,
@@ -257,14 +263,22 @@ namespace OpenUtau.Plugin.Builtin {
             int globalPhonemeIndex = 0;
 
             foreach (var bucket in syllablePhonemeBuckets) {
-            var madePhonemes = MakePhonemes(bucket.symbols, bucket.duration, bucket.position, bucket.isEnding, bucket.tone, workingAttributes.ToArray(), globalPhonemeIndex).ToList();
-            int currentSyllablePhonemeCount = bucket.symbols.Count;
+                var madePhonemes = MakePhonemes(
+                    bucket.symbols, 
+                    bucket.duration, 
+                    bucket.position, 
+                    bucket.isEnding, 
+                    bucket.tone, 
+                    workingAttributes.ToArray(), 
+                    globalPhonemeIndex
+                ).Where(p => p.phoneme != null).ToList();
+
+            int currentSyllablePhonemeCount = madePhonemes.Count;
 
             if (!bucket.isEnding && madePhonemes.Count > 0) {
                 var basePhoneme = madePhonemes.Last();
                 string baseAlias = basePhoneme.phoneme ?? "";
 
-                // Check exact alias match first, then fall back to the underlying vowel symbol
                 (string sustain, double offset) sustainData = default;
                 bool hasSustain = vowelSustains.TryGetValue(baseAlias, out sustainData)
                             || (!string.IsNullOrEmpty(bucket.vowel) && vowelSustains.TryGetValue(bucket.vowel, out sustainData));
@@ -282,9 +296,18 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                 }
             }
-            phonemes.AddRange(madePhonemes);
-            globalPhonemeIndex += currentSyllablePhonemeCount;
-        }
+
+                phonemes.AddRange(madePhonemes);
+                // Only increment by phonemes that were ACTUALLY generated
+                globalPhonemeIndex += currentSyllablePhonemeCount;
+            }
+
+            // Re-index all phonemes sequentially so they align with the UI's 0, 1, 2...
+            for (int i = 0; i < phonemes.Count; i++) {
+                var p = phonemes[i];
+                p.index = i;
+                phonemes[i] = p;
+            }
 
             var phonemesArray = phonemes.ToArray();
             var finalPhonemes = AssignAllAffixes(phonemesArray.ToList(), notes, prevNeighbours, workingAttributes);
