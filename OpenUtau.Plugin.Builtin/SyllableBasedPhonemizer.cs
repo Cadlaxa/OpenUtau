@@ -1412,17 +1412,34 @@ namespace OpenUtau.Plugin.Builtin {
         /// <param name="tone"></param>
         /// <returns></returns>
         protected bool HasOto(string alias, int tone) {
-            if (singer == null || !singer.Loaded || string.IsNullOrEmpty(alias)) {
+            var currentSinger = singer;
+            if (currentSinger == null || !currentSinger.Loaded || string.IsNullOrEmpty(alias)) {
                 return false;
             }
-            if (singer.TryGetMappedOto(alias, tone, out _)) {
-                return true;
-            }
-            if (singer.TryGetOto(alias, out _)) {
-                return true;
-            }
-            if (singer.TryGetMappedOto(alias, tone, "", out _)) {
-                return true;
+
+            try {
+                lock (currentSinger) {
+                    if (!currentSinger.Loaded) {
+                        return false;
+                    }
+                    if (currentSinger.TryGetMappedOto(alias, tone, out _)) {
+                        return true;
+                    }
+                    if (currentSinger.TryGetOto(alias, out _)) {
+                        return true;
+                    }
+                    if (currentSinger.TryGetMappedOto(alias, tone, "", out _)) {
+                        return true;
+                    }
+                }
+            } catch (InvalidOperationException ex) {
+                Log.Error(ex, "Concurrency race detected in HasOto: singer '{Singer}' was modified while querying alias '{Alias}' at tone {Tone}.", 
+                    currentSinger.Id, alias, tone);
+                throw;
+            } catch (KeyNotFoundException ex) {
+                Log.Error(ex, "Dictionary corruption detected in HasOto: key traversal failed for alias '{Alias}' at tone {Tone}.", 
+                    alias, tone);
+                throw;
             }
             return false;
         }
