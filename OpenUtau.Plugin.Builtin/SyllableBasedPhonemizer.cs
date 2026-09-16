@@ -1433,12 +1433,10 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                 }
             } catch (InvalidOperationException ex) {
-                Log.Error(ex, $"Concurrency race detected in HasOto: singer '{Singer}' was modified while querying alias '{Alias}' at tone {Tone}.", 
-                    currentSinger.Id, alias, tone);
+                Log.Error(ex, $"Concurrency race detected in HasOto: singer '{currentSinger.Id}' was modified while querying alias '{alias}' at tone {tone}.");
                 throw;
             } catch (KeyNotFoundException ex) {
-                Log.Error(ex, $"Dictionary corruption detected in HasOto: key traversal failed for alias '{Alias}' at tone {Tone}.", 
-                    alias, tone);
+                Log.Error(ex, $"Dictionary corruption detected in HasOto: key traversal failed for alias '{alias}' at tone {tone}.");
                 throw;
             }
             return false;
