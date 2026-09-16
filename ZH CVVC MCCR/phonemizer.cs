@@ -324,6 +324,10 @@ namespace OpenUtau.Plugin.Builtin {
                                 basePhoneme = AliasFormat($"{string.Join("", cc)} {v}", "dynMid", syllable.vowelTone, "");
                                 lastC = i;
                                 break;
+                            } else if (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone) || HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) {
+                                basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                            } else {
+                                basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
                             }
                             /// C-Last
                         } else if (CurrentWordCc.Length == 1 && PreviousWordCc.Length == 1) {
@@ -386,6 +390,7 @@ namespace OpenUtau.Plugin.Builtin {
                 var cc1 = $"{string.Join(" ", cc.Skip(i))}";
                 var lcv = $"{cc.Last()} {v}";
                 var cv = $"{cc.Last()}{v}";
+                var crv = $"{cc.Last()} {v}";
 
                 for (int len = cc[i + 1].Length; len > 0; len--) {
                     string c = cc[i + 1].Substring(0, len);   // shr → sh → s
@@ -441,8 +446,10 @@ namespace OpenUtau.Plugin.Builtin {
                     if ((HasOto(ccv, syllable.vowelTone) || HasOto(ValidateAlias(ccv, syllable.vowelTone), syllable.vowelTone) || HasOto(ccv1, syllable.vowelTone) || HasOto(ValidateAlias(ccv1, syllable.vowelTone), syllable.vowelTone))) {
                         basePhoneme = (AliasFormat($"{string.Join("", cc.Skip(i + 1))} {v}", "dynMid", syllable.vowelTone, ""));
                         lastC = i;
-                    } else if (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone) || HasOto(lcv, syllable.vowelTone) || HasOto(ValidateAlias(lcv, syllable.vowelTone), syllable.vowelTone) && HasOto(cc1, syllable.vowelTone) && !HasOto(ccv, syllable.vowelTone)) {
-                        basePhoneme = (AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, ""));
+                    } else if (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone) || HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) {
+                        basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                    } else {
+                        basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
                     }
                     // [C1 C2C3]
                     if ((HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone))) {
@@ -457,7 +464,11 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                     // CV
                 } else if (CurrentWordCc.Length == 1 && PreviousWordCc.Length == 1) {
-                    basePhoneme = (AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, ""));
+                    if (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone) || HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) {
+                        basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                    } else {
+                        basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                    }
                     // [C1 C2]
                     if (!HasOto(cc1, syllable.tone)) {
                         cc1 = $"{cc[i]} {cc[i + 1]}";
@@ -510,8 +521,10 @@ namespace OpenUtau.Plugin.Builtin {
                         if ((HasOto(ccv, syllable.vowelTone) || HasOto(ValidateAlias(ccv, syllable.vowelTone), syllable.vowelTone) || HasOto(ccv1, syllable.vowelTone) || HasOto(ValidateAlias(ccv1, syllable.vowelTone), syllable.vowelTone))) {
                             basePhoneme = (AliasFormat($"{string.Join("", cc.Skip(i + 1))} {v}", "dynMid", syllable.vowelTone, ""));
                             lastC = i;
-                        } else if (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone) || HasOto(lcv, syllable.vowelTone) || HasOto(ValidateAlias(lcv, syllable.vowelTone), syllable.vowelTone) && HasOto(cc1, syllable.vowelTone) && !HasOto(ccv, syllable.vowelTone)) {
-                            basePhoneme = (AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, ""));
+                        } else if (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone) || HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) {
+                            basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                        } else {
+                            basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
                         }
                         // [C1 C2C3]
                         if ((HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone))) {
@@ -525,7 +538,11 @@ namespace OpenUtau.Plugin.Builtin {
                         }
                         // CV
                     } else if (CurrentWordCc.Length == 1 && PreviousWordCc.Length == 1) {
-                        basePhoneme = (AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, ""));
+                        if (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone) || HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) {
+                            basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                        } else {
+                            basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
+                        }
                         // [C1 C2]
                         if (!HasOto(cc1, syllable.tone)) {
                             cc1 = $"{cc[i]} {cc[i + 1]}";

@@ -69,91 +69,110 @@ symbols:
   - {symbol: uang, type: vowel}
   - {symbol: ueng, type: vowel}
   # split semivowels
-  - {symbol: I, type: semivowel}
-  - {symbol: O, type: semivowel}
+  - {symbol: II, type: semivowel}
+  - {symbol: OO, type: semivowel}
+  - {symbol: AA, type: semivowel}
+  - {symbol: EE, type: semivowel}
+  - {symbol: ee, type: semivowel}
+  - {symbol: EEi, type: semivowel}
+  - {symbol: UU, type: semivowel}
+  - {symbol: VV, type: semivowel}
+  - {symbol: R, type: tail}
 
 replacements:
   - {from: a, to: a}
-  - {from: ai, to: [a, I]}
+  - {from: ai, to: [a, II]}
   - {from: an, to: [a, n]}
   - {from: ang, to: [a, ng]}
-  - {from: ao, to: [a O]}
+  - {from: ao, to: [a, OO]}
   - {from: [a, r], to: [a, r]}
-  - {from: b, to: p}
-  - {from: c, to: tsh}
+  - {from: b, to: b}
+  - {from: c, to: c}
   - {from: ch, to: ch}
-  - {from: d, to: t}
-  - {from: ei, to: [Ei]}
-  - {from: e, to: "7"}
-  - {from: en, to: ["@", ":n"]}
-  - {from: eng, to: ["@", N]}
+  - {from: d, to: d}
+  - {from: ei, to: [ee, Ei]}
+  - {from: e, to: e}
+  - {from: en, to: [e, n]}
+  - {from: eng, to: [e, ng]}
   - {from: f, to: f}
-  - {from: g, to: k}
-  - {from: zh, to: ts`}
-  - {from: h, to: x}
-  - {from: h-i, to: i`}
+  - {from: g, to: g}
+  - {from: zh, to: zh}
+  - {from: h, to: h}
+  - {from: h-i, to: "1"}
   - {from: -i, to: "1"}
   - {from: i, to: i}
-  - {from: ia, to: ia}
-  - {from: ian, to: [iE, ":n"]}
-  - {from: iang, to: [iA, N]}
-  - {from: iao, to: iAU}
-  - {from: ie, to: ie}
-  - {from: in, to: [i, ":n"]}
-  - {from: ing, to: [i, N]}
-  - {from: iong, to: [iU, N]}
-  - {from: iu, to: i@U}
-  - {from: j, to: ts\}
-  - {from: k, to: kh}
+  - {from: ia, to: [II, a]}
+  - {from: ian, to: [II, E, n]}
+  - {from: iang, to: [II, a, ng]}
+  - {from: iao, to: [II, a, OO]}
+  - {from: ie, to: [II, E]}
+  - {from: in, to: [i, n]}
+  - {from: ing, to: [i, ng]}
+  - {from: iong, to: [II, o, ng]}
+  - {from: iu, to: [II, o]}
+  - {from: j, to: j}
+  - {from: k, to: k}
   - {from: l, to: l}
   - {from: m, to: m}
   - {from: n, to: n}
-  - {from: ny, to: [n, j]}
+  - {from: ny, to: [n, y]}
   - {from: o, to: o}
-  - {from: ou, to: "@U"}
-  - {from: ong, to: [U, N]}
-  - {from: p, to: ph}
-  - {from: q, to: ts\h}
-  - {from: r, to: z`}
+  - {from: ou, to: [o, UU]}
+  - {from: ong, to: [o, ng]}
+  - {from: p, to: p}
+  - {from: q, to: q}
+  - {from: r, to: r}
   - {from: r1, to: l}
-  - {from: ry, to: [l, j]}
   - {from: s, to: s}
-  - {from: sh, to: s`}
-  - {from: t, to: th}
+  - {from: sh, to: sh}
+  - {from: t, to: t}
   - {from: u, to: u}
-  - {from: ua, to: ua}
-  - {from: uai, to: [ua, I]}
-  - {from: uan, to: [ua, ":n"]}
-  - {from: uang, to: [uA, N]}
-  - {from: ue, to: ue}
-  - {from: ui, to: [ue, I]}
-  - {from: un, to: [u@, ":n"]}
-  - {from: uo, to: uo}
-  - {from: v, to: y}
+  - {from: ua, to: [UU, a]}
+  - {from: uai, to: [UU, a, II]}
+  - {from: uan, to: [VV, i, EE, n]}
+  - {from: uang, to: [v, II, EE, ng]}
+  - {from: ue, to: [v, EE]}
+  - {from: ui, to: [UU, Ei]}
+  - {from: un, to: [v, n]}
+  - {from: uo, to: [UU, o]}
+  - {from: v, to: v}
   - {from: w, to: w}
-  - {from: [w, a], to: [w, ua]}
-  - {from: [w, ai], to: [w, ua, I]}
-  - {from: [w, an], to: [w, ua, ":n"]}
-  - {from: [w, ang], to: [w, uA, N]}
-  - {from: [w, ei], to: [w, w, ue, I]}
-  - {from: [w, en], to: [w, u@, ":n"]}
-  - {from: [w, e, ng], to: [w, u@, N]}
-  - {from: [w, o], to: [w, uo]}
-  - {from: [w, u], to: [w, u]}
-  - {from: x, to: s\}
-  - {from: y, to: j}
-  - {from: [y, a], to: [j, ia]}
-  - {from: [y, an], to: [j, iE, ":n"]}
-  - {from: [y, ao], to: [j, iAU]}
-  - {from: [y, e], to: [j, ie]}
-  - {from: [y, i], to: [j, i]}
-  - {from: [y, in], to: [j, i, ":n"]}
-  - {from: [y, ing], to: [j, i, N]}
-  - {from: [y, ong], to: [j, iU, N]}
-  - {from: [y, ou], to: [j, i@U]}
-  - {from: [y, u], to: y}
-  - {from: [y, uan], to: ["y{", ":n"]}
-  - {from: [y, ue], to: yE}
-  - {from: [y, uen], to: [y, ":n"]}
-  - {from: [y, un], to: [y, ":n"]}
-  - {from: z, to: ts}
+  - {from: x, to: x}
+  - {from: y, to: y}
+  - {from: z, to: z}
+
+fallbacks:
+  - {from: II, to: i}
+  - {from: OO, to: o}
+  - {from: AA, to: a}
+  - {from: EE, to: E}
+  - {from: ee, to: e}
+  - {from: EEi, to: Ei}
+  - {from: UU, to: u}
+  - {from: VV, to: v}
+  - {from: Ei, to: i}
+  - {from: " i", to: i}
+  - {from: "o ", to: o}
+  - {from: " a", to: a}
+  - {from: " E", to: E}
+  - {from: " e", to: e}
+  - {from: " Ei", to: Ei}
+  - {from: " u", to: u}
+  - {from: " v", to: v}
+  - {from: R, to: "-"}
+
+timings:
+  # glide timings
+  - {symbol: "i a", value: 0.8}
+  - {symbol: "i e", value: 0.8}
+  - {symbol: "i E", value: 0.8}
+  - {symbol: "i o", value: 0.8}
+  - {symbol: "u o", value: 0.8}
+  - {symbol: "u a", value: 0.8}
+  - {symbol: "v E", value: 0.8}
+  - {symbol: "v i", value: 0.8}
+  - {symbol: "u Ei", value: 0.8}
+  - {symbol: "e Ei", value: 0.8}
+
+entries:
+  - {grapheme: a, phonemes: [a]}
