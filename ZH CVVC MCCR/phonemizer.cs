@@ -17,7 +17,7 @@ namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("MCCR Mandarin Chinese Phonemizer", "ZH CVVC", "Cadlaxa", language: "ZH")]
     public class MandarinPhonemizer : SyllableBasedPhonemizer {
         protected override string YamlFileName => "zh-cvvc-mccr.yaml";
-        protected override string YamlVersion => "1.0";
+        protected override string YamlVersion => "1.1";
         protected override byte[] YamlTemplate => ZH_CVVC_MCCR.data.Resources.template;
         public MandarinPhonemizer() {
             this.vowels = Array.Empty<string>();
