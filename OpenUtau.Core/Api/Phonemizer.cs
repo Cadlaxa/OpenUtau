@@ -166,6 +166,12 @@ namespace OpenUtau.Api {
         /// such as a custom dictionary file in the singer directory.
         /// Use singer.Location to access the singer directory.
         ///
+        /// This method, SetUp, Process and CleanUp are always called from a single
+        /// background thread and never concurrently, so it is fine to block here
+        /// while loading. Do not load on another thread: Process may otherwise run
+        /// against half-initialized state. OpenUtau shows a progress indicator if
+        /// this call takes long.
+        ///
         /// Do not modify the singer.
         /// </summary>
         /// <param name="singer"></param>
@@ -240,21 +246,11 @@ namespace OpenUtau.Api {
             return result;
         }
 
-        public bool Testing { get; set; } = false;
+        [Obsolete("No-op. Load synchronously in SetSinger; phonemizer methods run on a single thread and OpenUtau reports progress itself.")]
+        protected void OnAsyncInitStarted() { }
 
-        protected void OnAsyncInitStarted() {
-            if (!Testing) {
-                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, "Initializing phonemizer..."));
-            }
-        }
-
-        protected void OnAsyncInitFinished() {
-            if (!Testing) {
-                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, ""));
-                DocManager.Inst.ExecuteCmd(new ValidateProjectNotification());
-                DocManager.Inst.ExecuteCmd(new PreRenderNotification());
-            }
-        }
+        [Obsolete("No-op. Load synchronously in SetSinger; phonemizer methods run on a single thread and OpenUtau reports progress itself.")]
+        protected void OnAsyncInitFinished() { }
 
         protected Result MakeSimpleResult(string phoneme) {
             return new Result() {
@@ -310,30 +306,15 @@ namespace OpenUtau.Api {
         }
 
         public string GetParentVoiceColor() {
-            if (project == null || track == null) {
-                return string.Empty;
+            if (project != null && track != null) {
+                if (track.TryGetExpDescriptor(project, Core.Format.Ustx.CLR, out var trackCLR) && trackCLR.options != null) {
+                    int index = (int)trackCLR.CustomDefaultValue;
+                    if (index >= 0 && index < trackCLR.options.Length) {
+                        return trackCLR.options[index] ?? string.Empty;
+                    }
+                }
             }
-            try {
-                if (!track.TryGetExpDescriptor(project, Core.Format.Ustx.CLR, out var trackCLR) || trackCLR == null) {
-                    return string.Empty;
-                }
-                int index = (int)trackCLR.CustomDefaultValue;
-                if (track.VoiceColorExp == null || track.VoiceColorExp.options == null) {
-                    Log.Warning("Track {TrackName} ({TrackNo}) defines CLR expression index {ColorIndex}, but VoiceColorExp options are null or uninitialized.",
-                        track.TrackName, track.TrackNo, index);
-                    return string.Empty;
-                }
-                if (index < 0 || index >= track.VoiceColorExp.options.Length) {
-                    Log.Warning("Track {TrackName} ({TrackNo}) VoiceColor index {ColorIndex} is out of bounds (options count: {OptionCount}).",
-                        track.TrackName, track.TrackNo, index, track.VoiceColorExp.options.Length);
-                    return string.Empty;
-                }
-                return track.VoiceColorExp.options[index] ?? string.Empty;
-            } catch (Exception ex) {
-                Log.Error(ex, "Failed to resolve Voice Color (CLR) on track {TrackName} ({TrackNo}).", 
-                    track.TrackName, track.TrackNo);
-                throw;
-            }
+            return string.Empty;
         }
 
         /// <summary>
