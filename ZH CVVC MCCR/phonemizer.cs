@@ -17,7 +17,7 @@ namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("MCCR Mandarin Chinese Phonemizer", "ZH CVVC", "Cadlaxa", language: "ZH")]
     public class MandarinPhonemizer : SyllableBasedPhonemizer {
         protected override string YamlFileName => "zh-cvvc-mccr.yaml";
-        protected override string YamlVersion => "1.1";
+        protected override string YamlVersion => "1.1.1";
         protected override byte[] YamlTemplate => ZH_CVVC_MCCR.data.Resources.template;
         public MandarinPhonemizer() {
             this.vowels = Array.Empty<string>();
@@ -273,6 +273,11 @@ namespace OpenUtau.Plugin.Builtin {
                             firstC = i - 1;
                             break;
                         }
+                        var ccc = $"{string.Join("", cc.Take(i))}";
+                        if (liquid.Contains(ccc) || semivowel.Contains(ccc)
+                            || liquid.Contains(ValidateAlias(ccc)) || semivowel.Contains(ValidateAlias(ccc))) {
+                            glides(ccc);
+                        }
                     }
                     // [- C]
                     if (phonemes.Count == 0) {
@@ -412,6 +417,12 @@ namespace OpenUtau.Plugin.Builtin {
                 if (!HasOto(cc1, syllable.tone)) {
                     cc1 = ValidateAlias(cc1, syllable.tone);
                 }
+                if (!HasOto(cc1, syllable.tone)) {
+                    cc1 = $"{cc[i]}{cc[i + 1]}";
+                }
+                if (!HasOto(cc1, syllable.tone)) {
+                    cc1 = ValidateAlias(cc1, syllable.tone);
+                }
                 // CC FALLBACKS
                 if (!HasOto(cc1, syllable.tone) || (!HasOto(ValidateAlias(cc1, syllable.tone), syllable.tone) && !HasOto($"{cc[i]} {cc[i + 1]}", syllable.tone))) {
                     var c1 = cc[i];
@@ -482,6 +493,12 @@ namespace OpenUtau.Plugin.Builtin {
                     // [C1 C2]
                     if (!HasOto(cc1, syllable.tone)) {
                         cc1 = $"{cc[i]} {cc[i + 1]}";
+                    }
+                    if (!HasOto(cc1, syllable.tone)) {
+                        cc1 = ValidateAlias(cc1, syllable.tone);
+                    }
+                    if (!HasOto(cc1, syllable.tone)) {
+                        cc1 = $"{cc[i]}{cc[i + 1]}";
                     }
                     if (!HasOto(cc1, syllable.tone)) {
                         cc1 = ValidateAlias(cc1, syllable.tone);
