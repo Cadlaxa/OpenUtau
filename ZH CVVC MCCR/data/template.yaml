@@ -1,4 +1,4 @@
-version: 1.1.1
+version: 1.1.2
 symbols:
   - {symbol: "1", type: vowel}
   - {symbol: "7", type: vowel}
@@ -155,7 +155,7 @@ replacements:
   - {from: uai, to: [UU, a, II]}
   - {from: "vowel=uan,u@n", to: [UU, a, n]}
   - {from: uang, to: [UU, a, ng]}
-  - {from: "vowel=ue,yE", to: [v, EE]}
+  - {from: "vowel=ue,yE", to: [VV, E]}
   - {from: ["vowel=ua", n], to: [VV, E, n]}
   - {from: ui, to: [UU, Ei]}
   - {from: un, to: [v, n]}
@@ -567,8 +567,8 @@ entries:
   - {grapheme: wa, phonemes: [w, a]}
   - {grapheme: wai, phonemes: [w, ai]}
   - {grapheme: wan, phonemes: [w, a, n]}
-  - {grapheme: wang, phonemes: [w, A, ng]}
-  - {grapheme: wei, phonemes: [w, ui]}
+  - {grapheme: wang, phonemes: [w, a, ng]}
+  - {grapheme: wei, phonemes: [w, ei]}
   - {grapheme: wen, phonemes: [w, "@", n]}
   - {grapheme: weng, phonemes: [w, "@", ng]}
   - {grapheme: wo, phonemes: [w, o]}
@@ -594,9 +594,9 @@ entries:
   - {grapheme: xvn, phonemes: [x, v, n]}
   - {grapheme: ya, phonemes: [y, a]}
   - {grapheme: yan, phonemes: [y, a, n]}
-  - {grapheme: yang, phonemes: [y, A, ng]}
+  - {grapheme: yang, phonemes: [y, a, ng]}
   - {grapheme: yao, phonemes: [y, AU]}
-  - {grapheme: ye, phonemes: [y, e]}
+  - {grapheme: ye, phonemes: [y, E]}
   - {grapheme: yi, phonemes: [i]}
   - {grapheme: yin, phonemes: [i, n]}
   - {grapheme: ying, phonemes: [i, ng]}
@@ -607,8 +607,8 @@ entries:
   - {grapheme: you, phonemes: [y, "@U"]}
   - {grapheme: yu, phonemes: [v]}
   - {grapheme: yu1, phonemes: [y, v]}
-  - {grapheme: yuan, phonemes: [y, "{", n]}
-  - {grapheme: yue, phonemes: [y, E]}
+  - {grapheme: yuan, phonemes: [y, E, n]}
+  - {grapheme: yue, phonemes: [y, yE]}
   - {grapheme: yun, phonemes: [v, n]}
   - {grapheme: za, phonemes: [z, a]}
   - {grapheme: zai, phonemes: [z, ai]}

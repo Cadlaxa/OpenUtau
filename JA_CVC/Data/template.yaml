@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 
-version: 1.4.2
+version: 1.4.3
 isglide: true
 symbols:
   - {symbol: a, type: vowel}
@@ -98,14 +98,14 @@ fallbacks:
   - {from: e kw, to: e k}
   - {from: o kw, to: o k}
   - {from: n kw, to: n k}
-  - {from: kya, to: ky} 
-  - {from: kyu, to: ky} 
-  - {from: kye, to: ky} 
-  - {from: kyo, to: ky} 
-  - {from: kwa, to: kw} 
-  - {from: kwi, to: kw} 
-  - {from: kwe, to: kw} 
-  - {from: kwo, to: kw} 
+  - {from: kya, to: ky}
+  - {from: kyu, to: ky}
+  - {from: kye, to: ky}
+  - {from: kyo, to: ky}
+  - {from: kwa, to: kw}
+  - {from: kwi, to: kw}
+  - {from: kwe, to: kw}
+  - {from: kwo, to: kw}
   - {from: a gy, to: a g}
   - {from: i gy, to: i g}
   - {from: u gy, to: u g}
@@ -118,14 +118,14 @@ fallbacks:
   - {from: e gw, to: e g}
   - {from: o gw, to: o g}
   - {from: n gw, to: n g}
-  - {from: gya, to: gy} 
-  - {from: gyu, to: gy} 
-  - {from: gye, to: gy} 
-  - {from: gyo, to: gy} 
-  - {from: gwa, to: gw} 
-  - {from: gwi, to: gw} 
-  - {from: gwe, to: gw} 
-  - {from: gwo, to: gw} 
+  - {from: gya, to: gy}
+  - {from: gyu, to: gy}
+  - {from: gye, to: gy}
+  - {from: gyo, to: gy}
+  - {from: gwa, to: gw}
+  - {from: gwi, to: gw}
+  - {from: gwe, to: gw}
+  - {from: gwo, to: gw}
   - {from: a sy, to: a s}
   - {from: i sy, to: i s}
   - {from: u sy, to: u s}
@@ -138,14 +138,14 @@ fallbacks:
   - {from: e sw, to: e s}
   - {from: o sw, to: o s}
   - {from: n sw, to: n s}
-  - {from: sya, to: sy} 
-  - {from: syu, to: sy} 
-  - {from: sye, to: sy} 
-  - {from: syo, to: sy} 
-  - {from: swa, to: sw} 
-  - {from: swi, to: sw} 
-  - {from: swe, to: sw} 
-  - {from: swo, to: sw} 
+  - {from: sya, to: sy}
+  - {from: syu, to: sy}
+  - {from: sye, to: sy}
+  - {from: syo, to: sy}
+  - {from: swa, to: sw}
+  - {from: swi, to: sw}
+  - {from: swe, to: sw}
+  - {from: swo, to: sw}
   - {from: a zy, to: a z}
   - {from: i zy, to: i z}
   - {from: u zy, to: u z}
@@ -158,14 +158,14 @@ fallbacks:
   - {from: e zw, to: e z}
   - {from: o zw, to: o z}
   - {from: n zw, to: n z}
-  - {from: zya, to: zy} 
-  - {from: zyu, to: zy} 
-  - {from: zye, to: zy} 
-  - {from: zyo, to: zy} 
-  - {from: zwa, to: zw} 
-  - {from: zwi, to: zw} 
-  - {from: zwe, to: zw} 
-  - {from: zwo, to: zw} 
+  - {from: zya, to: zy}
+  - {from: zyu, to: zy}
+  - {from: zye, to: zy}
+  - {from: zyo, to: zy}
+  - {from: zwa, to: zw}
+  - {from: zwi, to: zw}
+  - {from: zwe, to: zw}
+  - {from: zwo, to: zw}
   - {from: a ty, to: a t}
   - {from: i ty, to: i t}
   - {from: u ty, to: u t}
@@ -178,14 +178,14 @@ fallbacks:
   - {from: e tw, to: e t}
   - {from: o tw, to: o t}
   - {from: n tw, to: n t}
-  - {from: tya, to: ty} 
-  - {from: tyu, to: ty} 
-  - {from: tye, to: ty} 
-  - {from: tyo, to: ty} 
-  - {from: twa, to: tw} 
-  - {from: twi, to: tw} 
-  - {from: twe, to: tw} 
-  - {from: two, to: tw} 
+  - {from: tya, to: ty}
+  - {from: tyu, to: ty}
+  - {from: tye, to: ty}
+  - {from: tyo, to: ty}
+  - {from: twa, to: tw}
+  - {from: twi, to: tw}
+  - {from: twe, to: tw}
+  - {from: two, to: tw}
   - {from: a dy, to: a d}
   - {from: i dy, to: i d}
   - {from: u dy, to: u d}
@@ -198,14 +198,14 @@ fallbacks:
   - {from: e dw, to: e d}
   - {from: o dw, to: o d}
   - {from: n dw, to: n d}
-  - {from: dya, to: dy} 
-  - {from: dyu, to: dy} 
-  - {from: dye, to: dy} 
-  - {from: dyo, to: dy} 
-  - {from: dwa, to: dw} 
-  - {from: dwi, to: dw} 
-  - {from: dwe, to: dw} 
-  - {from: dwo, to: dw} 
+  - {from: dya, to: dy}
+  - {from: dyu, to: dy}
+  - {from: dye, to: dy}
+  - {from: dyo, to: dy}
+  - {from: dwa, to: dw}
+  - {from: dwi, to: dw}
+  - {from: dwe, to: dw}
+  - {from: dwo, to: dw}
   - {from: a ny, to: a n}
   - {from: i ny, to: i n}
   - {from: u ny, to: u n}
@@ -218,34 +218,34 @@ fallbacks:
   - {from: e nw, to: e n}
   - {from: o nw, to: o n}
   - {from: n nw, to: n n}
-  - {from: nya, to: ny} 
-  - {from: nyu, to: ny} 
-  - {from: nye, to: ny} 
-  - {from: nyo, to: ny} 
-  - {from: nwa, to: nw} 
-  - {from: nwi, to: nw} 
-  - {from: nwe, to: nw} 
-  - {from: nwo, to: nw} 
+  - {from: nya, to: ny}
+  - {from: nyu, to: ny}
+  - {from: nye, to: ny}
+  - {from: nyo, to: ny}
+  - {from: nwa, to: nw}
+  - {from: nwi, to: nw}
+  - {from: nwe, to: nw}
+  - {from: nwo, to: nw}
   - {from: a hhy, to: a hh}
   - {from: i hhy, to: i hh}
   - {from: u hhy, to: u hh}
   - {from: e hhy, to: e hh}
   - {from: o hhy, to: o hh}
   - {from: n hhy, to: n hh}
-  - {from: a hw, to: a h}
+  - {from: a hw, to: a h} 
   - {from: i hw, to: i h}
   - {from: u hw, to: u h}
   - {from: e hw, to: e h}
   - {from: o hw, to: o h}
   - {from: n hw, to: n h}
-  - {from: hhya, to: hhy} 
-  - {from: hhyu, to: hhy} 
-  - {from: hhye, to: hhy} 
-  - {from: hhyo, to: hhy} 
-  - {from: hwa, to: hw} 
-  - {from: hwi, to: hw} 
-  - {from: hwe, to: hw} 
-  - {from: hwo, to: hw} 
+  - {from: hhya, to: hhy}
+  - {from: hhyu, to: hhy}
+  - {from: hhye, to: hhy}
+  - {from: hhyo, to: hhy}
+  - {from: hwa, to: hw}
+  - {from: hwi, to: hw}
+  - {from: hwe, to: hw}
+  - {from: hwo, to: hw}
   - {from: a ffy, to: a ff}
   - {from: i ffy, to: i ff}
   - {from: u ffy, to: u ff}
@@ -258,14 +258,14 @@ fallbacks:
   - {from: e ffw, to: e ff}
   - {from: o ffw, to: o ff}
   - {from: n ffw, to: n ff}
-  - {from: hhya, to: hhy} 
-  - {from: hhyu, to: hhy} 
-  - {from: hhye, to: hhy} 
-  - {from: hhyo, to: hhy} 
-  - {from: hwa, to: hw} 
-  - {from: hwi, to: hw} 
-  - {from: hwe, to: hw} 
-  - {from: hwo, to: hw} 
+  - {from: ffya, to: hhy}
+  - {from: ffyu, to: hhy}
+  - {from: ffye, to: hhy}
+  - {from: ffyo, to: hhy}
+  - {from: ffwa, to: ffw}
+  - {from: ffwi, to: ffw}
+  - {from: ffwe, to: ffw}
+  - {from: ffwo, to: ffw}
   - {from: a by, to: a b}
   - {from: i by, to: i b}
   - {from: u by, to: u b}
@@ -278,14 +278,14 @@ fallbacks:
   - {from: e bw, to: e b}
   - {from: o bw, to: o b}
   - {from: n bw, to: n b}
-  - {from: bya, to: by} 
-  - {from: byu, to: by} 
-  - {from: bye, to: by} 
-  - {from: byo, to: by} 
-  - {from: bwa, to: bw} 
-  - {from: bwi, to: bw} 
-  - {from: bwe, to: bw} 
-  - {from: bwo, to: bw} 
+  - {from: bya, to: by}
+  - {from: byu, to: by}
+  - {from: bye, to: by}
+  - {from: byo, to: by}
+  - {from: bwa, to: bw}
+  - {from: bwi, to: bw}
+  - {from: bwe, to: bw}
+  - {from: bwo, to: bw}
   - {from: a py, to: a p}
   - {from: i py, to: i p}
   - {from: u py, to: u p}
@@ -298,58 +298,116 @@ fallbacks:
   - {from: e pw, to: e p}
   - {from: o pw, to: o p}
   - {from: n pw, to: n p}
-  - {from: pya, to: py} 
-  - {from: pyu, to: py} 
-  - {from: pye, to: py} 
-  - {from: pyo, to: py} 
-  - {from: pwa, to: pw} 
-  - {from: pwi, to: pw} 
-  - {from: pwe, to: pw} 
-  - {from: pwo, to: pw} 
-  - {from: mya, to: my} 
-  - {from: myu, to: my} 
-  - {from: mye, to: my} 
-  - {from: myo, to: my} 
-  - {from: mwa, to: mw} 
-  - {from: mwi, to: mw} 
-  - {from: mwe, to: mw} 
-  - {from: mwo, to: mw} 
-  - {from: rya, to: ry} 
-  - {from: ryu, to: ry} 
-  - {from: rye, to: ry} 
-  - {from: ryo, to: ry} 
-  - {from: rwa, to: rw} 
-  - {from: rwi, to: rw} 
-  - {from: rwe, to: rw} 
-  - {from: rwo, to: rw} 
-  - {from: spya, to: spy} 
-  - {from: spyu, to: spy} 
-  - {from: spye, to: spy} 
-  - {from: spyo, to: spy} 
-  - {from: thwa, to: thw} 
-  - {from: thwi, to: thw} 
-  - {from: thwe, to: thw} 
-  - {from: thwo, to: thw} 
+  - {from: pya, to: py}
+  - {from: pyu, to: py}
+  - {from: pye, to: py}
+  - {from: pyo, to: py}
+  - {from: pwa, to: pw}
+  - {from: pwi, to: pw}
+  - {from: pwe, to: pw}
+  - {from: pwo, to: pw}
+  - {from: a my, to: a m}
+  - {from: i my, to: i m}
+  - {from: u my, to: u m}
+  - {from: e my, to: e m}
+  - {from: o my, to: o m}
+  - {from: n my, to: n m}
+  - {from: a mw, to: a m}
+  - {from: i mw, to: i m}
+  - {from: u mw, to: u m}
+  - {from: e mw, to: e m}
+  - {from: o mw, to: o m}
+  - {from: n mw, to: n m}
+  - {from: mya, to: my}
+  - {from: myu, to: my}
+  - {from: mye, to: my}
+  - {from: myo, to: my}
+  - {from: mwa, to: mw}
+  - {from: mwi, to: mw}
+  - {from: mwe, to: mw}
+  - {from: mwo, to: mw}
+  - {from: a ry, to: a r}
+  - {from: i ry, to: i r}
+  - {from: u ry, to: u r}
+  - {from: e ry, to: e r}
+  - {from: o ry, to: o r}
+  - {from: n ry, to: n r}
+  - {from: a rw, to: a r}
+  - {from: i rw, to: i r}
+  - {from: u rw, to: u r}
+  - {from: e rw, to: e r}
+  - {from: o rw, to: o r}
+  - {from: n rw, to: n r}
+  - {from: rya, to: ry}
+  - {from: ryu, to: ry}
+  - {from: rye, to: ry}
+  - {from: ryo, to: ry}
+  - {from: rwa, to: rw}
+  - {from: rwi, to: rw}
+  - {from: rwe, to: rw}
+  - {from: rwo, to: rw}
+  - {from: a sky, to: a sk}
+  - {from: i sky, to: i sk}
+  - {from: u sky, to: u sk}
+  - {from: e sky, to: e sk}
+  - {from: o sky, to: o sk}
+  - {from: n sky, to: n sk}
+  - {from: skya, to: sky}
+  - {from: skyu, to: sky}
+  - {from: skye, to: sky}
+  - {from: skyo, to: sky}
+  - {from: a skw, to: a sk}
+  - {from: i skw, to: i sk}
+  - {from: u skw, to: u sk}
+  - {from: e skw, to: e sk}
+  - {from: o skw, to: o sk}
+  - {from: n skw, to: n sk}
+  - {from: skwa, to: skw}
+  - {from: skwi, to: skw}
+  - {from: skwe, to: skw}
+  - {from: skwo, to: skw}
   - {from: a spy, to: a sp}
   - {from: i spy, to: i sp}
   - {from: u spy, to: u sp}
   - {from: e spy, to: e sp}
   - {from: o spy, to: o sp}
   - {from: n spy, to: n sp}
+  - {from: spya, to: spy}
+  - {from: spyu, to: spy}
+  - {from: spye, to: spy}
+  - {from: spyo, to: spy}
   - {from: a thw, to: a th}
   - {from: i thw, to: i th}
   - {from: u thw, to: u th}
   - {from: e thw, to: e th}
   - {from: o thw, to: o th}
   - {from: n thw, to: n th}
-  - {from: vya, to: vy} 
-  - {from: vyu, to: vy} 
-  - {from: vye, to: vy} 
-  - {from: vyo, to: vy} 
-  - {from: vwa, to: vw} 
-  - {from: vwi, to: vw} 
-  - {from: vwe, to: vw} 
-  - {from: vwo, to: vw} 
+  - {from: thwa, to: thw}
+  - {from: thwi, to: thw}
+  - {from: thwe, to: thw}
+  - {from: thwo, to: thw}
+  - {from: a vy, to: a v}
+  - {from: i vy, to: i v}
+  - {from: u vy, to: u v}
+  - {from: e vy, to: e v}
+  - {from: o vy, to: o v}
+  - {from: n vy, to: n v}
+  - {from: a vw, to: a v}
+  - {from: i vw, to: i v}
+  - {from: u vw, to: u v}
+  - {from: e vw, to: e v}
+  - {from: o vw, to: o v}
+  - {from: n vw, to: n v}
+  - {from: vya, to: vy}
+  - {from: vyu, to: vy}
+  - {from: vye, to: vy}
+  - {from: vyo, to: vy}
+  - {from: vwa, to: vw}
+  - {from: vwi, to: vw}
+  - {from: vwe, to: vw}
+  - {from: vwo, to: vw}
+  - {from: ん ん, to: n ん}
+  - {from: n n, to: n n}
   - {from: m m, to: n m}
   - {from: m p, to: n p}
   - {from: m pp, to: n pp}
@@ -361,6 +419,10 @@ fallbacks:
   - {from: kk, to: k}
   - {from: tt, to: t}
   - {from: pp, to: p}
+  - {from: in, to: '-'}
+  - {from: ex, to: '-'}
+  - {from: '/', to: '・'}
+  - {from: '・', to: '-'}
 
 vowelsustains: 
   - {symbol: kya, sustain: _ya, offset: 0.4}
@@ -475,6 +537,14 @@ vowelsustains:
   - {symbol: vwi, sustain: _wi, offset: 0.4}
   - {symbol: vwo, sustain: _wo, offset: 0.4}
   - {symbol: vwe, sustain: _we, offset: 0.4}
+  - {symbol: skya, sustain: _ya, offset: 0.4}
+  - {symbol: skyu, sustain: _yu, offset: 0.4}
+  - {symbol: skyo, sustain: _yo, offset: 0.4}
+  - {symbol: skye, sustain: _ye, offset: 0.4}
+  - {symbol: skwa, sustain: _wa, offset: 0.4}
+  - {symbol: skwi, sustain: _wu, offset: 0.4}
+  - {symbol: skwo, sustain: _wo, offset: 0.4}
+  - {symbol: skwe, sustain: _we, offset: 0.4}
   - {symbol: spya, sustain: _ya, offset: 0.4}
   - {symbol: spyu, sustain: _yu, offset: 0.4}
   - {symbol: spyo, sustain: _yo, offset: 0.4}

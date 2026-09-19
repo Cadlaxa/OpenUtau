@@ -21,7 +21,12 @@ namespace OpenUtau.Plugin.Builtin {
     public class JACVC : SyllableBasedPhonemizer {
         protected override string YamlFileName => "ja-cvc.yaml";
         protected override byte[] YamlTemplate => JA_CVC.Data.Resources.template;
-        protected override string YamlVersion => "1.4.2";
+        protected override string YamlVersion => "1.4.3";
+
+        public JACVC() {
+            this.vowels = "a,e,i,o,u,N,I,{,V,U,3,aI,aU,eI,OI,oU".Split(',');
+            this.consonants = "b,ch,d,dh,dr,dx,f,g,hh,jh,k,l,m,n,ng,p,q,r,s,sh,t,th,tr,v,w,y,z".Split(',');
+        }
         private static readonly Dictionary<string, string> hiraToRoma = new Dictionary<string, string> {
             {"りゃ","rya"}, {"りぇ","rye"}, {"りゅ","ryu"}, {"りょ","ryo"},
             {"ぴゃ","pya"}, {"ぴぇ","pye"}, {"ぴゅ","pyu"}, {"ぴょ","pyo"},
@@ -127,15 +132,11 @@ namespace OpenUtau.Plugin.Builtin {
             {"フぁ","ffwa"}, {"フぃ","ffwi"}, {"フぇ","ffwe"}, {"フぉ","ffwo"},
             
         };
-        private string[] vowels = {
-        "a", "i", "u", "e", "o", "N", "ん"
-        };
         private string[] JAvowels = {
         "a", "i", "u", "e", "o", "N", "ん"
         };
-        private string[] consonants = "b,ch,d,dz,f,g,h,hh,j,k,l,m,n,ng,p,r,s,sh,t,ts,v,w,y,z".Split(',');
         private Dictionary<string, double> PhonemeOverrides = new Dictionary<string, double>();
-       protected override string[] GetVowels() => vowels;
+        protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
         protected override Dictionary<string, string> GetDictionaryPhonemesReplacement() => dictionaryReplacements;
