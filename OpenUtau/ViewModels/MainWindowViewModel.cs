@@ -55,8 +55,8 @@ namespace OpenUtau.App.ViewModels {
         ///0: welcome page, 1: tracks page
         /// </summary>
         [Reactive] public partial int Page { get; set; } = 0;
-        ObservableCollectionExtended<RecentFileInfo> RecentFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
-        ObservableCollectionExtended<RecentFileInfo> TemplateFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
+        public ObservableCollectionExtended<RecentFileInfo> RecentFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
+        public ObservableCollectionExtended<RecentFileInfo> TemplateFiles { get; } = new ObservableCollectionExtended<RecentFileInfo>();
         [Reactive] public partial bool HasRecovery { get; set; } = false;
         [Reactive] public partial string RecoveryPath { get; set; } = String.Empty;
         [Reactive] public partial string RecoveryString { get; set; } = String.Empty;
@@ -72,7 +72,14 @@ namespace OpenUtau.App.ViewModels {
 
         [Reactive] public partial string ClearCacheHeader { get; set; }
         public bool ProjectSaved => !string.IsNullOrEmpty(DocManager.Inst.Project.FilePath) && DocManager.Inst.Project.Saved;
-        public string AppVersion => $"OpenUtau v{System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version}";
+        public string AppVersion {
+            get {
+                Version? version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+                string suffix = Core.Util.ReleaseChannel.FromVersion(version) is { } channel
+                    ? $" ({channel})" : string.Empty;
+                return $"OpenUtau v{version}{suffix}";
+            }
+        }
         [Reactive] public partial double Progress { get; set; }
         [Reactive] public partial string ProgressText { get; set; }
         [Reactive] public partial bool ShowPianoRoll { get; set; }

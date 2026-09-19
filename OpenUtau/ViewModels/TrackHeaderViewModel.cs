@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
@@ -219,12 +219,8 @@ namespace OpenUtau.App.ViewModels {
             JudgeMuted();
         }
 
-        public void ToggleMute(bool mute) {
-            if (mute) {
-                Mute = true;
-            } else {
-                Mute = false;
-            }
+        public void ToggleMuteWithBool(bool mute) {
+            Mute = mute;
             this.RaisePropertyChanged(nameof(Mute));
             JudgeMuted();
         }
@@ -290,6 +286,7 @@ namespace OpenUtau.App.ViewModels {
                     Preferences.Default.RecentSingers.RemoveRange(
                         16, Preferences.Default.RecentSingers.Count - 16);
                 }
+                InvalidateSingerMenuCache();
             }
         }
 
@@ -315,112 +312,147 @@ namespace OpenUtau.App.ViewModels {
             return false;
         }
 
-        public void RefreshSingers() {
-            var items = new List<MenuItemViewModel>();
-            if (SingerManager.Inst.Singers.Count > 0) {
-                items.AddRange(Preferences.Default.RecentSingers
-                .Select(id => SingerManager.Inst.Singers.Values.FirstOrDefault(singer => singer.Id == id))
-                .OfType<USinger>()
-                .Select(CreateSingerMenuItem));
-                items.Add(new MenuItemViewModel() {
-                    Header = ThemeManager.GetString("tracks.favorite") + " ...",
-                    Items = Preferences.Default.FavoriteSingers
-                        .Select(id => SingerManager.Inst.Singers.Values.FirstOrDefault(singer => singer.Id == id))
-                        .OfType<USinger>()
-                        .LocalizedOrderBy(singer => singer.LocalizedName)
-                        .Select(CreateSingerMenuItem).ToArray(),
-                });
-                var keys = SingerManager.Inst.SingerGroups.Keys.OrderBy(k => k);
-                foreach (var key in keys) {
-                    items.Add(new MenuItemViewModel() {
-                        Header = $"{key} ...",
-                        Items = SingerManager.Inst.SingerGroups[key]
-                            .Select(CreateSingerMenuItem).ToArray(),
+        private static bool singersMenuDirty = true;
+
+        public static void InvalidateSingerMenuCache() {
+            singersMenuDirty = true;
+        }
+
+        public async Task RefreshSingersAsync() {
+            // Skip rebuild if cache is still valid
+            if (!singersMenuDirty && SingerMenuItems != null && SingerMenuItems.Count > 0) {
+                return;
+            }
+            var allSingers = SingerManager.Inst.Singers;
+
+            // Move the menu tree creation off the UI thread
+            var items = await Task.Run(() => {
+                var list = new List<MenuItemViewModel>();
+
+                if (allSingers.Count > 0) {
+                    foreach (var id in Preferences.Default.RecentSingers) {
+                        if (!string.IsNullOrWhiteSpace(id) && allSingers.TryGetValue(id, out var singer) && singer != null) {
+                            list.Add(CreateSingerMenuItem(singer));
+                        }
+                    }
+                    var favList = new List<USinger>();
+                    foreach (var id in Preferences.Default.FavoriteSingers) {
+                        if (!string.IsNullOrWhiteSpace(id) && allSingers.TryGetValue(id, out var singer) && singer != null) {
+                            favList.Add(singer);
+                        }
+                    }
+                    list.Add(new MenuItemViewModel() {
+                        Header = ThemeManager.GetString("tracks.favorite") + " ...",
+                        Items = favList
+                            .LocalizedOrderBy(singer => singer.LocalizedName)
+                            .Select(CreateSingerMenuItem)
+                            .ToArray(),
+                    });
+                    foreach (var pair in SingerManager.Inst.SingerGroups.OrderBy(kvp => kvp.Key)) {
+                        list.Add(new MenuItemViewModel() {
+                            Header = $"{pair.Key} ...",
+                            Items = pair.Value
+                                .Select(CreateSingerMenuItem)
+                                .ToArray(),
+                        });
+                    }
+                } else {
+                    list.Add(new MenuItemViewModel() {
+                        Header = ThemeManager.GetString("tracks.nosinger"),
+                        IsEnabled = false
                     });
                 }
-            } else {
-                items.Add(new MenuItemViewModel() {
-                    Header = ThemeManager.GetString("tracks.nosinger"),
-                    IsEnabled = false
+
+                // Separator
+                list.Add(new MenuItemViewModel() {
+                    Header = "-",
+                    Height = 1
                 });
-            }
 
-            items.Add(new MenuItemViewModel() { // Separator
-                Header = "-",
-                Height = 1
-            });
-            items.Add(new MenuItemViewModel() {
-                Header = ThemeManager.GetString("tracks.installsinger"),
-                Command = ReactiveCommand.Create(async () => {
-                    var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
-                        ?.MainWindow as MainWindow;
-                    if (mainWindow == null) {
-                        return;
-                    }
-                    var file = await FilePicker.OpenFileAboutSinger(
-                        mainWindow, "menu.tools.singer.install", FilePicker.ArchiveFiles);
-                    if (file == null) {
-                        return;
-                    }
-                    try {
-                        if (file.EndsWith(Core.Vogen.VogenSingerInstaller.FileExt)) {
-                            Core.Vogen.VogenSingerInstaller.Install(file);
+                list.Add(new MenuItemViewModel() {
+                    Header = ThemeManager.GetString("tracks.installsinger"),
+                    Command = ReactiveCommand.Create(async () => {
+                        var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                            ?.MainWindow as MainWindow;
+                        if (mainWindow == null) {
                             return;
                         }
-                        if (file.EndsWith(PackageManager.OudepExt)) {
-                            await PackageManager.Inst.InstallFromFileAsync(file);
+                        var file = await FilePicker.OpenFileAboutSinger(
+                            mainWindow, "menu.tools.singer.install", FilePicker.ArchiveFiles);
+                        if (file == null) {
                             return;
                         }
+                        try {
+                            if (file.EndsWith(Core.Vogen.VogenSingerInstaller.FileExt)) {
+                                Core.Vogen.VogenSingerInstaller.Install(file);
+                                return;
+                            }
+                            if (file.EndsWith(PackageManager.OudepExt)) {
+                                await PackageManager.Inst.InstallFromFileAsync(file);
+                                return;
+                            }
 
-                        var setup = new SingerSetupDialog() {
-                            DataContext = new SingerSetupViewModel() {
-                                ArchiveFilePath = file,
-                            },
-                        };
-                        _ = setup.ShowDialog(mainWindow);
-                        if (setup.Position.Y < 0) {
-                            setup.Position = setup.Position.WithY(0);
+                            var setup = new SingerSetupDialog() {
+                                DataContext = new SingerSetupViewModel() {
+                                    ArchiveFilePath = file,
+                                },
+                            };
+                            _ = setup.ShowDialog(mainWindow);
+                            if (setup.Position.Y < 0) {
+                                setup.Position = setup.Position.WithY(0);
+                            }
+                        } catch (Exception e) {
+                            Log.Error(e, $"Failed to install singer {file}");
+                            _ = await MessageBox.ShowError(mainWindow, new MessageCustomizableException($"Failed to install singer {file}", $"<translate:errors.failed.installsinger>: {file}", e));
                         }
-                    } catch (Exception e) {
-                        Log.Error(e, $"Failed to install singer {file}");
-                        _ = await MessageBox.ShowError(mainWindow, new MessageCustomizableException($"Failed to install singer {file}", $"<translate:errors.failed.installsinger>: {file}", e));
-                    }
-                })
-            });
-            items.Add(new MenuItemViewModel() {
-                Header = ThemeManager.GetString("tracks.opensingers"),
-                Command = ReactiveCommand.Create(() => {
-                    try {
-                        OS.OpenFolder(PathManager.Inst.SingersPath);
-                    } catch (Exception e) {
-                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
-                    }
-                })
-            });
-            if (!string.IsNullOrWhiteSpace(PathManager.Inst.AdditionalSingersPath) && Directory.Exists(PathManager.Inst.AdditionalSingersPath)) {
-                items.Add(new MenuItemViewModel() {
-                    Header = ThemeManager.GetString("tracks.openaddsingers"),
+                    })
+                });
+
+                list.Add(new MenuItemViewModel() {
+                    Header = ThemeManager.GetString("tracks.opensingers"),
                     Command = ReactiveCommand.Create(() => {
                         try {
-                            OS.OpenFolder(PathManager.Inst.AdditionalSingersPath);
+                            OS.OpenFolder(PathManager.Inst.SingersPath);
                         } catch (Exception e) {
                             DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
                         }
                     })
                 });
-            }
-            items.Add(new MenuItemViewModel() {
-                Header = ThemeManager.GetString("singers.refresh"),
-                Command = ReactiveCommand.Create(() => {
-                    DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), true, "singer"));
-                    SingerManager.Inst.SearchAllSingers();
-                    DocManager.Inst.ExecuteCmd(new SingersRefreshedNotification());
-                    DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), false, "singer"));
-                })
+
+                if (!string.IsNullOrWhiteSpace(PathManager.Inst.AdditionalSingersPath) && Directory.Exists(PathManager.Inst.AdditionalSingersPath)) {
+                    list.Add(new MenuItemViewModel() {
+                        Header = ThemeManager.GetString("tracks.openaddsingers"),
+                        Command = ReactiveCommand.Create(() => {
+                            try {
+                                OS.OpenFolder(PathManager.Inst.AdditionalSingersPath);
+                            } catch (Exception e) {
+                                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
+                            }
+                        })
+                    });
+                }
+
+                list.Add(new MenuItemViewModel() {
+                    Header = ThemeManager.GetString("singers.refresh"),
+                    Command = ReactiveCommand.Create(() => {
+                        DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), true, "singer"));
+                        SingerManager.Inst.SearchAllSingers();
+                        InvalidateSingerMenuCache();
+                        DocManager.Inst.ExecuteCmd(new SingersRefreshedNotification());
+                        DocManager.Inst.ExecuteCmd(new LoadingNotification(typeof(MainWindow), false, "singer"));
+                    })
+                });
+
+                return list;
             });
 
             SingerMenuItems = items;
+            singersMenuDirty = false;
             this.RaisePropertyChanged(nameof(SingerMenuItems));
+        }
+        
+        public void RefreshSingers() {
+            _ = RefreshSingersAsync();
         }
 
         public string GetPhonemizerGroupHeader(string key) {
@@ -514,6 +546,7 @@ namespace OpenUtau.App.ViewModels {
 
         public void RefreshAvatar() {
             var singer = track?.Singer;
+            Avatar?.Dispose();
             if (singer == null || singer.AvatarData == null) {
                 Avatar = new RenderTargetBitmap(new PixelSize(1, 1));
                 return;

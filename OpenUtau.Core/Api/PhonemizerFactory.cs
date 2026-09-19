@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 
@@ -25,25 +25,25 @@ namespace OpenUtau.Api {
             ? $"[{tag}] {name}"
             : $"[{tag}] {name} (Contributed by {author})";
 
-        private static Dictionary<Type, PhonemizerFactory> factories = new Dictionary<Type, PhonemizerFactory>();
+        private static readonly ConcurrentDictionary<Type, PhonemizerFactory> factories = new();
         private static PhonemizerFactory[] orderedFactories = [];
         public static PhonemizerFactory Get(Type type) {
-            if (!factories.TryGetValue(type, out var factory)) {
-                var attr = type.GetCustomAttribute<PhonemizerAttribute>();
-                if (attr == null || string.IsNullOrEmpty(attr.Name) || string.IsNullOrEmpty(attr.Tag)) {
-                    return null;
-                }
-                factory = new PhonemizerFactory() {
-                    type = type,
-                    name = attr.Name,
-                    tag = attr.Tag,
-                    author = attr.Author,
-                    language = attr.Language,
-                    engine = attr.Engine,
-                };
-                factories[type] = factory;
+            if (factories.TryGetValue(type, out var factory)) {
+                return factory;
             }
-            return factory;
+            var attr = type.GetCustomAttribute<PhonemizerAttribute>();
+            if (attr == null || string.IsNullOrEmpty(attr.Name) || string.IsNullOrEmpty(attr.Tag)) {
+                return null;
+            }
+            factory = new PhonemizerFactory() {
+                type = type,
+                name = attr.Name,
+                tag = attr.Tag,
+                author = attr.Author,
+                language = attr.Language,
+                engine = attr.Engine,
+            };
+            return factories.GetOrAdd(type, factory);
         }
 
         public static PhonemizerFactory? Get(string typeFullName) {

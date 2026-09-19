@@ -3,18 +3,18 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
-using Avalonia.VisualTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using OpenUtau.App.Controls;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Classic;
@@ -39,6 +39,7 @@ namespace OpenUtau.App.Views {
 
         private PianoRollDetachedWindow? pianoRollWindow;
         private PianoRoll? pianoRoll;
+        private WindowNotificationManager notificationManager;
 
         private PartEditState? partEditState;
 
@@ -92,6 +93,11 @@ namespace OpenUtau.App.Views {
                 (sender, args) => DocManager.Inst.AutoSave());
             autosaveTimer.Start();
 
+            notificationManager = new WindowNotificationManager(this) {
+                Position = NotificationPosition.BottomCenter,
+                MaxItems = 3
+            };
+
             PartRenameCommand = ReactiveCommand.Create<UPart>(part => RenamePart(part));
             PartGotoFileCommand = ReactiveCommand.Create<UPart>(part => GotoFile(part));
             PartReplaceAudioCommand = ReactiveCommand.Create<UPart>(part => ReplaceAudio(part));
@@ -138,6 +144,11 @@ namespace OpenUtau.App.Views {
             var dialog = new TypeInDialog();
             dialog.Title = "BPM";
             dialog.SetText(project.tempos[0].bpm.ToString());
+            dialog.TextBox.AddHandler(PointerWheelChangedEvent, (s, e) => {
+                if (double.TryParse(dialog.TextBox.Text, out double bpm)) {
+                    dialog.SetText(HandleBpmScroll(bpm, e).ToString());
+                }
+            });
             dialog.onFinish = s => {
                 if (double.TryParse(s, out double bpm)) {
                     viewModel.PlaybackViewModel.SetBpm(bpm);
@@ -148,12 +159,51 @@ namespace OpenUtau.App.Views {
             args.Pointer.Capture(null);
         }
 
+        void OnEditBpmScroll(object sender, PointerWheelEventArgs args) {
+            if (!viewModel.PlaybackViewModel.IsPlaying) viewModel.PlaybackViewModel.SetBpm(HandleBpmScroll(viewModel.PlaybackViewModel.Bpm, args));
+        }
+
+        private double HandleBpmScroll(double bpm, PointerWheelEventArgs args, int decimals = 2) {
+            var multiplier = 1f;
+
+            if (args.KeyModifiers != KeyModifiers.None) {
+                if (args.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
+                    multiplier *= 2f;
+                }
+
+                if (args.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+                    multiplier *= 0.1f;
+                } else if (args.KeyModifiers.HasFlag(KeyModifiers.Alt)) {
+                    multiplier *= 0.01f;
+                }
+            } else {
+                multiplier = 1f;
+            }
+
+            if (args.Delta.Y > 0) {
+                bpm += multiplier;
+            } else if (args.Delta.Y < 0) {
+                bpm -= multiplier;
+            }
+
+            if (decimals != -1) {
+                bpm = double.Round(bpm, decimals);
+            }
+
+            return bpm;
+        }
+        
         private void AddTempoChange(int tick) {
             var project = DocManager.Inst.Project;
             var dialog = new TypeInDialog {
                 Title = "BPM"
             };
             dialog.SetText(project.tempos[0].bpm.ToString());
+            dialog.TextBox.AddHandler(PointerWheelChangedEvent, (s, e) => {
+                if (double.TryParse(dialog.TextBox.Text, out double bpm)) {
+                    dialog.SetText(HandleBpmScroll(bpm, e).ToString());
+                }
+            });
             dialog.onFinish = s => {
                 if (double.TryParse(s, out double bpm)) {
                     DocManager.Inst.StartUndoGroup("command.project.tempo");
@@ -244,7 +294,8 @@ namespace OpenUtau.App.Views {
                 FilePicker.UST,
                 FilePicker.MIDI,
                 FilePicker.UFDATA,
-                FilePicker.MUSICXML);
+                FilePicker.MUSICXML,
+                FilePicker.SVP);
             if (files == null || files.Length == 0) {
                 return;
             }
@@ -273,19 +324,40 @@ namespace OpenUtau.App.Views {
 
         void OnMenuOpenProjectLocation(object sender, RoutedEventArgs args) {
             var project = DocManager.Inst.Project;
-            if (string.IsNullOrEmpty(project.FilePath) || !project.Saved) {
+            if (string.IsNullOrEmpty(project.FilePath) || !project.Saved || !System.IO.File.Exists(project.FilePath) || !Path.IsPathRooted(project.FilePath)) {
                 MessageBox.Show(
                     this,
                     ThemeManager.GetString("dialogs.export.savefirst"),
                     ThemeManager.GetString("errors.caption"),
                     MessageBox.MessageBoxButtons.Ok);
+                return;
             }
             try {
-                var dir = Path.GetDirectoryName(project.FilePath);
-                if (dir != null) {
-                    OS.OpenFolder(dir);
+                var fullPath = Path.GetFullPath(project.FilePath);
+                var dir = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrWhiteSpace(dir) && System.IO.Directory.Exists(dir)) {
+                    // Cross-platform folder opening
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                            FileName = "explorer.exe",
+                            Arguments = $"\"{dir}\"", // Quotes protect spaces and commas
+                            UseShellExecute = true
+                        });
+                    } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                            FileName = "open",
+                            Arguments = $"\"{dir}\"",
+                            UseShellExecute = false
+                        });
+                    } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                            FileName = "xdg-open",
+                            Arguments = $"\"{dir}\"",
+                            UseShellExecute = false
+                        });
+                    }
                 } else {
-                    Log.Error($"Failed to get project location from {dir}.");
+                    Log.Error($"Failed to get project location from {project.FilePath}.");
                 }
             } catch (Exception e) {
                 Log.Error(e, "Failed to open project location.");
@@ -340,7 +412,8 @@ namespace OpenUtau.App.Views {
                 FilePicker.UST,
                 FilePicker.MIDI,
                 FilePicker.UFDATA,
-                FilePicker.MUSICXML);
+                FilePicker.MUSICXML,
+                FilePicker.SVP);
             if (files == null || files.Length == 0) {
                 return;
             }
@@ -687,6 +760,16 @@ namespace OpenUtau.App.Views {
                 : WindowState.FullScreen;
         }
 
+        void OnMenuDawIntegration(object sender, RoutedEventArgs args) {
+            var dialog = new DawIntegrationDialog() {
+                DataContext = new DawIntegrationViewModel(),
+            };
+            dialog.ShowDialog(this);
+            if (dialog.Position.Y < 0) {
+                dialog.Position = dialog.Position.WithY(0);
+            }
+        }
+
         void OnMenuClearCache(object sender, RoutedEventArgs args) {
             Task.Run(() => {
                 DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, ThemeManager.GetString("progress.clearingcache")));
@@ -893,6 +976,24 @@ namespace OpenUtau.App.Views {
             }
         }
 
+        void OnCarouselPageKeyDown(object? sender, KeyEventArgs e) {
+            // Avalonia's Carousel navigates pages on arrow/Home/End keys, and it
+            // receives them bubbling up from any descendant (e.g. pressing Alt+Left
+            // in the lyric box switched the window back to the welcome page).
+            // Pages are only switched programmatically via the Page property, so
+            // swallow navigation keys the page content did not handle itself.
+            switch (e.Key) {
+                case Key.Left:
+                case Key.Right:
+                case Key.Up:
+                case Key.Down:
+                case Key.Home:
+                case Key.End:
+                    e.Handled = true;
+                    break;
+            }
+        }
+
         void OnPointerPressed(object? sender, PointerPressedEventArgs args) {
             if (!PianoRollContainer.IsPointerOver && !args.Handled && args.ClickCount == 1) {
                 this.Focus();
@@ -900,9 +1001,9 @@ namespace OpenUtau.App.Views {
         }
 
         async void OnDrop(object? sender, DragEventArgs args) {
-            string[] ProjectExts = { ".ustx", ".ust", ".vsqx", ".ufdata", ".musicxml", ".mid", ".midi" };
+            string[] ProjectExts = { ".ustx", ".ust", ".vsqx", ".ufdata", ".musicxml", ".mid", ".midi", ".svp" };
             string[] ArchiveExts = { ".zip", ".rar", ".uar" };
-            string[] AudioExts = { ".mp3", ".wav", ".ogg", ".flac" };
+            string[] AudioExts = { ".mp3", ".wav", ".ogg", ".flac", ".m4a" };
             string[] SupportedExts = ProjectExts
                 .Concat(ArchiveExts)
                 .Concat(AudioExts)
@@ -1801,8 +1902,53 @@ namespace OpenUtau.App.Views {
                 if (track.ValidateVoiceColor(out var oldColors, out var newColors)) {
                     await VoiceColorRemappingAsync(track, oldColors, newColors);
                 }
+                await RemapImportedVocalModesAsync(track);
             }
             DocManager.Inst.EndUndoGroup();
+        }
+
+        async Task RemapImportedVocalModesAsync(UTrack track) {
+            if (track.Singer?.SingerType != USingerType.DiffSinger) return;
+            track.Singer.EnsureLoaded();
+            if (!track.Singer.Loaded) return;
+            var parts = DocManager.Inst.Project.parts.Where(p => p.trackNo == track.TrackNo && p is UVoicePart).Cast<UVoicePart>().ToArray();
+            var modes = parts.SelectMany(p => p.curves)
+                .Where(c => c.descriptor != null && IsImportedVocalModeCurve(c.abbr))
+                .Select(c => c.descriptor.name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (modes.Length == 0) return;
+
+            var oldModes = new[] { "" }.Concat(modes).ToArray();
+            var colors = track.Singer.Subbanks.Select(s => s.Color).ToArray();
+            var dialog = new VoiceColorMappingDialog { DataContext = new VoiceColorMappingViewModel(oldModes, colors, track.TrackName) };
+            await dialog.ShowDialog(this);
+            if (!dialog.Apply) return;
+
+            foreach (var mapping in ((VoiceColorMappingViewModel)dialog.DataContext).ColorMappings.Where(m => m.OldIndex > 0 && m.SelectedIndex > 0)) {
+                var sourceName = modes[mapping.OldIndex - 1];
+                var sourceDescriptor = DocManager.Inst.Project.expressions.Values.FirstOrDefault(d => d.name.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
+                if (sourceDescriptor == null) continue;
+                string targetAbbr = $"cl{mapping.SelectedIndex:D2}";
+                if (!DocManager.Inst.Project.expressions.TryGetValue(targetAbbr, out var targetDescriptor)) {
+                    targetDescriptor = new UExpressionDescriptor($"voice color {colors[mapping.SelectedIndex]}", targetAbbr, 0, 100, 0) { type = UExpressionType.Curve };
+                    DocManager.Inst.Project.RegisterExpression(targetDescriptor);
+                }
+                foreach (var part in parts) {
+                    var source = part.curves.FirstOrDefault(c => c.abbr == sourceDescriptor.abbr);
+                    if (source == null || part.curves.Any(c => c.abbr == targetAbbr)) continue;
+                    part.curves.Add(new UCurve(targetDescriptor) { xs = source.xs.ToList(), ys = source.ys.Select(y => Math.Clamp(y <= 1 ? y * 100 : y, 0, 100)).ToList() });
+                }
+            }
+        }
+
+        static bool IsImportedVocalModeCurve(string abbr) {
+            if (abbr.StartsWith("cl", StringComparison.OrdinalIgnoreCase)) return false;
+            return abbr != Ustx.DYN && abbr != Ustx.PITD && abbr != Ustx.TENC &&
+                abbr != Ustx.BREC && abbr != Ustx.GENC && abbr != Ustx.VOIC &&
+                abbr != Ustx.SHFC && abbr != Ustx.CLR && abbr != Ustx.CLRY &&
+                abbr != "opec";
         }
         async Task VoiceColorRemappingAsync(UTrack track, string[] oldColors, string[] newColors) {
             var parts = DocManager.Inst.Project.parts
@@ -1866,6 +2012,7 @@ namespace OpenUtau.App.Views {
                     PathManager.Inst.ClearCache();
                     Log.Information("Cache cleared.");
                 }
+                PlaybackManager.Inst.StopPlayback();
                 Preferences.Default.MainWindowSize.Set(Width, Height, Position.X, Position.Y, (int)WindowState);
                 Preferences.Default.RecoveryPath = string.Empty;
                 Preferences.Save();
@@ -1914,6 +2061,11 @@ namespace OpenUtau.App.Views {
                         MessageBox.ShowError(this, notif.e, notif.message, true);
                         break;
                 }
+            } else if (cmd is ToastNotification toast) {
+                if (toast.windowType == "Pianoroll" && pianoRollWindow != null) {
+                    if (pianoRollWindow.Toast(toast)) return;
+                }
+                notificationManager.Show(ToastControl.GetNotification(toast, this));
             } else if (cmd is VoiceColorRemappingNotification voicecolorNotif) {
                 if (voicecolorNotif.TrackNo < 0 || DocManager.Inst.Project.tracks.Count <= voicecolorNotif.TrackNo) {
                     // Verify whether remapping is required when the voice color lineup changes
@@ -1930,6 +2082,7 @@ namespace OpenUtau.App.Views {
                     } else if (track.ValidateVoiceColor(out var oldColors, out var newColors)) { // Verify whether remapping is required when the singer is changed
                         VoiceColorRemapping(track, oldColors, newColors);
                     }
+                    _ = RemapImportedVocalModesAsync(track);
                 }
             }
         }

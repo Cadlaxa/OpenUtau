@@ -19,7 +19,7 @@ namespace OpenUtau.App {
         private static int NSAppInitState;
         #endif
         public static FilePickerFileType ProjectFiles { get; } = new("Project Files") {
-            Patterns = new[] { "*.ustx", "*.vsqx", "*.ust", "*.mid", "*.midi", "*.ufdata", "*.musicxml" },
+            Patterns = new[] { "*.ustx", "*.vsqx", "*.ust", "*.mid", "*.midi", "*.ufdata", "*.musicxml", "*.svp" },
         };
         public static FilePickerFileType USTX { get; } = new("USTX") {
             Patterns = new[] { "*.ustx" },
@@ -39,8 +39,11 @@ namespace OpenUtau.App {
         public static FilePickerFileType MUSICXML { get; } = new("MUSICXML") {
             Patterns = new[] { "*.musicxml" },
         };
+        public static FilePickerFileType SVP { get; } = new("SVP") {
+            Patterns = new[] { "*.svp" },
+        };
         public static FilePickerFileType AudioFiles { get; } = new("Audio Files") {
-            Patterns = new[] { "*.wav", "*.mp3", "*.ogg", "*.opus", "*.flac" },
+            Patterns = new[] { "*.wav", "*.mp3", "*.ogg", "*.opus", "*.flac", "*.m4a" },
         };
         public static FilePickerFileType WAV { get; } = new("WAV") {
             Patterns = new[] { "*.wav" },
