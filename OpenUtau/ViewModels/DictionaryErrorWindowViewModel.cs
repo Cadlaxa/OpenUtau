@@ -1,19 +1,31 @@
 using System;
 using System.Collections.ObjectModel;
 using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
 
 namespace OpenUtau.App.ViewModels {
     public class ParseErrorLineContext : ReactiveObject {
         public int LineNumber { get; set; }
         public int ActualLineIndex { get; set; }
-        [Reactive] public string Text { get; set; } = string.Empty;
+        private string text = string.Empty;
+        public string Text {
+            get => text;
+            set => this.RaiseAndSetIfChanged(ref text, value);
+        }
         public bool IsErrorLine { get; set; }
     }
 
     public class DictionaryErrorWindowViewModel : ReactiveObject {
-        [Reactive] public string ErrorTitle { get; set; } = ThemeManager.GetString("dict.error.syntax");
-        [Reactive] public string ErrorMessage { get; set; } = string.Empty;
+        private string errorTitle = ThemeManager.GetString("dict.error.syntax");
+        public string ErrorTitle {
+            get => errorTitle;
+            set => this.RaiseAndSetIfChanged(ref errorTitle, value);
+        }
+
+        private string errorMessage = string.Empty;
+        public string ErrorMessage {
+            get => errorMessage;
+            set => this.RaiseAndSetIfChanged(ref errorMessage, value);
+        }
         
         public string FilePath { get; set; } = string.Empty;
         public string[] FullFileLines { get; set; } = Array.Empty<string>();

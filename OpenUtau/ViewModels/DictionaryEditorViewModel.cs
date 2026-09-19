@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
+using System.Reactive;
 using System.Reactive.Linq;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
@@ -83,29 +83,46 @@ namespace OpenUtau.App.ViewModels {
         private System.Text.Encoding _currentPresampEncoding = System.Text.Encoding.UTF8;
         private Dictionary<string, string> _filePaths = new();
         public ObservableCollection<string> AvailableFiles { get; } = new();
-        [Reactive] public string SelectedFile { get; set; } = string.Empty;
+        private string _selectedFile = string.Empty;
+        public string SelectedFile { get => _selectedFile; set => this.RaiseAndSetIfChanged(ref _selectedFile, value); }
         public string CurrentFileType => !string.IsNullOrEmpty(SelectedFile) && SelectedFile.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) ? "ini" : "yaml";
 
         public ObservableCollection<YamlCategory> Categories { get; } = new();
-        [Reactive] public YamlCategory? SelectedCategory { get; set; }
+        private YamlCategory? _selectedCategory;
+        public YamlCategory? SelectedCategory { get => _selectedCategory; set => this.RaiseAndSetIfChanged(ref _selectedCategory, value); }
         public event Action? ColumnsChanged;
-        [Reactive] public DynamicYamlRow? SelectedRow { get; set; }
-        [Reactive] public bool IsCreatingNewCategory { get; set; } = false;
-        [Reactive] public string NewCategoryName { get; set; } = string.Empty;
-        [Reactive] public string NewCategoryColumns { get; set; } = string.Empty;
-        [Reactive] public bool IsManagingColumns { get; set; } = false;
-        [Reactive] public string ManageColumnName { get; set; } = string.Empty;
-        [Reactive] public bool IsConfirmingDelete { get; set; } = false;
-        [Reactive] public bool IsCreatingNewFile { get; set; } = false;
-        [Reactive] public string NewFileName { get; set; } = string.Empty;
+        private DynamicYamlRow? _selectedRow;
+        public DynamicYamlRow? SelectedRow { get => _selectedRow; set => this.RaiseAndSetIfChanged(ref _selectedRow, value); }
+        private bool _isCreatingNewCategory;
+        public bool IsCreatingNewCategory { get => _isCreatingNewCategory; set => this.RaiseAndSetIfChanged(ref _isCreatingNewCategory, value); }
+        private string _newCategoryName = string.Empty;
+        public string NewCategoryName { get => _newCategoryName; set => this.RaiseAndSetIfChanged(ref _newCategoryName, value); }
+        private string _newCategoryColumns = string.Empty;
+        public string NewCategoryColumns { get => _newCategoryColumns; set => this.RaiseAndSetIfChanged(ref _newCategoryColumns, value); }
+        private bool _isManagingColumns;
+        public bool IsManagingColumns { get => _isManagingColumns; set => this.RaiseAndSetIfChanged(ref _isManagingColumns, value); }
+        private string _manageColumnName = string.Empty;
+        public string ManageColumnName { get => _manageColumnName; set => this.RaiseAndSetIfChanged(ref _manageColumnName, value); }
+        private bool _isConfirmingDelete;
+        public bool IsConfirmingDelete { get => _isConfirmingDelete; set => this.RaiseAndSetIfChanged(ref _isConfirmingDelete, value); }
+        private bool _isCreatingNewFile;
+        public bool IsCreatingNewFile { get => _isCreatingNewFile; set => this.RaiseAndSetIfChanged(ref _isCreatingNewFile, value); }
+        private string _newFileName = string.Empty;
+        public string NewFileName { get => _newFileName; set => this.RaiseAndSetIfChanged(ref _newFileName, value); }
         public Action? RefreshIndices { get; set; }
-        [Reactive] public string? ReplaceColumn { get; set; }
-        [Reactive] public string FindText { get; set; } = string.Empty;
-        [Reactive] public string ReplaceText { get; set; } = string.Empty;
-        [Reactive] public bool UseRegex { get; set; } = false;
+        private string? _replaceColumn;
+        public string? ReplaceColumn { get => _replaceColumn; set => this.RaiseAndSetIfChanged(ref _replaceColumn, value); }
+        private string _findText = string.Empty;
+        public string FindText { get => _findText; set => this.RaiseAndSetIfChanged(ref _findText, value); }
+        private string _replaceText = string.Empty;
+        public string ReplaceText { get => _replaceText; set => this.RaiseAndSetIfChanged(ref _replaceText, value); }
+        private bool _useRegex;
+        public bool UseRegex { get => _useRegex; set => this.RaiseAndSetIfChanged(ref _useRegex, value); }
         private List<List<string>> _clipboardData = new();
-        [Reactive] public bool IsManagingObjects { get; set; } = false;
-        [Reactive] public bool CanCopyToVoicebank { get; set; } = false;
+        private bool _isManagingObjects;
+        public bool IsManagingObjects { get => _isManagingObjects; set => this.RaiseAndSetIfChanged(ref _isManagingObjects, value); }
+        private bool _canCopyToVoicebank;
+        public bool CanCopyToVoicebank { get => _canCopyToVoicebank; set => this.RaiseAndSetIfChanged(ref _canCopyToVoicebank, value); }
         private void UpdateCopyToVoicebankState() {
             if (string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(_currentDirectory) || !_filePaths.ContainsKey(SelectedFile)) {
                 CanCopyToVoicebank = false;
@@ -253,13 +270,13 @@ namespace OpenUtau.App.ViewModels {
 
         public DictionaryEditorViewModel() {
             this.WhenAnyValue(x => x.SelectedFile)
-                .Subscribe(file => {
+                .Subscribe(new AnonymousObserver<string>(file => {
                     this.RaisePropertyChanged(nameof(CurrentFileType)); 
                     if (!string.IsNullOrEmpty(file)) {
                         LoadSelectedFile(); 
                     }
                     UpdateCopyToVoicebankState();
-                });
+                }));
         }
         public void ExecuteSelectDuplicates(object? parameter) {
             var category = SelectedCategory;
@@ -1143,13 +1160,27 @@ namespace OpenUtau.App.ViewModels {
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                 ShowParseError.Handle(errorVm)
-                    .Subscribe(didSave => {
+                    .Subscribe(new AnonymousObserver<bool>(didSave => {
                         if (didSave) {
                             LoadSelectedFile();
                         }
-                    });
+                    }));
             }, Avalonia.Threading.DispatcherPriority.Normal);
         }
+    }
+
+    internal sealed class AnonymousObserver<T> : IObserver<T> {
+        private readonly Action<T> _onNext;
+        private readonly Action<Exception>? _onError;
+        private readonly Action? _onCompleted;
+        public AnonymousObserver(Action<T> onNext, Action<Exception>? onError = null, Action? onCompleted = null) {
+            _onNext = onNext ?? throw new ArgumentNullException(nameof(onNext));
+            _onError = onError;
+            _onCompleted = onCompleted;
+        }
+        public void OnNext(T value) => _onNext(value);
+        public void OnError(Exception error) => _onError?.Invoke(error);
+        public void OnCompleted() => _onCompleted?.Invoke();
     }
     
     public class BracketStyleEmitter : ChainedEventEmitter {

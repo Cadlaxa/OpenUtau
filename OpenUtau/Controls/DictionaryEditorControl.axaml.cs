@@ -29,6 +29,12 @@ namespace OpenUtau.App.Controls {
             set => SetValue(PartProperty, value);
         }
 
+        private static readonly DataFormat<List<DynamicYamlRow>> RowDataFormat = 
+            DataFormat.CreateInProcessFormat<List<DynamicYamlRow>>("OpenUtau.DictionaryEditor.RowData");
+
+        private static readonly DataFormat<YamlCategory> CategoryDataFormat = 
+            DataFormat.CreateInProcessFormat<YamlCategory>("OpenUtau.DictionaryEditor.CategoryData");
+
         private System.Collections.Specialized.INotifyCollectionChanged? _trackedRows;
         private bool _isInternalMove = false;
         private DispatcherTimer _autoScrollTimer;
@@ -36,6 +42,9 @@ namespace OpenUtau.App.Controls {
         private ScrollViewer? _activeScrollViewer;
         private ScrollViewer? _gridScrollViewer;
         private ScrollViewer? _objectsScrollViewer;
+
+        private PointerPressedEventArgs? _gridPressedEventArgs;
+        private PointerPressedEventArgs? _objectsPressedEventArgs;
 
         public DictionaryEditorControl() {
             InitializeComponent();
@@ -80,16 +89,20 @@ namespace OpenUtau.App.Controls {
 
             this.Loaded += (s, e) => {
                 LoadDictionaryForPart(Part);
-                var objectsListBox = this.FindControl<ListBox>("ObjectsListBox");
+                var objectsListBox = this.Find<ListBox>("ObjectsListBox");
                 if (objectsListBox != null) {
-                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, ObjectsList_PointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
-                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, ObjectsList_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
-                    objectsListBox.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, ObjectsList_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+                    objectsListBox.AddHandler(InputElement.PointerPressedEvent, ObjectsList_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+                    objectsListBox.AddHandler(InputElement.PointerMovedEvent, ObjectsList_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+                    objectsListBox.AddHandler(InputElement.PointerReleasedEvent, ObjectsList_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
                 }
             };
-            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, EditorGrid_PointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
-            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, EditorGrid_PointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
-            EditorGrid.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, EditorGrid_PointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+
+            var editorGrid = this.Find<DataGrid>("EditorGrid");
+            if (editorGrid != null) {
+                editorGrid.AddHandler(InputElement.PointerPressedEvent, EditorGrid_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+                editorGrid.AddHandler(InputElement.PointerMovedEvent, EditorGrid_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+                editorGrid.AddHandler(InputElement.PointerReleasedEvent, EditorGrid_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
         }
 
         private void AutoScrollTimer_Tick(object? sender, EventArgs e) {
@@ -120,19 +133,21 @@ namespace OpenUtau.App.Controls {
                 }
                 if (isEmpty) {
                     Dispatcher.UIThread.Post(() => {
-                        EditorGrid.SelectedItem = newRow;
-                        EditorGrid.ScrollIntoView(newRow, null);
+                        var grid = this.Find<DataGrid>("EditorGrid");
+                        if (grid == null) return;
+                        grid.SelectedItem = newRow;
+                        grid.ScrollIntoView(newRow, null);
                         
-                        if (EditorGrid.Columns.Count > 0) {
-                            EditorGrid.CurrentColumn = EditorGrid.Columns[0];
-                            EditorGrid.BeginEdit();
+                        if (grid.Columns.Count > 0) {
+                            grid.CurrentColumn = grid.Columns[0];
+                            grid.BeginEdit();
                         }
                     }, DispatcherPriority.Background); 
                 }
             }
         }
 
-        private void EditorGrid_LoadingRow(object? sender, Avalonia.Controls.DataGridRowEventArgs e) {
+        private void EditorGrid_LoadingRow(object? sender, DataGridRowEventArgs e) {
             e.Row.Header = (e.Row.Index + 1).ToString();
         }
 
@@ -143,7 +158,6 @@ namespace OpenUtau.App.Controls {
                     if (!string.IsNullOrEmpty(colName)) {
                         string val = row[colName];
                         if (val != null && val.Contains(",")) {
-                            
                             bool inQuotes = false;
                             var sb = new System.Text.StringBuilder();
                             
@@ -186,7 +200,6 @@ namespace OpenUtau.App.Controls {
                 }
             }
 
-            // If empty, silently remove it
             if (!hasValidData) {
                 Dispatcher.UIThread.Post(() => {
                     ViewModel.SelectedCategory?.Rows.Remove(row);
@@ -195,9 +208,9 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        private void CommentGrid_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
+        private void CommentGrid_PointerPressed(object? sender, PointerPressedEventArgs e) {
             if (sender is Grid grid && grid.DataContext is DynamicYamlRow row) {
-                var gridControl = this.FindControl<DataGrid>("EditorGrid");
+                var gridControl = this.Find<DataGrid>("EditorGrid");
                 if (gridControl == null) return;
 
                 var point = e.GetCurrentPoint(grid);
@@ -235,7 +248,7 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        private void CommentGrid_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e) {
+        private void CommentGrid_DoubleTapped(object? sender, TappedEventArgs e) {
             if (sender is Grid grid && grid.DataContext is DynamicYamlRow row) {
                 ViewModel.SelectedRow = row;
                 row.IsEditingComment = true; 
@@ -254,15 +267,15 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        private void CommentTextBox_LostFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e) {
+        private void CommentTextBox_LostFocus(object? sender, Avalonia.Input.FocusChangedEventArgs e) {
             if (sender is TextBox tb && tb.DataContext is DynamicYamlRow row) {
                 row.IsEditingComment = false; 
                 CheckAndRemoveEmptyRow(row); 
             }
         }
 
-        private void CommentTextBox_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e) {
-            if (e.Key == Avalonia.Input.Key.Enter || e.Key == Avalonia.Input.Key.Escape) {
+        private void CommentTextBox_KeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Enter || e.Key == Key.Escape) {
                 if (sender is TextBox tb && tb.DataContext is DynamicYamlRow row) {
                     row.IsEditingComment = false; 
                     CheckAndRemoveEmptyRow(row); 
@@ -271,36 +284,38 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        private void CommentTextBox_TextChanged(object? sender, Avalonia.Controls.TextChangedEventArgs e) {
+        private void CommentTextBox_TextChanged(object? sender, TextChangedEventArgs e) {
             if (sender is TextBox tb && tb.DataContext is DynamicYamlRow row) {
                 row.CommentText = tb.Text ?? "";
             }
         }
 
-        private void EditorGrid_SelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e) {
-            if (EditorGrid.SelectedItem != null) {
-                EditorGrid.ScrollIntoView(EditorGrid.SelectedItem, null);
+        private void EditorGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e) {
+            var grid = this.Find<DataGrid>("EditorGrid");
+            if (grid?.SelectedItem != null) {
+                grid.ScrollIntoView(grid.SelectedItem, null);
             }
         }
 
-        private void EditorGrid_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
+        private void EditorGrid_PointerPressed(object? sender, PointerPressedEventArgs e) {
             var point = e.GetCurrentPoint(this);
+            var grid = this.Find<DataGrid>("EditorGrid");
+            if (grid == null) return;
             
             if (point.Properties.IsLeftButtonPressed) {
+                _gridPressedEventArgs = e;
                 _dragStartPoint = point.Position;
                 _isDragging = false;
                 
-                var visual = e.Source as Avalonia.Visual;
+                var visual = e.Source as Visual;
                 while (visual != null && !(visual is DataGridRow)) {
-                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                    visual = visual.GetVisualParent();
                 }
                 
                 if (visual is DataGridRow row && row.DataContext is DynamicYamlRow dataRow) {
-                    // multi-selection
-                    if (EditorGrid.SelectedItems.Contains(dataRow)) {
-                        _draggedRows = EditorGrid.SelectedItems.Cast<DynamicYamlRow>().ToList();
+                    if (grid.SelectedItems.Contains(dataRow)) {
+                        _draggedRows = grid.SelectedItems.Cast<DynamicYamlRow>().ToList();
                     } else {
-                        // single row we clicked
                         _draggedRows = new List<DynamicYamlRow> { dataRow };
                     }
                 } else {
@@ -309,9 +324,10 @@ namespace OpenUtau.App.Controls {
             }
         }
 
-        private void EditorGrid_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
+        private void EditorGrid_PointerReleased(object? sender, PointerReleasedEventArgs e) {
             _isDragging = false;
             _draggedRows = null;
+            _gridPressedEventArgs = null;
             _autoScrollTimer.Stop();
             _scrollVelocityY = 0;
         }
@@ -320,14 +336,13 @@ namespace OpenUtau.App.Controls {
             base.OnDataContextChanged(e);
             if (DataContext is DictionaryEditorViewModel vm) {
                 vm.RefreshIndices = () => {
-                    var grid = this.FindControl < DataGrid > ("EditorGrid");
+                    var grid = this.Find<DataGrid>("EditorGrid");
                     if (grid == null || vm.SelectedCategory == null) return;
 
                     Dispatcher.UIThread.Post(() => {
-                        foreach(var row in grid.GetVisualDescendants().OfType < DataGridRow > ()) {
+                        foreach(var row in grid.GetVisualDescendants().OfType<DataGridRow>()) {
                             if (row.DataContext is DynamicYamlRow item) {
                                 int realIndex = vm.SelectedCategory.Rows.IndexOf(item);
-
                                 if (realIndex >= 0) {
                                     row.Header = (realIndex + 1).ToString();
                                 }
@@ -347,7 +362,7 @@ namespace OpenUtau.App.Controls {
         }
 
         private void RebuildGridColumns(YamlCategory? category) {
-            var grid = this.FindControl<DataGrid>("EditorGrid");
+            var grid = this.Find<DataGrid>("EditorGrid");
             if (grid == null) return;
 
             var currentData = grid.ItemsSource;
@@ -377,12 +392,12 @@ namespace OpenUtau.App.Controls {
 
             if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath)) {
                 try {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                    Process.Start(new ProcessStartInfo {
                         FileName = filePath,
                         UseShellExecute = true
                     });
                 } catch (Exception ex) {
-                    Serilog.Log.Error(ex, $"DictionaryEditor: Failed to open file in external editor: {filePath}");
+                    Log.Error(ex, $"DictionaryEditor: Failed to open file in external editor: {filePath}");
                 }
             }
         }
@@ -408,7 +423,6 @@ namespace OpenUtau.App.Controls {
             var allFiles = new List<string>();
             string singerLoc = singer?.Location ?? "";
 
-            // Singer Directory
             if (!string.IsNullOrEmpty(singerLoc) && Directory.Exists(singerLoc)) {
                 Log.Information($"DictionaryEditor: Found singer '{singer?.Name}'. Location path is: '{singerLoc}'");
                 allFiles.AddRange(Directory.GetFiles(singerLoc, "*.*", SearchOption.AllDirectories));
@@ -416,8 +430,7 @@ namespace OpenUtau.App.Controls {
                 Log.Information("DictionaryEditor: No singer loaded on track. Searching plugins folder only.");
             }
 
-            // Plugins Directory
-            string pluginsDir = OpenUtau.Core.PathManager.Inst.PluginsPath;
+            string pluginsDir = PathManager.Inst.PluginsPath;
             if (Directory.Exists(pluginsDir)) {
                 allFiles.AddRange(Directory.GetFiles(pluginsDir, "*.*", SearchOption.AllDirectories));
             }
@@ -433,7 +446,6 @@ namespace OpenUtau.App.Controls {
                     string fileName = Path.GetFileName(f).ToLower();
                     bool isValidYaml = fileName.EndsWith(".yaml") && !excludedFiles.Contains(fileName);
                     bool isPresamp = fileName == "presamp.ini";
-                    
                     return isValidYaml || isPresamp;
                 })
                 .ToList();
@@ -526,13 +538,13 @@ namespace OpenUtau.App.Controls {
             ViewModel.SetSingerContext(singerLoc, fileMap, targetFileName);
         }
 
-        private async System.Threading.Tasks.Task DoShowParseErrorAsync(ReactiveUI.IInteractionContext<OpenUtau.App.ViewModels.DictionaryErrorWindowViewModel, bool> interaction) {
+        private async System.Threading.Tasks.Task DoShowParseErrorAsync(ReactiveUI.IInteractionContext<DictionaryErrorWindowViewModel, bool> interaction) {
             var dialog = new DictionaryErrorWindow {
                 DataContext = interaction.Input
             };
 
             bool userSavedEdits = false;
-            var topLevelWindow = Avalonia.Controls.TopLevel.GetTopLevel(this) as Window;
+            var topLevelWindow = TopLevel.GetTopLevel(this) as Window;
             
             if (topLevelWindow != null) {
                 userSavedEdits = await dialog.ShowDialog<bool>(topLevelWindow);
@@ -546,21 +558,22 @@ namespace OpenUtau.App.Controls {
         private Point _dragStartPoint;
         private List<DynamicYamlRow>? _draggedRows;
 
-        private async void EditorGrid_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
-            if (_draggedRows == null || _draggedRows.Count == 0 || ViewModel.SelectedCategory == null) return;
+        private async void EditorGrid_PointerMoved(object? sender, PointerEventArgs e) {
+            if (_draggedRows == null || _draggedRows.Count == 0 || ViewModel.SelectedCategory == null || _gridPressedEventArgs == null) return;
             var point = e.GetCurrentPoint(this);
             
             if (point.Properties.IsLeftButtonPressed && !_isDragging) {
                 if (Math.Abs(point.Position.Y - _dragStartPoint.Y) > 10) {
                     _isDragging = true;
                     
-                    var dragData = new DataObject();
-                    dragData.Set("RowData", _draggedRows);
+                    var dragData = new DataTransfer();
+                    dragData.Add(DataTransferItem.Create(RowDataFormat, _draggedRows));
                     
-                    await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    await DragDrop.DoDragDropAsync(_gridPressedEventArgs, dragData, DragDropEffects.Move);
                     
                     _isDragging = false;
                     _draggedRows = null;
+                    _gridPressedEventArgs = null;
                     _autoScrollTimer.Stop();
                     _scrollVelocityY = 0;
                 }
@@ -568,12 +581,13 @@ namespace OpenUtau.App.Controls {
         }
         
         private void EditorGrid_DragOver(object? sender, DragEventArgs e) {
-            if (e.Data.Contains("RowData")) {
+            if (e.DataTransfer.Formats.Contains(RowDataFormat)) {
                 e.DragEffects = DragDropEffects.Move;
 
-                if (_gridScrollViewer == null) {
-                    var rowsPresenter = EditorGrid.GetVisualDescendants()
-                        .OfType<Avalonia.Controls.Primitives.DataGridRowsPresenter>()
+                var grid = this.Find<DataGrid>("EditorGrid");
+                if (_gridScrollViewer == null && grid != null) {
+                    var rowsPresenter = grid.GetVisualDescendants()
+                        .OfType<DataGridRowsPresenter>()
                         .FirstOrDefault();
                         
                     if (rowsPresenter != null) {
@@ -608,10 +622,12 @@ namespace OpenUtau.App.Controls {
         }
         
         private void EditorGrid_Drop(object? sender, DragEventArgs e) {
-            if (e.Data.Contains("RowData") && e.Data.Get("RowData") is List<DynamicYamlRow> draggedRows) {
-                var visual = e.Source as Avalonia.Visual;
+            var grid = this.Find<DataGrid>("EditorGrid");
+            var draggedRows = e.DataTransfer.TryGetValue(RowDataFormat);
+            if (draggedRows != null) {
+                var visual = e.Source as Visual;
                 while (visual != null && !(visual is DataGridRow)) {
-                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                    visual = visual.GetVisualParent();
                 }
                 
                 if (visual is DataGridRow targetRow && targetRow.DataContext is DynamicYamlRow targetDataRow) {
@@ -639,15 +655,18 @@ namespace OpenUtau.App.Controls {
                             rows.Insert(targetIndex + i, draggedRows[i]);
                         }
                         _isInternalMove = false; 
-                        EditorGrid.SelectedItems.Clear();
-                        foreach (var row in draggedRows) {
-                            EditorGrid.SelectedItems.Add(row);
-                        }
                         
-                        if (draggedRows.Count > 0) {
-                            EditorGrid.ScrollIntoView(draggedRows[0], null); 
+                        if (grid != null) {
+                            grid.SelectedItems.Clear();
+                            foreach (var row in draggedRows) {
+                                grid.SelectedItems.Add(row);
+                            }
+                            
+                            if (draggedRows.Count > 0) {
+                                grid.ScrollIntoView(draggedRows[0], null); 
+                            }
+                            grid.Focus();
                         }
-                        EditorGrid.Focus();
                         ViewModel.RefreshIndices?.Invoke();
                     }
                 }
@@ -662,15 +681,16 @@ namespace OpenUtau.App.Controls {
         private Point _dragStartPointObj;
         private YamlCategory? _draggedObj;
 
-        private void ObjectsList_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) {
+        private void ObjectsList_PointerPressed(object? sender, PointerPressedEventArgs e) {
             var point = e.GetCurrentPoint(this);
             if (point.Properties.IsLeftButtonPressed) {
+                _objectsPressedEventArgs = e;
                 _dragStartPointObj = point.Position;
                 _isDraggingObj = false;
                 
-                var visual = e.Source as Avalonia.Visual;
+                var visual = e.Source as Visual;
                 while (visual != null && !(visual is ListBoxItem)) {
-                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                    visual = visual.GetVisualParent();
                 }
                 
                 if (visual is ListBoxItem item && item.DataContext is YamlCategory cat) {
@@ -681,20 +701,21 @@ namespace OpenUtau.App.Controls {
             }
         }
         
-        private async void ObjectsList_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e) {
-            if (_draggedObj == null) return;
+        private async void ObjectsList_PointerMoved(object? sender, PointerEventArgs e) {
+            if (_draggedObj == null || _objectsPressedEventArgs == null) return;
             var point = e.GetCurrentPoint(this);
             
             if (point.Properties.IsLeftButtonPressed && !_isDraggingObj) {
                 if (Math.Abs(point.Position.X - _dragStartPointObj.X) > 3 || Math.Abs(point.Position.Y - _dragStartPointObj.Y) > 3) {
                     _isDraggingObj = true;
-                    var dragData = new DataObject();
-                    dragData.Set("CategoryData", _draggedObj);
+                    var dragData = new DataTransfer();
+                    dragData.Add(DataTransferItem.Create(CategoryDataFormat, _draggedObj));
                     
-                    await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+                    await DragDrop.DoDragDropAsync(_objectsPressedEventArgs, dragData, DragDropEffects.Move);
                     
                     _isDraggingObj = false;
                     _draggedObj = null;
+                    _objectsPressedEventArgs = null;
                     _autoScrollTimer.Stop();
                     _scrollVelocityY = 0;
                 }
@@ -702,10 +723,10 @@ namespace OpenUtau.App.Controls {
         }
 
         private void ObjectsList_DragOver(object? sender, DragEventArgs e) {
-            if (e.Data.Contains("CategoryData")) {
+            if (e.DataTransfer.Formats.Contains(CategoryDataFormat)) {
                 e.DragEffects = DragDropEffects.Move;
 
-                var listbox = this.FindControl<ListBox>("ObjectsListBox");
+                var listbox = this.Find<ListBox>("ObjectsListBox");
                 if (_objectsScrollViewer == null && listbox != null) {
                     _objectsScrollViewer = listbox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
                 }
@@ -733,10 +754,11 @@ namespace OpenUtau.App.Controls {
         }
 
         private void ObjectsList_Drop(object? sender, DragEventArgs e) {
-            if (e.Data.Contains("CategoryData") && e.Data.Get("CategoryData") is YamlCategory draggedCat) {
-                var visual = e.Source as Avalonia.Visual;
+            var draggedCat = e.DataTransfer.TryGetValue(CategoryDataFormat);
+            if (draggedCat != null) {
+                var visual = e.Source as Visual;
                 while (visual != null && !(visual is ListBoxItem)) {
-                    visual = visual.GetVisualParent() as Avalonia.Visual;
+                    visual = visual.GetVisualParent();
                 }
                 
                 if (visual is ListBoxItem targetItem && targetItem.DataContext is YamlCategory targetCat) {
@@ -757,9 +779,10 @@ namespace OpenUtau.App.Controls {
             _scrollVelocityY = 0;
         }
 
-        private void ObjectsList_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e) {
+        private void ObjectsList_PointerReleased(object? sender, PointerReleasedEventArgs e) {
             _isDraggingObj = false;
             _draggedObj = null;
+            _objectsPressedEventArgs = null;
             _autoScrollTimer.Stop();
             _scrollVelocityY = 0;
         }
