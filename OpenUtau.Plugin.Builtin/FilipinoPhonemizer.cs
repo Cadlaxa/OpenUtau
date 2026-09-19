@@ -15,7 +15,7 @@ using OpenUtau.Core;
 
 namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("Filipino Phonemizer", "FIL VCV & CVVC", "Cadlaxa", language: "FIL")]
-    public class FilipinoPhonemizer : SyllableBasedPhonemizer {
+    public class FilipinoPhonemizer : ArpasingPlusPhonemizer {
         protected override string YamlFileName => "filipino.yaml";
         protected override byte[] YamlTemplate => Data.Resources.filipino_template;
         public FilipinoPhonemizer() {
@@ -34,10 +34,10 @@ namespace OpenUtau.Plugin.Builtin {
                 { "iw", "w" },
             };
         }
-    
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
+<<<<<<< HEAD
     
         List<string> consExceptions = new List<string>();
 
@@ -62,6 +62,8 @@ namespace OpenUtau.Plugin.Builtin {
         private readonly string[] ccvException = { "ch", "dh", "dx", "fh", "gh", "hh", "jh", "kh", "ph", "ng", "sh", "th", "vh", "wh", "zh" };
         private readonly string[] RomajiException = { "a", "e", "i", "o", "u" };
 
+=======
+>>>>>>> 83e02c7e4a4d9ea5fca72806b2aa27c5382be015
         protected override string[] GetSymbols(Note note) {
             string[] original = base.GetSymbols(note);
             if (!string.IsNullOrEmpty(note.phoneticHint)) {
@@ -132,7 +134,9 @@ namespace OpenUtau.Plugin.Builtin {
             }
             return finalProcessedPhonemes.ToArray();
         }
+        protected override IG2p[] GetBaseG2ps() => Array.Empty<IG2p>();
 
+<<<<<<< HEAD
         public override void SetSinger(USinger singer) {
             base.SetSinger(singer);
 
@@ -880,10 +884,25 @@ namespace OpenUtau.Plugin.Builtin {
                     return aliasFormat;
                 } else if (HasOto(ValidateAlias(aliasFormat), tone)) {
                     return ValidateAlias(aliasFormat);
+=======
+        // Endings has 50 ticks gap
+        protected override bool NoGap => true;
+        protected override string ValidateAlias(string alias, int tone = 0) {
+
+            // VALIDATE ALIAS DEPENDING ON METHOD
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+>>>>>>> 83e02c7e4a4d9ea5fca72806b2aa27c5382be015
                 }
+                alias = baseResolved;
             }
             return alias;
         }
+<<<<<<< HEAD
 
         protected override string ValidateAlias(string alias) {
 
@@ -925,5 +944,7 @@ namespace OpenUtau.Plugin.Builtin {
 
             return otoLength;
         }
+=======
+>>>>>>> 83e02c7e4a4d9ea5fca72806b2aa27c5382be015
     }
 }

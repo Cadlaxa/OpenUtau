@@ -41,8 +41,6 @@ namespace OpenUtau.Plugin.Builtin {
                 .Where(parts => parts[0] != parts[1])
                 .ToDictionary(parts => parts[0], parts => parts[1]);
         }
-
-        private bool isYamlFallbacks = false;
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
@@ -204,6 +202,7 @@ namespace OpenUtau.Plugin.Builtin {
             }
             return finalProcessedPhonemes.ToArray();
         }
+<<<<<<< HEAD
         // prioritize yaml replacements over dictionary replacements
         private string ReplacePhoneme(string phoneme, int tone) {
             if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
@@ -215,6 +214,8 @@ namespace OpenUtau.Plugin.Builtin {
             return phoneme;
         }
 
+=======
+>>>>>>> 83e02c7e4a4d9ea5fca72806b2aa27c5382be015
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -234,12 +235,6 @@ namespace OpenUtau.Plugin.Builtin {
             var rv = $"- {v}";
             
             // Switch between phonetic systems, depending on certain aliases in the bank
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Key, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
             if (HasOto($"- i:", syllable.tone) || HasOto($"i:", syllable.tone) || (!HasOto($"- 3", syllable.tone) && !HasOto($"3", syllable.tone))) {
                 isVocaSampa = true;
             }
@@ -742,98 +737,102 @@ namespace OpenUtau.Plugin.Builtin {
             return phonemes;
         }
 
-        protected override string ValidateAlias(string alias) {
-            // Validate alias depending on method
+        protected override string ValidateAlias(string alias, int tone = 0) {
+            if (string.IsNullOrEmpty(alias)) {
+                return alias;
+            }
+
+            if (HasOto(alias, tone)) {
+                return alias;
+            }
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && HasOto(baseResolved, tone)) {
+                return baseResolved;
+            }
+            if (!string.IsNullOrEmpty(baseResolved)) {
+                alias = baseResolved;
+            }
+
+            string candidate = alias;
+
             if (isVocaSampa) {
                 foreach (var syllable in vocaSampa) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isSimpleDelta) {
                 foreach (var syllable in simpleDelta) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isMiniDelta) {
                 foreach (var syllable in miniDelta) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isEnPlusJa) {
                 foreach (var syllable in enPlusJa) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isTrueXSampa) {
                 foreach (var syllable in trueXSampa) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isSalemList) {
                 foreach (var syllable in salemList) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isVelarNasalFallback) {
                 foreach (var syllable in velarNasalFallback) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isTetoException) {
                 foreach (var syllable in tetoException) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isMissingCanadianRaising) {
                 foreach (var syllable in CanadianRaising) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             if (isDarkLVowel) {
                 foreach (var syllable in darkLVowel) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
-                }
-            }
-
-            if (isYamlFallbacks) {
-                foreach (var syllable in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
+                    candidate = candidate.Replace(syllable.Key, syllable.Value);
                 }
             }
 
             // Split diphthongs adjuster
-            if (alias.Contains("U^")) {
-                alias = alias.Replace("U^", "U");
-            }
-            if (alias.Contains("I^")) {
-                alias = alias.Replace("I^", "I");
-            }
-            if (alias.Contains("u^")) {
-                alias = alias.Replace("u^", "u");
-            }
-            if (alias.Contains("i^")) {
-                alias = alias.Replace("i^", "i");
-            }
+            candidate = candidate.Replace("U^", "U")
+                                .Replace("I^", "I")
+                                .Replace("u^", "u")
+                                .Replace("i^", "i");
 
             // Other validations
-            if (!alias.Contains("@r") && !alias.Contains("3r")) {
+            if (!candidate.Contains("@r") && !candidate.Contains("3r")) {
                 foreach (var consonant1 in new[] { "r ", "r\\ ", }) {
                     foreach (var consonant2 in consonants) {
-                        alias = alias.Replace(consonant1 + consonant2, "3 " + consonant2);
+                        candidate = candidate.Replace(consonant1 + consonant2, "3 " + consonant2);
                     }
                 }
             }
 
-            return alias;
+            // Return the replacement if it exists in the OTO, otherwise keep original
+            return HasOto(candidate, tone) ? candidate : alias;
         }
 
         // Endings has 50 ticks gap

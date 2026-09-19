@@ -33,7 +33,6 @@ namespace OpenUtau.Plugin.Builtin {
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "cmudict_de.txt";
-        private bool isYamlFallbacks = false;
 
         protected override IG2p[] GetBaseG2ps() {
             return new IG2p[] { new GermanG2p() };
@@ -63,6 +62,7 @@ namespace OpenUtau.Plugin.Builtin {
             return finalProcessedPhonemes.ToArray();
         }
 
+<<<<<<< HEAD
         // prioritize yaml replacements over dictionary replacements
         private string ReplacePhoneme(string phoneme, int tone) {
             if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
@@ -74,6 +74,8 @@ namespace OpenUtau.Plugin.Builtin {
             return phoneme;
         }
 
+=======
+>>>>>>> 83e02c7e4a4d9ea5fca72806b2aa27c5382be015
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
             var replacedPrevV = ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -88,13 +90,6 @@ namespace OpenUtau.Plugin.Builtin {
             string[] CurrentWordCc = syllable.CurrentWordCc.Select(c => ReplacePhoneme(c, syllable.tone)).ToArray();
             string[] PreviousWordCc = syllable.PreviousWordCc.Select(c => ReplacePhoneme(c, syllable.tone)).ToArray();
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
-
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Key, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
 
             if (syllable.IsStartingV) {
                 basePhoneme = $"- {v}"; ;
@@ -386,7 +381,16 @@ namespace OpenUtau.Plugin.Builtin {
             return phonemes;
         }
 
-        protected override string ValidateAlias(string alias) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
             foreach (var VV in new[] { "a 6", "a6" }) {
                 alias = alias.Replace(VV, "a a");
             }
@@ -426,12 +430,6 @@ namespace OpenUtau.Plugin.Builtin {
             }
             if (alias.Contains("Y^")) {
                 alias = alias.Replace("Y^", "Y");
-            }
-
-            if (isYamlFallbacks) {
-                foreach (var syllable in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
-                }
             }
 
             return alias;

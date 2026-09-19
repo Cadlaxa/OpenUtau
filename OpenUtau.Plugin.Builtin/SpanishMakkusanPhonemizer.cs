@@ -221,7 +221,16 @@ namespace OpenUtau.Plugin.Builtin {
             return phonemes;
         }
 
-        protected override string ValidateAlias(string alias) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
             foreach (var consonant in new[] { "B" }) {
                 alias = alias.Replace("B", "b");
             }
