@@ -1,4 +1,5 @@
-version: 1.1.3
+version: 1.1.4
+
 symbols:
   - {symbol: "1", type: vowel}
   - {symbol: "7", type: vowel}
@@ -101,6 +102,39 @@ symbols:
   - {symbol: VV, type: semivowel}
   - {symbol: R, type: tail}
 
+fallbacks:
+  - {from: II, to: i}
+  - {from: I, to: "1"}
+  - {from: OO, to: o}
+  - {from: AA, to: a}
+  - {from: EE, to: E}
+  - {from: ee, to: e}
+  - {from: EEi, to: Ei}
+  - {from: UU, to: u}
+  - {from: VV, to: v}
+  - {from: Ei, to: i}
+  - {from: R, to: "-"}
+
+timings:
+  # glide timings
+  - {symbol: "i a", value: 0.8}
+  - {symbol: "i e", value: 0.8}
+  - {symbol: "i E", value: 0.8}
+  - {symbol: "i o", value: 1.2}
+  - {symbol: "u o", value: 1.2}
+  - {symbol: "u a", value: 0.8}
+  - {symbol: "v E", value: 0.8}
+  - {symbol: "v i", value: 0.8}
+  - {symbol: "u Ei", value: 1.2}
+  - {symbol: "e Ei", value: 0.4}
+  - {symbol: "a -", value: 1.3}
+  - {symbol: "e -", value: 1.3}
+  - {symbol: "i -", value: 1.3}
+  - {symbol: "o -", value: 1.3}
+  - {symbol: "u -", value: 1.3}
+  - {symbol: n, value: 1.6}
+  - {symbol: ng, value: 1.6}
+
 replacements:
   - {from: a, to: a}
   - {from: ai, to: [a, II]}
@@ -156,7 +190,7 @@ replacements:
   - {from: "vowel=uan,u@n", to: [UU, a, n]}
   - {from: uang, to: [UU, a, ng]}
   - {from: "vowel=ue,yE", to: [VV, E]}
-  - {from: ["vowel=ua", n], to: [VV, E, n]}
+  - {from: ["vowel=ua", n], to: [UU, a, n]}
   - {from: ui, to: [UU, Ei]}
   - {from: un, to: [v, n]}
   - {from: uo, to: [UU, o]}
@@ -165,39 +199,6 @@ replacements:
   - {from: x, to: x}
   - {from: y, to: y}
   - {from: z, to: z}
-
-fallbacks:
-  - {from: II, to: i}
-  - {from: I, to: "1"}
-  - {from: OO, to: o}
-  - {from: AA, to: a}
-  - {from: EE, to: E}
-  - {from: ee, to: e}
-  - {from: EEi, to: Ei}
-  - {from: UU, to: u}
-  - {from: VV, to: v}
-  - {from: Ei, to: i}
-  - {from: R, to: "-"}
-
-timings:
-  # glide timings
-  - {symbol: "i a", value: 0.8}
-  - {symbol: "i e", value: 0.8}
-  - {symbol: "i E", value: 0.8}
-  - {symbol: "i o", value: 1.2}
-  - {symbol: "u o", value: 1.2}
-  - {symbol: "u a", value: 0.8}
-  - {symbol: "v E", value: 0.8}
-  - {symbol: "v i", value: 0.8}
-  - {symbol: "u Ei", value: 1.2}
-  - {symbol: "e Ei", value: 0.4}
-  - {symbol: "a -", value: 1.3}
-  - {symbol: "e -", value: 1.3}
-  - {symbol: "i -", value: 1.3}
-  - {symbol: "o -", value: 1.3}
-  - {symbol: "u -", value: 1.3}
-  - {symbol: n, value: 1.6}
-  - {symbol: ng, value: 1.6}
 
 entries:
   # synthv xsampa vowels with pinyin consonants
@@ -284,7 +285,7 @@ entries:
   - {grapheme: ei, phonemes: [ei]}
   - {grapheme: en, phonemes: ["@", n]}
   - {grapheme: eng, phonemes: ["@", ng]}
-  - {grapheme: er, phonemes: ["3"]}
+  - {grapheme: er, phonemes: [e, 3]}
   - {grapheme: fa, phonemes: [f, a]}
   - {grapheme: fan, phonemes: [f, a, n]}
   - {grapheme: fang, phonemes: [f, a, ng]}
