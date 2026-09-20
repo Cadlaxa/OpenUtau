@@ -241,16 +241,18 @@
     <Expander Grid.Row="2" Header="{DynamicResource dict.editor}" IsExpanded="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
       <Grid RowDefinitions="*, Auto">
 
-        <DataGrid Grid.Row="0" x:Name="EditorGrid" ItemsSource="{Binding SelectedCategory.Rows}"
+        <DataGrid Grid.Row="0" x:Name="EditorGrid" 
+                  ItemsSource="{Binding SelectedCategory.Rows}"
                   SelectedItem="{Binding SelectedRow}"
-                  AutoGenerateColumns="False" GridLinesVisibility="All" Margin="6,6"
+                  AutoGenerateColumns="False" 
+                  GridLinesVisibility="All" 
+                  Margin="6,6"
                   CanUserResizeColumns="True"
                   HeadersVisibility="All"
-                  RowDetailsVisibilityMode="Visible"
+                  RowDetailsVisibilityMode="Collapsed" 
                   LoadingRow="EditorGrid_LoadingRow"
                   CellEditEnded="EditorGrid_CellEditEnded"
                   SelectionChanged="EditorGrid_SelectionChanged"
-                  
                   DragDrop.AllowDrop="True"
                   DragDrop.DragOver="EditorGrid_DragOver"
                   DragDrop.Drop="EditorGrid_Drop">

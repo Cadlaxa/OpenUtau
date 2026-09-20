@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using Avalonia.Threading;
 using Avalonia.Controls.Primitives;
+using Avalonia.Markup.Xaml;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
@@ -47,7 +48,7 @@ namespace OpenUtau.App.Controls {
         private PointerPressedEventArgs? _objectsPressedEventArgs;
 
         public DictionaryEditorControl() {
-            InitializeComponent();
+            AvaloniaXamlLoader.Load(this);
             ViewModel.ShowParseError.RegisterHandler(DoShowParseErrorAsync);
 
             _autoScrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -56,6 +57,12 @@ namespace OpenUtau.App.Controls {
             ViewModel.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ViewModel.SelectedCategory)) {
                     Dispatcher.UIThread.Post(() => {
+                        var grid = this.Find<DataGrid>("EditorGrid");
+                        if (grid != null) {
+                            // Detach source before column mutations to avoid layout freezes
+                            grid.ItemsSource = null;
+                        }
+
                         RebuildGridColumns(ViewModel.SelectedCategory);
                         
                         if (ViewModel.SelectedCategory != null && ViewModel.SelectedCategory.Columns.Count > 0) {
@@ -68,6 +75,11 @@ namespace OpenUtau.App.Controls {
                         if (ViewModel.SelectedCategory != null) {
                             _trackedRows = ViewModel.SelectedCategory.Rows;
                             _trackedRows.CollectionChanged += Rows_CollectionChanged;
+                            
+                            // Re-bind source once columns are ready
+                            if (grid != null) {
+                                grid.ItemsSource = ViewModel.SelectedCategory.Rows;
+                            }
                         }
                     }, DispatcherPriority.Normal);
                 }
@@ -292,8 +304,11 @@ namespace OpenUtau.App.Controls {
 
         private void EditorGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e) {
             var grid = this.Find<DataGrid>("EditorGrid");
-            if (grid?.SelectedItem != null) {
-                grid.ScrollIntoView(grid.SelectedItem, null);
+            if (grid?.SelectedItem is DynamicYamlRow selectedRow) {
+                Dispatcher.UIThread.Post(() => {
+                    var col = grid.Columns.FirstOrDefault();
+                    grid.ScrollIntoView(selectedRow, col);
+                }, DispatcherPriority.Render);
             }
         }
 
@@ -335,12 +350,49 @@ namespace OpenUtau.App.Controls {
         protected override void OnDataContextChanged(EventArgs e) {
             base.OnDataContextChanged(e);
             if (DataContext is DictionaryEditorViewModel vm) {
+                vm.ScrollToRow = row => {
+                    var grid = this.Find<DataGrid>("EditorGrid");
+                    if (grid == null || vm.SelectedCategory == null) return;
+
+                    Dispatcher.UIThread.Post(() => {
+                        int index = vm.SelectedCategory.Rows.IndexOf(row);
+                        if (index < 0) return;
+
+                        grid.SelectedItem = row;
+
+                        var scrollViewer = grid.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                        if (scrollViewer != null && vm.SelectedCategory.Rows.Count > 0) {
+                            double targetRatio = (double)index / vm.SelectedCategory.Rows.Count;
+                            double estimatedY = targetRatio * Math.Max(0, scrollViewer.Extent.Height - scrollViewer.Viewport.Height);
+                            scrollViewer.Offset = new Vector(scrollViewer.Offset.X, estimatedY);
+                        }
+
+                        Dispatcher.UIThread.Post(() => {
+                            var col = grid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), vm.ReplaceColumn, StringComparison.OrdinalIgnoreCase)) 
+                                    ?? grid.Columns.FirstOrDefault();
+                            
+                            grid.ScrollIntoView(row, col);
+                            var targetVisualRow = grid.GetVisualDescendants()
+                                .OfType<DataGridRow>()
+                                .FirstOrDefault(r => r.DataContext == row);
+
+                            if (targetVisualRow != null) {
+                                targetVisualRow.BringIntoView();
+                                targetVisualRow.Focus();
+                            } else {
+                                grid.Focus();
+                            }
+                        }, DispatcherPriority.Render);
+
+                    }, DispatcherPriority.Loaded);
+                };
+
                 vm.RefreshIndices = () => {
                     var grid = this.Find<DataGrid>("EditorGrid");
                     if (grid == null || vm.SelectedCategory == null) return;
 
                     Dispatcher.UIThread.Post(() => {
-                        foreach(var row in grid.GetVisualDescendants().OfType<DataGridRow>()) {
+                        foreach (var row in grid.GetVisualDescendants().OfType<DataGridRow>()) {
                             if (row.DataContext is DynamicYamlRow item) {
                                 int realIndex = vm.SelectedCategory.Rows.IndexOf(item);
                                 if (realIndex >= 0) {
@@ -365,9 +417,6 @@ namespace OpenUtau.App.Controls {
             var grid = this.Find<DataGrid>("EditorGrid");
             if (grid == null) return;
 
-            var currentData = grid.ItemsSource;
-            grid.ItemsSource = null;
-
             grid.Columns.Clear();
             if (category != null) {
                 foreach (var colName in category.Columns) {
@@ -379,7 +428,6 @@ namespace OpenUtau.App.Controls {
                     grid.Columns.Add(column);
                 }
             }
-            grid.ItemsSource = currentData;
         }
 
         private void OnRefreshClicked(object? sender, RoutedEventArgs e) {
