@@ -84,8 +84,6 @@ namespace OpenUtau.Plugin.Builtin {
             { "ay", "ay-" }, { "ey", "ey-" }, { "oy", "oy-" }, { "aw", "aw-" }, { "ow", "ow-" }
         };
 
-        private bool isYamlFallbacks = false;
-
         private readonly string[] ccvException = { "ch", "dh", "dx", "fh", "gh", "hh", "jh", "kh", "ph", "ng", "sh", "th", "vh", "wh", "zh" };
         private readonly string[] RomajiException = { "a", "e", "i", "o", "u" };
         protected override string[] GetSymbols(Note note) {
@@ -281,14 +279,6 @@ namespace OpenUtau.Plugin.Builtin {
                     break;
                 }
             }
-
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
-
 
             // STARTING V
             if (syllable.IsStartingV) {
@@ -894,9 +884,18 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
 
             // VALIDATE ALIAS DEPENDING ON METHOD
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
             if (isTimitPhonemes) {
                 foreach (var fb in timitphonemes.OrderByDescending(f => f.Key.Length)) {
                     alias =  alias.Replace(fb.Key, fb.Value);
@@ -912,12 +911,6 @@ namespace OpenUtau.Plugin.Builtin {
                     alias = alias.Replace(fb.Key, fb.Value);
                 }
             }
-            if (isYamlFallbacks) {
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-
             return alias;
 
         }
@@ -936,20 +929,47 @@ namespace OpenUtau.Plugin.Builtin {
 
         protected override bool NoGap => true;
 
+        private bool IsEndingAlias(string alias) {
+            if (string.IsNullOrEmpty(alias)) return false;
+            string trimmed = alias.Trim();
+            if (trimmed.EndsWith("-") || trimmed.EndsWith("R")) return true;
+            if (tails != null && tails.Any(t => !string.IsNullOrEmpty(t) && (trimmed.EndsWith(t) || trimmed.EndsWith($" {t}")))) return true;
+            return false;
+        }
+
         protected override double GetTransitionMultiplier(string alias) {
             double baseMultiplier = base.GetTransitionMultiplier(alias);
+
+            if (IsEndingAlias(alias)) {
+                return 1.0;
+            }
+
             if (baseMultiplier != 1.0) {
                 return baseMultiplier;
             }
 
-            var fricative_def = 2.3;
-            var aspirate_def = 1.3;
+            var fricative_def = 1.8;
+            var aspirate_def = 1.2;
             var semivowel_def = 1.2;
-            var liquid_def = 1.5;
-            var nasal_def = 1.5;
-            var stop_def = 1.4;
+            var liquid_def = 1.2;
+            var nasal_def = 1.3;
+            var stop_def = 1.3;
             var tap_def = 0.5;
-            var affricate_def = 1.5;
+            var affricate_def = 1.3;
+
+            var sortedOverrides = PhonemeOverrides.OrderByDescending(kv => kv.Key.Length);
+            foreach (var kvp in sortedOverrides) {
+                var symbol = kvp.Key;
+                var value = kvp.Value;
+
+                if (IsEndingAlias(alias) && symbol != alias) {
+                    continue;
+                }
+
+                if (Regex.IsMatch(alias, $@"(?<![a-zA-Z]){Regex.Escape(symbol)}(?![a-zA-Z])")) {
+                    return baseMultiplier * value;
+                }
+            }
 
             foreach (var c in fricative) {
                 if (PhonemeIsPresent(alias, c)) return fricative_def;

@@ -15,20 +15,13 @@ using System.Text.RegularExpressions;
 namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("Spanish C+V Phonemizer", "ES C+V", "Cadlaxa", language: "ES")]
     public class SpanishCpVPhonemizer : SyllableBasedPhonemizer {
-        private const string LatestVersion = "1.1";
-        private const string YamlFile = "es-cPv.yaml";
+        protected override string YamlFileName => "es-cPv.yaml";
+        protected override byte[] YamlTemplate => Spanish_CpV.data.Resources.template;
+        protected override string YamlVersion => "1.1";
         private string[] vowels = Array.Empty<string>();
         private static string[] diphthongs = { "ay", "ey", "oy", "aw", "ow" };
         private static string[] c_cR = { "n" };
         private string[] consonants = Array.Empty<string>();
-        private static string[] affricate = Array.Empty<string>();
-        private static string[] fricative = Array.Empty<string>();
-        private static string[] aspirate = Array.Empty<string>();
-        private static string[] semivowel = Array.Empty<string>();
-        private static string[] liquid = Array.Empty<string>();
-        private static string[] nasal = Array.Empty<string>();
-        private static string[] stop = Array.Empty<string>();
-        private static string[] tap = Array.Empty<string>();
         protected override string[] GetVowels() => vowels;
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
@@ -72,15 +65,9 @@ namespace OpenUtau.Plugin.Builtin {
 
         private readonly string[] ccvException = { "ch", "dh", "dx", "fh", "gh", "hh", "jh", "kh", "ph", "ng", "sh", "th", "vh", "wh", "zh" };
         private readonly string[] RomajiException = { "a", "e", "i", "o", "u" };
-        private string[] tails = "-,R".Split(',');
-        private bool isTails = false;
 
         protected override string[] GetSymbols(Note note) {
             string[] original = base.GetSymbols(note);
-            if (tails.Contains(note.lyric)) {
-                isTails = true;
-                return new string[] { note.lyric };
-            }
             if (original == null) {
                 return null;
             }
@@ -163,367 +150,22 @@ namespace OpenUtau.Plugin.Builtin {
             return finalProcessedPhonemes.ToArray();
         }
 
-        protected override IG2p LoadBaseDictionary() {
-            var g2ps = new List<IG2p>();
-            // LOAD DICTIONARY FROM FOLDER
-            string path = Path.Combine(PluginDir, YamlFile);
-            if (!File.Exists(path)) {
-                Directory.CreateDirectory(PluginDir);
-                File.WriteAllBytes(path, Spanish_CpV.data.Resources.template);
-            }
-            // LOAD DICTIONARY FROM SINGER FOLDER
-            if (singer != null || singer.Found || singer.Loaded) {
-                string file = Path.Combine(singer.Location, YamlFile);
-                if (File.Exists(file)) {
-                    try {
-                        g2ps.Add(G2pDictionary.NewBuilder().Load(File.ReadAllText(file)).Build());
-                    } catch (Exception e) {
-                        Log.Error(e, $"Failed to load {file}");
-                    }
-                }
-            }
-            g2ps.Add(G2pDictionary.NewBuilder().Load(File.ReadAllText(path)).Build());
-            g2ps.Add(new SpanishG2p());
-            return new G2pFallbacks(g2ps.ToArray());
+        protected override IG2p[] GetBaseG2ps() {
+            return new IG2p[] { new ArpabetPlusG2p() };
         }
 
         public override void SetSinger(USinger singer) {
-            if (this.singer != singer) {
-                string file;
-                if (singer != null && singer.Found && singer.Loaded && !string.IsNullOrEmpty(singer.Location)) {
-                    file = Path.Combine(singer.Location, YamlFile);
-                } else if (!string.IsNullOrEmpty(PluginDir)) {
-                    file = Path.Combine(PluginDir, YamlFile);
-                } else {
-                    Log.Error("Singer location and PluginDir are both null or empty. Cannot locate 'es-cPv.yaml'.");
-                    return;
-                }
-                try {
-                    bool shouldWriteTemplate = false;
-                    bool shouldBackupOldFile = false;
+            base.SetSinger(singer);
 
-                    if (File.Exists(file)) {
-                        try {
-                            // Build YAML deserializer
-                            var deserializer = new DeserializerBuilder()
-                                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                                .Build();
-
-                            using var reader = new StreamReader(file);
-                            var config = deserializer.Deserialize<Dictionary<string, object>>(reader);
-
-                            if (config == null || !config.ContainsKey("version")) {
-                                shouldWriteTemplate = true;
-                                shouldBackupOldFile = true; // No version → backup old
-                            } else {
-                                string currentVersion = config["version"]?.ToString()?.Trim() ?? "";
-
-                                // If version is missing OR outdated → backup old + write new
-                                if (string.IsNullOrWhiteSpace(currentVersion) || currentVersion != LatestVersion) {
-                                    shouldWriteTemplate = true;
-                                    shouldBackupOldFile = true;
-                                }
-                            }
-                        } catch (Exception ex) {
-                            Log.Error(ex, $"Failed to read '{file}', backing up old file and writing a fresh one...");
-                            shouldWriteTemplate = true;
-                            shouldBackupOldFile = true;
-                        }
-                    } else {
-                        shouldWriteTemplate = true;
-                    }
-
-                    // If needed, back up the old file
-                    if (shouldBackupOldFile && File.Exists(file)) {
-                        try {
-                            string backupFile = Path.Combine(
-                                Path.GetDirectoryName(file)!,
-                                $"es-cPv_backup.yaml"
-                            );
-                            File.Move(file, backupFile);
-                            Log.Warning($"Old {YamlFile} has been backed up as: {backupFile}");
-                        } catch (Exception e) {
-                            Log.Error(e, $"Failed to back up old {YamlFile}. Proceeding with new template anyway.");
-                        }
-                    }
-
-                    // Write a fresh template if necessary
-                    if (shouldWriteTemplate) {
-                        try {
-                            File.WriteAllBytes(file, Spanish_CpV.data.Resources.template);
-                            Log.Information($"'{file}' created or updated to latest version {LatestVersion}");
-                        } catch (Exception e) {
-                            Log.Error(e, $"Failed to write '{YamlFile}' to {file}");
-                        }
-                    }
-                } catch (Exception ex) {
-                    Log.Error(ex, $"Unexpected error while ensuring {YamlFile} at {file}");
-                }
-
-                if (File.Exists(file)) {
-                    try {
-                        var data = Core.Yaml.DefaultDeserializer.Deserialize<ArpabetYAMLData>(File.ReadAllText(file));
-
-                        // Load vowels and diphthongs
-                        try {
-                            var loadedVowels = data.symbols
-                                ?.Where(s => s.type == "vowel")
-                                .Select(s => s.symbol)
-                                .ToList() ?? new List<string>();
-
-                            var loadedDiphthongs = data.symbols
-                                ?.Where(s => s.type == "diphthong")
-                                .Select(s => s.symbol)
-                                .ToList() ?? new List<string>();
-
-                            // Combine vowels and diphthongs, then remove duplicates
-                            vowels = vowels.Concat(loadedVowels)
-                                        .Concat(loadedDiphthongs)
-                                        .Distinct()
-                                        .ToArray();
-
-                            // Load diphthongs specifically to their own list
-                            diphthongs = loadedDiphthongs.ToArray();
-
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to load vowels and diphthongs from {YamlFile}: {ex.Message}");
-                        }
-                        // Load tails
-                        try {
-                            var loadTails = data.symbols
-                                ?.Where(s => s.type == "tail")
-                                .Select(s => s.symbol)
-                                .ToList() ?? new List<string>();
-
-                            tails = tails.Concat(loadTails).Distinct().ToArray();
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to load tails from {YamlFile}: {ex.Message}");
-                        }
-                        // Load the various consonant types for double consonant endings
-                        var fricatives = data.symbols
-                            ?.Where(s => s.type == "fricative")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var aspirates = data.symbols
-                            ?.Where(s => s.type == "aspirate")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var semivowels = data.symbols
-                            ?.Where(s => s.type == "semivowel")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var liquids = data.symbols
-                            ?.Where(s => s.type == "liquid")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var nasals = data.symbols
-                            ?.Where(s => s.type == "nasal")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-                        /// others
-                        var stops = data.symbols
-                            ?.Where(s => s.type == "stop")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var taps = data.symbols
-                            ?.Where(s => s.type == "tap")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        var affricates = data.symbols
-                            ?.Where(s => s.type == "affricate")
-                            .Select(s => s.symbol)
-                            .ToList() ?? new List<string>();
-
-                        PhonemeOverrides = data.timings
-                            ?.ToDictionary(t => t.symbol, t => t.value)
-                            ?? new Dictionary<string, double>();
-
-                        // Combine all the consonant types into one list
-                        c_cR = fricatives
-                            .Concat(aspirates)
-                            .Concat(semivowels)
-                            .Concat(liquids)
-                            .Concat(nasals)
-                            .Distinct()
-                            .ToArray();
-
-                        // Load consonant types into their respective lists
-                        fricative = fricatives.Distinct().ToArray();
-                        aspirate = aspirates.Distinct().ToArray();
-                        semivowel = semivowels.Distinct().ToArray();
-                        liquid = liquids.Distinct().ToArray();
-                        nasal = nasals.Distinct().ToArray();
-                        stop = stops.Distinct().ToArray();
-                        tap = taps.Distinct().ToArray();
-                        affricate = affricates.Distinct().ToArray();
-                        consonants = fricatives
-                            .Concat(aspirates)
-                            .Concat(semivowels)
-                            .Concat(liquids)
-                            .Concat(nasals)
-                            .Concat(stop)
-                            .Concat(tap)
-                            .Concat(affricate)
-                            .Distinct()
-                            .ToArray();
-                        // Load diphthong exceptions
-                        try {
-                            var allDiphthongs = data.symbols
-                                ?.Where(s => s.type == "diphthong")
-                                .Select(s => s.symbol)
-                                .ToList() ?? new List<string>();
-
-                            // Load explicit exceptions from the new YAML section
-                            var loadedDiphthongExceptions = data.diphthongs
-                                ?.ToDictionary(d => d.from, d => d.to) ?? new Dictionary<string, string>();
-
-                            // Initialize the DiphthongExceptions dictionary with explicit exceptions
-                            DiphthongExceptions = new Dictionary<string, string>(loadedDiphthongExceptions);
-
-                            // Create default mappings for diphthongs without an explicit exception [aw=aw], [ay=ay] etc
-                            foreach (var diphthong in allDiphthongs) {
-                                if (!DiphthongExceptions.ContainsKey(diphthong)) {
-                                    DiphthongExceptions.Add(diphthong, diphthong);
-                                }
-                            }
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to load diphthongs and exceptions: {ex.Message}");
-                        }
-                        // Load replacements (errors out if there's no replacements)
-                        try {
-                            if (data?.replacements != null && data.replacements.Any() == true) {
-                                dictionaryReplacements = new Dictionary<string, string>();
-                                mergingReplacements = new List<Replacement>();
-                                splittingReplacements = new List<Replacement>();
-
-                                foreach (var replacement in data.replacements) {
-                                    try {
-                                        string ruleScope = string.IsNullOrEmpty(replacement.where) ? "inside" : replacement.where.ToLowerInvariant();
-                                        if (replacement.from != null && replacement.to != null) {
-                                            if (replacement.from is IEnumerable<object> fromList) {
-                                                // 'from' is a list (e.g., [ae, n])
-                                                string[] fromArray = fromList.Select(item => item.ToString()).ToArray();
-                                                if (replacement.to is string toString) {
-                                                    mergingReplacements.Add(new Replacement { from = fromArray, to = toString, where = ruleScope });
-                                                } else if (replacement.to is IEnumerable<object> toList) {
-                                                    splittingReplacements.Add(new Replacement { from = fromArray, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                                } else {
-                                                    Log.Error($"Error: Invalid 'to' type in replacement: {replacement}");
-                                                }
-                                            } else if (replacement.from is string fromString) {
-                                                // 'from' is a single string (e.g., tr, aw, ae, m, ng)
-                                                if (replacement.to is string toString) {
-                                                    dictionaryReplacements[fromString] = toString;
-                                                } else if (replacement.to is IEnumerable<object> toList) {
-                                                    splittingReplacements.Add(new Replacement { from = fromString, to = toList.Select(item => item.ToString()).ToArray(), where = ruleScope });
-                                                } else {
-                                                    Log.Error($"Error: Invalid 'to' type in replacement: {replacement}");
-                                                }
-                                            } else {
-                                                Log.Error($"Error: Invalid 'from' type in replacement: {replacement}");
-                                            }
-                                        } else {
-                                            Log.Error($"Error: 'from' or 'to' is null in replacement: {replacement}");
-                                        }
-                                    } catch (Exception ex) {
-                                        Log.Error($"Failed to process replacement entry: {replacement}. Error: {ex.Message}");
-                                    }
-                                }
-                            } else {
-                                dictionaryReplacements = new Dictionary<string, string>();
-                                mergingReplacements = new List<Replacement>();
-                                splittingReplacements = new List<Replacement>();
-                            }
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to load replacements from {YamlFile}: {ex.Message}");
-                        }
-                        // Load fallbacks
-                        try {
-                            if (data?.fallbacks?.Any() == true) {
-                                foreach (var df in data.fallbacks) {
-                                    if (!string.IsNullOrEmpty(df.from) && !string.IsNullOrEmpty(df.to)) {
-                                        // Overwrite or add
-                                        missingVphonemes[df.from] = df.to;
-                                    } else {
-                                        Log.Warning("Ignored YAML fallback with missing 'from' or 'to' value.");
-                                    }
-                                }
-                            }
-                        } catch (Exception ex) {
-                            Log.Error($"Failed to load fallbacks from YAML: {ex.Message}");
-                        }
-
-                    } catch (Exception ex) {
-                        Log.Error($"Failed to parse {YamlFile}: {ex.Message}, Exception Type: {ex.GetType()}");
-                    }
-                }
-                ReadDictionaryAndInit();
-                this.singer = singer;
+            if (this.singer != null && this.singer.Loaded) {
+                consExceptions.Clear();
+                if (stop != null) consExceptions.AddRange(stop);
+                if (tap != null) consExceptions.AddRange(tap);
+                consExceptions = consExceptions.Distinct().ToList();
             }
         }
 
-        public class ArpabetYAMLData {
-            public SymbolData[] symbols { get; set; } = Array.Empty<SymbolData>();
-            public Replacement[] replacements { get; set; } = Array.Empty<Replacement>();
-            public Fallbacks[] fallbacks { get; set; } = Array.Empty<Fallbacks>();
-            public Fallbacks[] diphthongs { get; set; } = Array.Empty<Fallbacks>();
-            public Timings[] timings { get; set; } = Array.Empty<Timings>();
-
-            public struct SymbolData {
-                public string symbol { get; set; }
-                public string type { get; set; }
-            }
-            public struct Fallbacks {
-                public string from { get; set; }
-                public string to { get; set; }
-            }
-            public struct Timings {
-                public string symbol { get; set; }
-                public double value { get; set; }
-            }
-        }
-        // can split or merge
-        public class Replacement {
-            public object from { get; set; }
-            public object to { get; set; }
-            public string where { get; set; } = "inside";
-
-            public List<string> FromList {
-                get {
-                    if (from is string s) return new List<string> { s };
-                    if (from is IEnumerable<object> list) return list.Select(x => x.ToString()).ToList();
-                    return new List<string>();
-                }
-            }
-
-            public List<string> ToList {
-                get {
-                    if (to is string s) return new List<string> { s };
-                    if (to is IEnumerable<object> list) return list.Select(x => x.ToString()).ToList();
-                    return new List<string>();
-                }
-            }
-        }
-        // prioritize yaml replacements over dictionary replacements
-        private string ReplacePhoneme(string phoneme, int tone) {
-            // If the original phoneme has an OTO, use it directly.
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            // Otherwise, try to apply the dictionary replacement.
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            return phoneme;
-        }
         protected override List<string> ProcessSyllable(Syllable syllable) {
-
             // Replacement for note boundaries
             List<string> currentPhonemes = new List<string>();
             bool hasPrevV = !string.IsNullOrEmpty(syllable.prevV);
@@ -688,15 +330,6 @@ namespace OpenUtau.Plugin.Builtin {
             } else {
                 // [V] to [-V] to [- V]
                 basePhoneme = AliasFormat(v, "cv", syllable.vowelTone, "");
-                if (isTails && basePhoneme.Contains("-")) {
-                    if (HasOto($"{cc.Last()} -", syllable.tone) || HasOto($"{cc.Last()}-", syllable.tone)
-                    || HasOto($"{cc.Last()}_", syllable.tone)) {
-                        // like [C1 -]
-                        basePhoneme = AliasFormat($"{cc.Last()}", "cc_end", syllable.tone, "");
-                    } else {
-                        basePhoneme = null;
-                    }
-                }
                 // try [V C], [V CC], [VC C], [V -][- C]
                 for (var i = lastC + 1; i >= 0; i--) {
                     var vr = $"_{prevV}";
@@ -1103,9 +736,18 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias) {
+        protected override string ValidateAlias(string alias, int tone = 0) {
 
             // VALIDATE ALIAS DEPENDING ON METHOD
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
             if (isTimitPhonemes) {
                 foreach (var fb in timitphonemes.OrderByDescending(f => f.Key.Length)) {
                     alias =  alias.Replace(fb.Key, fb.Value);
@@ -1121,7 +763,7 @@ namespace OpenUtau.Plugin.Builtin {
                     alias = alias.Replace(fb.Key, fb.Value);
                 }
             }
-            return base.ValidateAlias(alias);
+            return alias;
 
         }
 
@@ -1135,94 +777,77 @@ namespace OpenUtau.Plugin.Builtin {
 
             return alias.EndsWith(phoneme);
         }
-
+        
         protected override bool NoGap => true;
 
-        protected override double GetTransitionBasicLengthMs(string alias = "") {
-            //I wish these were automated instead :')
-            double transitionMultiplier = 1.0; // Default multiplier
+        private bool IsEndingAlias(string alias) {
+            if (string.IsNullOrEmpty(alias)) return false;
+            string trimmed = alias.Trim();
+            if (trimmed.EndsWith("-") || trimmed.EndsWith("R")) return true;
+            if (tails != null && tails.Any(t => !string.IsNullOrEmpty(t) && (trimmed.EndsWith(t) || trimmed.EndsWith($" {t}")))) return true;
+            return false;
+        }
 
-            var fricative_def = 2.3;
-            var aspirate_def = 1.3;
-            var semivowel_def = 1.4;
+        protected override double GetTransitionMultiplier(string alias) {
+            double baseMultiplier = base.GetTransitionMultiplier(alias);
+
+            if (IsEndingAlias(alias)) {
+                return 1.0;
+            }
+
+            if (baseMultiplier != 1.0) {
+                return baseMultiplier;
+            }
+
+            var fricative_def = 1.8;
+            var aspirate_def = 1.2;
+            var semivowel_def = 1.2;
             var liquid_def = 1.2;
-            var nasal_def = 2.0;
-            var stop_def = 0.8;
+            var nasal_def = 1.3;
+            var stop_def = 1.3;
             var tap_def = 0.5;
-            var affricate_def = 1.5;
-
-            var allConsonants = fricative.Concat(aspirate)
-                        .Concat(semivowel)
-                        .Concat(liquid)
-                        .Concat(nasal)
-                        .Concat(stop)
-                        .Concat(tap)
-                        .Concat(affricate)
-                        .Distinct(); // Ensure no duplicates
-
-            
-
-            // consonant timings
+            var affricate_def = 1.3;
 
             var sortedOverrides = PhonemeOverrides.OrderByDescending(kv => kv.Key.Length);
             foreach (var kvp in sortedOverrides) {
-                var overridePhoneme = kvp.Key;
-                var overrideValue = kvp.Value;
-                if (PhonemeIsPresent(alias, overridePhoneme)) {
-                    return base.GetTransitionBasicLengthMs() * overrideValue;
+                var symbol = kvp.Key;
+                var value = kvp.Value;
+
+                if (IsEndingAlias(alias) && symbol != alias) {
+                    continue;
+                }
+
+                if (Regex.IsMatch(alias, $@"(?<![a-zA-Z]){Regex.Escape(symbol)}(?![a-zA-Z])")) {
+                    return baseMultiplier * value;
                 }
             }
-
 
             foreach (var c in fricative) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * fricative_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return fricative_def;
             }
-
             foreach (var c in aspirate) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * aspirate_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return aspirate_def;
             }
-
             foreach (var c in semivowel) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * semivowel_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return semivowel_def;
             }
-
             foreach (var c in liquid) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * liquid_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return liquid_def;
             }
-
             foreach (var c in nasal) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * nasal_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return nasal_def;
             }
-
             foreach (var c in stop) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * stop_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return stop_def;
             }
-
             foreach (var c in tap) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * tap_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return tap_def;
             }
-
             foreach (var c in affricate) {
-                if (PhonemeIsPresent(alias, c)) {
-                    return base.GetTransitionBasicLengthMs() * affricate_def;
-                }
+                if (PhonemeIsPresent(alias, c)) return affricate_def;
             }
 
-            return base.GetTransitionBasicLengthMs() * transitionMultiplier;
+            return 1.0;
         }
     }
 }

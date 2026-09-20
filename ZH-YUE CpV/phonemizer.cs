@@ -176,58 +176,11 @@ namespace OpenUtau.Plugin.Builtin {
             base.SetSinger(singer);
 
             if (this.singer != null && this.singer.Loaded) {
-                
-                string globalFile = Path.Combine(PluginDir, YamlFileName);
-                string singerFile = Path.Combine(this.singer.Location, YamlFileName);
-
-                var filesToParse = new List<string>();
-                if (File.Exists(globalFile)) filesToParse.Add(globalFile);
-                if (File.Exists(singerFile) && globalFile != singerFile) filesToParse.Add(singerFile);
-
-                c_cR = Array.Empty<string>();
-
-                foreach (var file in filesToParse) {
-                    try {
-                        var data = Core.Yaml.DefaultDeserializer.Deserialize<YAMLData>(File.ReadAllText(file));
-
-                        if (data?.symbols != null) {
-                            
-                            string[] targetTypes = { "nasal", "liquid", "semivowel", "fricative", "aspirate" };
-                            var newCcR = data.symbols
-                                .Where(s => targetTypes.Contains(s.type?.ToLower()))
-                                .Select(s => s.symbol)
-                                .ToArray();
-                                
-                            c_cR = c_cR.Concat(newCcR).Distinct().ToArray();
-
-                            var yamlDiphthongs = data.symbols
-                                .Where(s => s.type?.ToLower() == "diphthong")
-                                .Select(s => s.symbol)
-                                .Distinct()
-                                .ToArray();
-
-                            foreach (var d in yamlDiphthongs) {
-                                if (!diphthongSplits.ContainsKey(d)) {
-                                    diphthongTails[d] = d + "-";
-                                }
-                            }
-                        }
-                        
-                    } catch (Exception ex) {
-                        Log.Error($"Failed to parse symbols from {file}: {ex.Message}");
-                    }
-                }
+                consExceptions.Clear();
+                if (stop != null) consExceptions.AddRange(stop);
+                if (tap != null) consExceptions.AddRange(tap);
+                consExceptions = consExceptions.Distinct().ToList();
             }
-        }
-
-        private string ReplacePhoneme(string phoneme, int tone) {
-            if (dictionaryReplacements.TryGetValue(phoneme, out var replaced)) {
-                return replaced;
-            }
-            if (HasOto(phoneme, tone) || HasOto(ValidateAlias(phoneme), tone)) {
-                return phoneme;
-            }
-            return phoneme;
         }
         protected override List<string> ProcessSyllable(Syllable syllable) {
             syllable.prevV = tails.Contains(syllable.prevV) ? "" : syllable.prevV;
@@ -267,14 +220,6 @@ namespace OpenUtau.Plugin.Builtin {
                     break;
                 }
             }
-
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
-
 
             // STARTING V
             if (syllable.IsStartingV) {
@@ -890,33 +835,35 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias) {
-            if (string.IsNullOrEmpty(alias)) return alias;
+        protected override string ValidateAlias(string alias, int tone = 0) {
 
-            if (yamlFallbacks != null) {
-                foreach (var fb in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
+            // VALIDATE ALIAS DEPENDING ON METHOD
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
+            if (isTimitPhonemes) {
+                foreach (var fb in timitphonemes.OrderByDescending(f => f.Key.Length)) {
+                    alias =  alias.Replace(fb.Key, fb.Value);
                 }
             }
-
-            if (missingVphonemes != null) {
+            if (isMissingVPhonemes) {
                 foreach (var fb in missingVphonemes.OrderByDescending(f => f.Key.Length)) {
                     alias = alias.Replace(fb.Key, fb.Value);
                 }
             }
-            if (timitphonemes != null) {
-                foreach (var fb in timitphonemes.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(fb.Key, fb.Value);
-                }
-            }
-
-            if (missingCphonemes != null) {
+            if (isMissingCPhonemes) {
                 foreach (var fb in missingCphonemes.OrderByDescending(f => f.Key.Length)) {
                     alias = alias.Replace(fb.Key, fb.Value);
                 }
             }
-
             return alias;
+
         }
 
         bool PhonemeIsPresent(string alias, string phoneme) {
@@ -933,20 +880,47 @@ namespace OpenUtau.Plugin.Builtin {
 
         protected override bool NoGap => true;
 
+        private bool IsEndingAlias(string alias) {
+            if (string.IsNullOrEmpty(alias)) return false;
+            string trimmed = alias.Trim();
+            if (trimmed.EndsWith("-") || trimmed.EndsWith("R")) return true;
+            if (tails != null && tails.Any(t => !string.IsNullOrEmpty(t) && (trimmed.EndsWith(t) || trimmed.EndsWith($" {t}")))) return true;
+            return false;
+        }
+
         protected override double GetTransitionMultiplier(string alias) {
             double baseMultiplier = base.GetTransitionMultiplier(alias);
+
+            if (IsEndingAlias(alias)) {
+                return 1.0;
+            }
+
             if (baseMultiplier != 1.0) {
                 return baseMultiplier;
             }
 
-            var fricative_def = 2.3;
-            var aspirate_def = 1.3;
+            var fricative_def = 1.8;
+            var aspirate_def = 1.2;
             var semivowel_def = 1.2;
-            var liquid_def = 1.5;
-            var nasal_def = 1.5;
-            var stop_def = 1.4;
+            var liquid_def = 1.2;
+            var nasal_def = 1.3;
+            var stop_def = 1.3;
             var tap_def = 0.5;
-            var affricate_def = 1.5;
+            var affricate_def = 1.3;
+
+            var sortedOverrides = PhonemeOverrides.OrderByDescending(kv => kv.Key.Length);
+            foreach (var kvp in sortedOverrides) {
+                var symbol = kvp.Key;
+                var value = kvp.Value;
+
+                if (IsEndingAlias(alias) && symbol != alias) {
+                    continue;
+                }
+
+                if (Regex.IsMatch(alias, $@"(?<![a-zA-Z]){Regex.Escape(symbol)}(?![a-zA-Z])")) {
+                    return baseMultiplier * value;
+                }
+            }
 
             foreach (var c in fricative) {
                 if (PhonemeIsPresent(alias, c)) return fricative_def;
