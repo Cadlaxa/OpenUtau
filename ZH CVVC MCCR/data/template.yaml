@@ -1,4 +1,4 @@
-version: 1.1.4
+version: 1.1.5
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -185,12 +185,13 @@ replacements:
   - {from: sh, to: sh}
   - {from: t, to: t}
   - {from: u, to: u}
-  - {from: "vowel=u@,uA,ua", to: [UU, a]}
+  - {from: "vowel=uA,ua", to: [UU, a]}
   - {from: uai, to: [UU, a, II]}
   - {from: "vowel=uan,u@n", to: [UU, a, n]}
   - {from: uang, to: [UU, a, ng]}
   - {from: "vowel=ue,yE", to: [VV, E]}
   - {from: ["vowel=ua", n], to: [UU, a, n]}
+  - {from: ["vowel=u@", n], to: [UU, e, n]}
   - {from: ui, to: [UU, Ei]}
   - {from: un, to: [v, n]}
   - {from: uo, to: [UU, o]}
