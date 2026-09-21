@@ -1224,22 +1224,50 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         /// <summary>
+        /// Hook for child phonemizers to supply their hardcoded/contextual fallbacks.
+        /// If a token is in suppressedTokens (defined as from == to in YAML fallbacks),
+        /// child implementations must not alter that token.
+        /// </summary>
+        protected virtual string GetHardcodedFallback(string alias, int tone, HashSet<string> suppressedTokens) {
+            return null;
+        }
+
+        /// <summary>
         /// Validates formatted aliases. 
-        /// If the alias is missing in OTO, it applies character/phoneme replacements from YAML fallbacks.
+        /// Prioritizes YAML fallbacks and allows YAML rules like "- {from: ng, to: ng}" to suppress
+        /// any child hardcoded fallbacks for that phoneme.
         /// </summary>
         protected virtual string ValidateAlias(string alias, int tone = 0) {
             if (string.IsNullOrEmpty(alias)) return alias;
             if (singer == null || !singer.Loaded) return alias;
             if (HasOto(alias, tone)) return alias;
 
+            // Collect single-token YAML rules
             var singleRules = yamlFallbacks
                 .Where(r => r.FromList.Count == 1)
                 .OrderByDescending(r => r.FromList[0].Length)
                 .ToList();
 
-            // Stage 1: Exact direct substitution check using strict case sensitivity
+            var suppressedTokens = new HashSet<string>(StringComparer.Ordinal);
+            bool hasCustomOverride = false;
+
+            foreach (var rule in singleRules) {
+                string fromToken = rule.FromList[0].Trim('(', ')');
+                if (alias.Contains(fromToken, StringComparison.Ordinal)) {
+                    // Suppression convention: if to == from (e.g. {from: ng, to: ng}), user explicitly disables fallbacks for this token
+                    if (rule.ToList.Count == 1 && string.Equals(rule.ToList[0], fromToken, StringComparison.Ordinal)) {
+                        suppressedTokens.Add(fromToken);
+                    } else if (rule.ToList.Count > 0) {
+                        hasCustomOverride = true;
+                    }
+                }
+            }
+
+            // Direct YAML fallback substitution (for rules where to != from)
             foreach (var rule in singleRules) {
                 string fromStr = rule.FromList[0].Trim('(', ')');
+                if (suppressedTokens.Contains(fromStr)) continue;
+
                 if (alias.Contains(fromStr, StringComparison.Ordinal)) {
                     foreach (var target in rule.ToList) {
                         string candidate = alias.Replace(fromStr, target, StringComparison.Ordinal);
@@ -1250,12 +1278,14 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            // Stage 2: Multi-rule cascaded fallback (only if Stage 1 failed completely)
+            // Cascaded YAML fallback
             string cascadedAlias = alias;
             bool changed = false;
 
             foreach (var rule in singleRules) {
                 string fromStr = rule.FromList[0].Trim('(', ')');
+                if (suppressedTokens.Contains(fromStr)) continue;
+
                 if (cascadedAlias.Contains(fromStr, StringComparison.Ordinal)) {
                     foreach (var target in rule.ToList) {
                         string candidate = cascadedAlias.Replace(fromStr, target, StringComparison.Ordinal);
@@ -1274,10 +1304,27 @@ namespace OpenUtau.Plugin.Builtin {
                 return cascadedAlias;
             }
 
+            // If user explicitly suppressed this token and defined no alternative, stop here!
+            if (suppressedTokens.Count > 0 && !hasCustomOverride) {
+                if (suppressedTokens.Any(t => alias.Contains(t, StringComparison.Ordinal))) {
+                    return alias;
+                }
+            }
+
+            // Child phonemizer-specific hardcoded/contextual fallbacks
+            string childFallback = GetHardcodedFallback(alias, tone, suppressedTokens);
+            if (!string.IsNullOrEmpty(childFallback) && !string.Equals(childFallback, alias, StringComparison.Ordinal)) {
+                if (HasOto(childFallback, tone)) {
+                    return childFallback;
+                }
+            }
+
+            // Legacy dictionary fallbacks
             var legacyFallbacks = GetAliasesFallback();
             if (legacyFallbacks != null && legacyFallbacks.TryGetValue(alias, out var legacyTarget)) {
-                if (HasOto(legacyTarget, tone)) return legacyTarget;
-                return legacyTarget;
+                if (!suppressedTokens.Any(t => alias.Contains(t, StringComparison.Ordinal))) {
+                    if (HasOto(legacyTarget, tone)) return legacyTarget;
+                }
             }
 
             return changed ? cascadedAlias : alias;
