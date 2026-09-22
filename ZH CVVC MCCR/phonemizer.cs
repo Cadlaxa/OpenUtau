@@ -17,7 +17,7 @@ namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("MCCR Mandarin Chinese Phonemizer", "ZH CVVC", "Cadlaxa", language: "ZH")]
     public class MandarinPhonemizer : SyllableBasedPhonemizer {
         protected override string YamlFileName => "zh-cvvc-mccr.yaml";
-        protected override string YamlVersion => "1.1.5";
+        protected override string YamlVersion => "1.1.6";
         protected override byte[] YamlTemplate => ZH_CVVC_MCCR.data.Resources.template;
         public MandarinPhonemizer() {
             this.vowels = Array.Empty<string>();
@@ -227,7 +227,7 @@ namespace OpenUtau.Plugin.Builtin {
                         TryAddPhoneme(phonemes, syllable.tone, AliasFormat($"{cc[0]}", "cc_start", syllable.vowelTone, ""), ValidateAlias(AliasFormat($"{cc[0]}", "cc_start", syllable.vowelTone, ""), syllable.vowelTone));
                     }
                 } else {
-                    basePhoneme = AliasFormat($"{cc[0]} {v}", "dynMid", syllable.vowelTone, "");
+                    basePhoneme = AliasFormat($"{cc[0]}{v}", "dynMid", syllable.vowelTone, "");
                     bool foundStart = false;
                     for (int len = cc[0].Length; len > 0; len--) {
                         string c = cc[0].Substring(0, len); // shr -> sh -> s
@@ -272,11 +272,6 @@ namespace OpenUtau.Plugin.Builtin {
                         if (TryAddPhoneme(phonemes, syllable.tone, AliasFormat($"{string.Join("", cc.Take(i))}", "cc_start", syllable.vowelTone, ""), ValidateAlias(AliasFormat($"{string.Join("", cc.Take(i))}", "cc_start", syllable.vowelTone, ""), syllable.vowelTone))) {
                             firstC = i - 1;
                             break;
-                        }
-                        var ccc = $"{string.Join("", cc.Take(i))}";
-                        if (liquid.Contains(ccc) || semivowel.Contains(ccc)
-                            || liquid.Contains(ValidateAlias(ccc)) || semivowel.Contains(ValidateAlias(ccc))) {
-                            glides(ccc);
                         }
                     }
                     // [- C]

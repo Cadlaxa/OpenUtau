@@ -1,4 +1,4 @@
-version: 1.1.5
+version: 1.1.6
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -34,7 +34,6 @@ symbols:
   - {symbol: ng, type: nasal}
   - {symbol: ":n", type: nasal}
   - {symbol: o, type: vowel}
-  - {symbol: p, type: stop}
   - {symbol: p, type: stop}
   - {symbol: "r\\`", type: liquid}
   - {symbol: s, type: fricative}
@@ -114,6 +113,8 @@ fallbacks:
   - {from: VV, to: v}
   - {from: Ei, to: i}
   - {from: R, to: "-"}
+  - {from: y, to: i}
+  - {from: w, to: u}
 
 timings:
   # glide timings
@@ -122,7 +123,8 @@ timings:
   - {symbol: "i E", value: 0.8}
   - {symbol: "i o", value: 1.2}
   - {symbol: "u o", value: 1.2}
-  - {symbol: "u a", value: 0.8}
+  - {symbol: "u e", value: 1.2}
+  - {symbol: "v E", value: 0.8}
   - {symbol: "v E", value: 0.8}
   - {symbol: "v i", value: 0.8}
   - {symbol: "u Ei", value: 1.2}
@@ -136,6 +138,7 @@ timings:
   - {symbol: ng, value: 1.6}
 
 replacements:
+  - {from: ["null", "consonants"], to: ["null", "-", "consonants"], where: all}
   - {from: a, to: a}
   - {from: ai, to: [a, II]}
   - {from: an, to: [a, n]}
