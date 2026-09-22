@@ -1,4 +1,4 @@
-version: 1.1.6
+version: 1.1.7
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -113,9 +113,7 @@ fallbacks:
   - {from: VV, to: v}
   - {from: Ei, to: i}
   - {from: R, to: "-"}
-  - {from: y, to: i}
-  - {from: w, to: u}
-
+  
 timings:
   # glide timings
   - {symbol: "i a", value: 0.8}
@@ -123,6 +121,7 @@ timings:
   - {symbol: "i E", value: 0.8}
   - {symbol: "i o", value: 1.2}
   - {symbol: "u o", value: 1.2}
+  - {symbol: "u a", value: 1.2}
   - {symbol: "u e", value: 1.2}
   - {symbol: "v E", value: 0.8}
   - {symbol: "v E", value: 0.8}
