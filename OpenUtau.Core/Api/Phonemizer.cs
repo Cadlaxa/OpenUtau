@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;
-using Serilog;
 
 namespace OpenUtau.Api {
     /// <summary>
@@ -272,35 +271,21 @@ namespace OpenUtau.Api {
         }
 
         public int GetParentToneShift() {
-            if (project == null || track == null) {
-                return 0;
-            }
-            try {
-                if (track.TryGetExpDescriptor(project, Core.Format.Ustx.SHFT, out var trackTS) && trackTS != null) {
+            if (project != null && track != null) {
+                if (track.TryGetExpDescriptor(project, Core.Format.Ustx.SHFT, out var trackTS)) {
                     return (int)trackTS.CustomDefaultValue;
                 }
-            } catch (Exception ex) {
-                Log.Error(ex, "Failed to resolve track Tone Shift (SHFT) descriptor for track {TrackName} ({TrackNo}).", 
-                    track.TrackName, track.TrackNo);
-                throw;
             }
             return 0;
         }
 
         public int? GetParentAlternate() {
-            if (project == null || track == null) {
-                return null;
-            }
-            try {
-                if (track.TryGetExpDescriptor(project, Core.Format.Ustx.ALT, out var trackAlt) && trackAlt != null) {
+            if (project != null && track != null) {
+                if (track.TryGetExpDescriptor(project, Core.Format.Ustx.ALT, out var trackAlt)) {
                     if (trackAlt.CustomDefaultValue != 0) {
                         return (int)trackAlt.CustomDefaultValue;
                     }
                 }
-            } catch (Exception ex) {
-                Log.Error(ex, "Failed to resolve track Alternate (ALT) descriptor for track {TrackName} ({TrackNo}).", 
-                    track.TrackName, track.TrackNo);
-                throw;
             }
             return null;
         }
