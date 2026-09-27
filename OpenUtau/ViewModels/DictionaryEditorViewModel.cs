@@ -86,6 +86,8 @@ namespace OpenUtau.App.ViewModels {
         private string _selectedFile = string.Empty;
         public string SelectedFile { get => _selectedFile; set => this.RaiseAndSetIfChanged(ref _selectedFile, value); }
         public string CurrentFileType => !string.IsNullOrEmpty(SelectedFile) && SelectedFile.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) ? "ini" : "yaml";
+        private OpenUtau.Core.YamlWatcher? _yamlWatcher;
+        private OpenUtau.Core.PresampWatcher? _presampWatcher;
 
         public ObservableCollection<YamlCategory> Categories { get; } = new();
         private YamlCategory? _selectedCategory;
@@ -604,6 +606,25 @@ namespace OpenUtau.App.ViewModels {
         public void SetSingerContext(string dir, Dictionary<string, string> fileMap, string targetFileName = "") {
             _currentDirectory = dir; 
             _filePaths = fileMap;
+            
+            // Clean up existing watchers
+            _yamlWatcher?.Dispose();
+            _yamlWatcher = null;
+            _presampWatcher?.Dispose();
+            _presampWatcher = null;
+            
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) {
+                // Initialize native YamlWatcher (includes subdirectories)
+                _yamlWatcher = new OpenUtau.Core.YamlWatcher(dir, () => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => LoadSelectedFile());
+                });
+                
+                // Initialize native PresampWatcher (root directory only)
+                _presampWatcher = new OpenUtau.Core.PresampWatcher(dir, () => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => LoadSelectedFile());
+                });
+            }
+
             AvailableFiles.Clear();
             foreach (var name in fileMap.Keys) {
                 AvailableFiles.Add(name);
@@ -624,6 +645,12 @@ namespace OpenUtau.App.ViewModels {
             }
         }
         public void ClearContext() {
+            _yamlWatcher?.Dispose();
+            _yamlWatcher = null;
+            
+            _presampWatcher?.Dispose();
+            _presampWatcher = null;
+            
             _currentDirectory = string.Empty;
             AvailableFiles.Clear();
             Categories.Clear();
@@ -794,10 +821,23 @@ namespace OpenUtau.App.ViewModels {
 
         public void SaveCurrentFile() {
             if (string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(_currentDirectory)) return;
-            if (_filePaths.TryGetValue(SelectedFile, out string? relativePath) && relativePath != null) {
-                string targetPath = Path.Combine(_currentDirectory, relativePath);
-                if (SelectedFile.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) SavePresamp(targetPath);
-                else SaveYaml(); 
+            
+            // Pause native watchers
+            if (_yamlWatcher != null) _yamlWatcher.Paused = true;
+            if (_presampWatcher != null) _presampWatcher.Paused = true;
+            
+            try {
+                if (_filePaths.TryGetValue(SelectedFile, out string? relativePath) && relativePath != null) {
+                    string targetPath = Path.Combine(_currentDirectory, relativePath);
+                    if (SelectedFile.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) SavePresamp(targetPath);
+                    else SaveYaml(); 
+                }
+            } finally {
+                // Delay unpausing to safely bypass the trailing file system events
+                System.Threading.Tasks.Task.Delay(500).ContinueWith(_ => {
+                    if (_yamlWatcher != null) _yamlWatcher.Paused = false;
+                    if (_presampWatcher != null) _presampWatcher.Paused = false;
+                });
             }
         }
 
@@ -1182,8 +1222,11 @@ namespace OpenUtau.App.ViewModels {
             }
         }
         public Interaction<DictionaryErrorWindowViewModel, bool> ShowParseError { get; } = new();
+        private bool _isErrorWindowOpen = false;
         private void ProcessParseError(string formatName, string detailedMessage, int errorLineNumber, string filePath) {
-            
+            if (_isErrorWindowOpen) return;
+            _isErrorWindowOpen = true;
+
             var targetEncoding = filePath.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) 
                 ? _currentPresampEncoding 
                 : System.Text.Encoding.UTF8;
@@ -1196,30 +1239,15 @@ namespace OpenUtau.App.ViewModels {
             };
             
             try {
-                string[] lines = System.IO.File.ReadAllLines(filePath, targetEncoding);
-                errorVm.FullFileLines = lines;
-                
-                int errLineIdx = errorLineNumber - 1; 
-                
-                for (int i = 0; i < lines.Length; i++) {
-                    errorVm.ErrorContextLines.Add(new ParseErrorLineContext {
-                        LineNumber = i + 1,
-                        ActualLineIndex = i,
-                        Text = lines[i],
-                        IsErrorLine = (i == errLineIdx)
-                    });
-                }
+                errorVm.RawText = System.IO.File.ReadAllText(filePath, targetEncoding);
             } catch {
-                errorVm.ErrorContextLines.Add(new ParseErrorLineContext { 
-                    LineNumber = errorLineNumber, 
-                    Text = $"{ThemeManager.GetString("dict.error.could.not.load.context")}", 
-                    IsErrorLine = true 
-                });
+                errorVm.RawText = $"# {ThemeManager.GetString("dict.error.could.not.load.context")}";
             }
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() => {
                 ShowParseError.Handle(errorVm)
                     .Subscribe(new AnonymousObserver<bool>(didSave => {
+                        _isErrorWindowOpen = false; 
                         if (didSave) {
                             LoadSelectedFile();
                         }
