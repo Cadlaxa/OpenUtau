@@ -528,7 +528,8 @@ namespace OpenUtau.Core.Render {
                         writer.Write(phone.hash);
                     }
                     if (postEffect) {
-                        foreach (var array in new float[][] { pitches, dynamics, gender, breathiness, toneShift, tension, voicing }) {
+                        // The trailing null preserves binary parity with legacy cache hashes
+                        foreach (var array in new float[][] { pitches, dynamics, gender, breathiness, toneShift, tension, voicing, null }) {
                             if (array == null) {
                                 writer.Write("null");
                             } else {
@@ -537,9 +538,9 @@ namespace OpenUtau.Core.Render {
                                 }
                             }
                         }
-                        foreach(var curve in curves) {
+                        foreach (var curve in curves) {
                             writer.Write(curve.Item1);
-                            foreach(var v in curve.Item2) {
+                            foreach (var v in curve.Item2) {
                                 writer.Write(v);
                             }
                         }
