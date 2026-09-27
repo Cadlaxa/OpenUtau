@@ -1,4 +1,4 @@
-version: 1.1.7
+version: 1.1.8
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -135,6 +135,7 @@ timings:
   - {symbol: "u -", value: 1.3}
   - {symbol: n, value: 1.6}
   - {symbol: ng, value: 1.6}
+  - {symbol: "3", value: 1.6}
 
 replacements:
   - {from: ["null", "consonants"], to: ["null", "-", "consonants"], where: all}
@@ -570,7 +571,7 @@ entries:
   - {grapheme: vn, phonemes: [v, n]}
   - {grapheme: wa, phonemes: [w, a]}
   - {grapheme: wai, phonemes: [w, ai]}
-  - {grapheme: wan, phonemes: [w, a, n]}
+  - {grapheme: wan, phonemes: [w, E, n]}
   - {grapheme: wang, phonemes: [w, a, ng]}
   - {grapheme: wei, phonemes: [w, ei]}
   - {grapheme: wen, phonemes: [w, "@", n]}
@@ -597,7 +598,7 @@ entries:
   - {grapheme: xve, phonemes: [x, yE]}
   - {grapheme: xvn, phonemes: [x, v, n]}
   - {grapheme: ya, phonemes: [y, a]}
-  - {grapheme: yan, phonemes: [y, a, n]}
+  - {grapheme: yan, phonemes: [y, E, n]}
   - {grapheme: yang, phonemes: [y, a, ng]}
   - {grapheme: yao, phonemes: [y, AU]}
   - {grapheme: ye, phonemes: [y, E]}
