@@ -1,6 +1,6 @@
 %YAML 1.2
 ---
-version: 1.7
+version: 1.7.1
 symbols:
   - {symbol: a, type: vowel}
   - {symbol: aa, type: vowel}
@@ -122,10 +122,11 @@ replacements:
 
 fallbacks:
   - {from: xe, to: ax}
-  - {from: ex, to: ah}
+  - {from: ex, to: ax}
   - {from: ooh, to: ow}
   - {from: o, to: ow}
   - {from: ww, to: u}
+  - {from: ii, to: ih}
 
 entries:
   - grapheme: a
