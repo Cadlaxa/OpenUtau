@@ -31,7 +31,7 @@ namespace OpenUtau.Core.Ustx {
                 renderer = Renderers.GetDefaultRenderer(track.Singer.SingerType);
             }
             if (renderer != Renderer?.ToString()) {
-                Renderer = Renderers.CreateRenderer(renderer);
+                Renderer = Renderers.GetOrCreate(renderer);
             }
             if (renderer == Renderers.CLASSIC) {
                 if (string.IsNullOrEmpty(resampler)) {
@@ -98,6 +98,8 @@ namespace OpenUtau.Core.Ustx {
         public double Pan { set; get; }
 
         public List<UExpressionDescriptor> TrackExpressions { get; set; } = new List<UExpressionDescriptor>();
+        /// <summary>The id of an expression graph overriding the project's default for this track's renderer.</summary>
+        public string? ExpressionGraph { get; set; }
         [YamlIgnore] public UExpressionDescriptor VoiceColorExp { set; get; }
         public string[] VoiceColorNames { get; set; } = new string[] { "" };
 
@@ -158,16 +160,20 @@ namespace OpenUtau.Core.Ustx {
             if (Singer != null && Singer.Found) {
                 Singer.EnsureLoaded();
             }
+            Pipeline.DocumentSnapshotStore.Inst.SetTrack(this);
             if (RendererSettings == null) {
                 RendererSettings = new URenderSettings();
             }
             RendererSettings.Validate(this);
             if (project.expressions.TryGetValue(Format.Ustx.CLR, out var descriptor)) {
                 if (VoiceColorExp == null && Singer != null && Singer.Found && Singer.Loaded) {
-                    VoiceColorExp = descriptor.Clone();
                     var colors = Singer.Subbanks.Select(subbank => subbank.Color).ToHashSet();
-                    VoiceColorExp.options = colors.OrderBy(c => c).ToArray();
-                    VoiceColorExp.max = VoiceColorExp.options.Length - 1;
+                    if (colors.Count > 0) {
+                        VoiceColorExp = descriptor.Clone();
+                        VoiceColorExp.options = colors.OrderBy(c => c).ToArray();
+                        VoiceColorExp.max = VoiceColorExp.options.Length - 1;
+                        VoiceColorExp.CustomDefaultValue = Math.Clamp(VoiceColorExp.CustomDefaultValue, VoiceColorExp.min, VoiceColorExp.max);
+                    }
                 }
             }
         }

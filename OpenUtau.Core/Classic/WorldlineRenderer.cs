@@ -77,14 +77,12 @@ namespace OpenUtau.Classic {
                 phrase.AddCacheFile(wavPath);
                 string progressInfo = $"Track {trackNo + 1}: {this} {string.Join(" ", phrase.phones.Select(p => p.phoneme))}";
                 progress.Complete(0, progressInfo);
-
-                lock (Renderers.GetCacheLock(wavPath)) {
+                var cacheLock = Renderers.GetCacheLock(wavPath);
+                lock (cacheLock) {
                     if (File.Exists(wavPath)) {
-                        try {
-                            using (var waveStream = Wave.OpenFile(wavPath)) {
-                                result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0));
-                            }
-                        } catch { }
+                        using (var waveStream = Wave.OpenFile(wavPath)) {
+                            result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0));
+                        }
                     }
                 }
 
@@ -92,31 +90,32 @@ namespace OpenUtau.Classic {
                     var phraseSynth = new Worldline.PhraseSynthV2(44100, version == 1 ? 441 : 512, 2048);
                     double posOffsetMs = phrase.positionMs - phrase.leadingMs;
                     foreach (var item in resamplerItems) {
-                        if (cancellation.IsCancellationRequested) {
-                            return result;
-                        }
                         double posMs = item.phone.positionMs - item.phone.leadingMs - (phrase.positionMs - phrase.leadingMs);
                         double skipMs = item.skipOver;
                         double lengthMs = item.phone.envelope[4].X - item.phone.envelope[0].X;
                         double fadeInMs = item.phone.envelope[1].X - item.phone.envelope[0].X;
                         double fadeOutMs = item.phone.envelope[4].X - item.phone.envelope[3].X;
-                        try {
-                            phraseSynth.AddRequest(item, posMs, skipMs, lengthMs, fadeInMs, fadeOutMs);
-                        } catch (SynthRequestError e) {
-                            if (e is CutOffExceedDurationError) {
-                                throw new MessageCustomizableException(
-                                    $"Failed to render\n Oto error: cutoff exceeds audio duration \n{item.phone.phoneme}",
-                                    $"<translate:errors.failed.synth.cutoffexceedduration>\n{item.phone.phoneme}",
-                                    e);
-                            }
-                            if (e is CutOffBeforeOffsetError) {
-                                throw new MessageCustomizableException(
-                                    $"Failed to render\n Oto error: cutoff before offset \n{item.phone.phoneme}",
-                                    $"<translate:errors.failed.synth.cutoffbeforeoffset>\n{item.phone.phoneme}",
-                                    e);
-                            }
-                            throw;
+                        phraseSynth.AddRequest(item, posMs, skipMs, lengthMs, fadeInMs, fadeOutMs);
+                    }
+                    try {
+                        phraseSynth.AnalyzeRequests(cancellation.Token);
+                    } catch (OperationCanceledException) {
+                        return result;
+                    } catch (SynthRequestError e) {
+                        string phoneme = e.Item?.phone.phoneme ?? string.Empty;
+                        if (e is CutOffExceedDurationError cee) {
+                            throw new MessageCustomizableException(
+                                $"Failed to render\n Oto error: cutoff exceeds audio duration \n{phoneme}",
+                                $"<translate:errors.failed.synth.cutoffexceedduration>\n{phoneme}",
+                                e);
                         }
+                        if (e is CutOffBeforeOffsetError cbe) {
+                            throw new MessageCustomizableException(
+                                $"Failed to render\n Oto error: cutoff before offset \n{phoneme}",
+                                $"<translate:errors.failed.synth.cutoffbeforeoffset>\n{phoneme}",
+                                e);
+                        }
+                        throw;
                     }
                     int frames = (int)Math.Ceiling(result.estimatedLengthMs / frameMs);
                     var f0 = SampleCurve(phrase, phrase.pitches, 0, frames, x => MusicMath.ToneToFreq(x * 0.01));
@@ -186,32 +185,19 @@ namespace OpenUtau.Classic {
                     }
                     AddDirects(phrase, resamplerItems, result);
                     if (result.samples != null) {
-                        var samplesCopy = (float[])result.samples.Clone();
-                        Task.Run(() => {
-                            try {
-                                lock (Renderers.GetCacheLock(wavPath)) {
-                                    var source = new WaveSource(0, 0, 0, 1);
-                                    source.SetSamples(samplesCopy);
-                                    WaveFileWriter.CreateWaveFile16(wavPath, new ExportAdapter(source).ToMono(1, 0));
-                                }
-                            } catch (Exception e) {
-                                Serilog.Log.Error(e, $"Failed to write cache file: {wavPath}");
+                        // Synchronous: a detached write races a subsequent cold re-render's read.
+                        try {
+                            lock (cacheLock) {
+                                Wave.WriteMono16Wav(wavPath, result.samples);
                             }
-                        });
+                        } catch (Exception e) {
+                            Serilog.Log.Error(e, $"Failed to write cache file: {wavPath}");
+                        }
                     }
                 }
                 progress.Complete(phrase.phones.Length, progressInfo);
                 if (result.samples != null) {
                     Renderers.ApplyDynamics(phrase, result);
-                    PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (
-                        trackNo, 
-                        phrase.positionMs - phrase.leadingMs, 
-                        result.samples, 
-                        DateTime.Now
-                    );
-                    Task.Factory.StartNew(() => {
-                        DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
-                    }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                 }
                 return result;
             });

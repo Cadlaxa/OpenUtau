@@ -8,7 +8,9 @@ namespace OpenUtau.Core.Ustx {
         Numerical = 0,
         Options = 1,
         Curve = 2,
-        MorphingCurve = 3,
+        /// <summary>A curve with no value over some stretches; only expression graphs read it.</summary>
+        MaskedCurve = 3,
+        MorphingCurve = 4,
     }
 
     /// <summary>

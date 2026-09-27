@@ -63,14 +63,14 @@ namespace OpenUtau.App.Views {
 
         public MainWindow() {
             Log.Information("Creating main window.");
-            InitializeComponent();
-            Log.Information("Initialized main window component.");
+            // Set before InitializeComponent, so bindings to the window's view model resolve on first evaluation.
             DataContext = viewModel = new MainWindowViewModel {
                 // give the viewmodel a way to prompt/save using the view's existing method
                 AskIfSaveAndContinue = AskIfSaveAndContinue
             };
+            InitializeComponent();
+            Log.Information("Initialized main window component.");
 
-            viewModel.NewProject();
             viewModel.AddTempoChangeCmd = ReactiveCommand.Create<int>(tick => AddTempoChange(tick));
             viewModel.DelTempoChangeCmd = ReactiveCommand.Create<int>(tick => DelTempoChange(tick));
             viewModel.AddTimeSigChangeCmd = ReactiveCommand.Create<int>(bar => AddTimeSigChange(bar));
@@ -144,6 +144,11 @@ namespace OpenUtau.App.Views {
             var dialog = new TypeInDialog();
             dialog.Title = "BPM";
             dialog.SetText(project.tempos[0].bpm.ToString());
+            dialog.TextBox.AddHandler(PointerWheelChangedEvent, (s, e) => {
+                if (double.TryParse(dialog.TextBox.Text, out double bpm)) {
+                    dialog.SetText(HandleBpmScroll(bpm, e).ToString());
+                }
+            });
             dialog.onFinish = s => {
                 if (double.TryParse(s, out double bpm)) {
                     viewModel.PlaybackViewModel.SetBpm(bpm);
@@ -154,12 +159,51 @@ namespace OpenUtau.App.Views {
             args.Pointer.Capture(null);
         }
 
+        void OnEditBpmScroll(object sender, PointerWheelEventArgs args) {
+            if (!viewModel.PlaybackViewModel.IsPlaying) viewModel.PlaybackViewModel.SetBpm(HandleBpmScroll(viewModel.PlaybackViewModel.Bpm, args));
+        }
+
+        private double HandleBpmScroll(double bpm, PointerWheelEventArgs args, int decimals = 2) {
+            var multiplier = 1f;
+
+            if (args.KeyModifiers != KeyModifiers.None) {
+                if (args.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
+                    multiplier *= 2f;
+                }
+
+                if (args.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+                    multiplier *= 0.1f;
+                } else if (args.KeyModifiers.HasFlag(KeyModifiers.Alt)) {
+                    multiplier *= 0.01f;
+                }
+            } else {
+                multiplier = 1f;
+            }
+
+            if (args.Delta.Y > 0) {
+                bpm += multiplier;
+            } else if (args.Delta.Y < 0) {
+                bpm -= multiplier;
+            }
+
+            if (decimals != -1) {
+                bpm = double.Round(bpm, decimals);
+            }
+
+            return bpm;
+        }
+        
         private void AddTempoChange(int tick) {
             var project = DocManager.Inst.Project;
             var dialog = new TypeInDialog {
                 Title = "BPM"
             };
             dialog.SetText(project.tempos[0].bpm.ToString());
+            dialog.TextBox.AddHandler(PointerWheelChangedEvent, (s, e) => {
+                if (double.TryParse(dialog.TextBox.Text, out double bpm)) {
+                    dialog.SetText(HandleBpmScroll(bpm, e).ToString());
+                }
+            });
             dialog.onFinish = s => {
                 if (double.TryParse(s, out double bpm)) {
                     DocManager.Inst.StartUndoGroup("command.project.tempo");
@@ -542,13 +586,7 @@ namespace OpenUtau.App.Views {
         void OnMenuRedo(object sender, RoutedEventArgs args) => viewModel.Redo();
 
         void OnMenuExpressionss(object sender, RoutedEventArgs args) {
-            var dialog = new ExpressionsDialog() {
-                DataContext = new ExpressionsViewModel(),
-            };
-            dialog.ShowDialog(this);
-            if (dialog.Position.Y < 0) {
-                dialog.Position = dialog.Position.WithY(0);
-            }
+            ExpressionsDialog.Open(this);
         }
 
         async void OnMenuSingers(object sender, RoutedEventArgs args) {
@@ -716,6 +754,16 @@ namespace OpenUtau.App.Views {
                 : WindowState.FullScreen;
         }
 
+        void OnMenuDawIntegration(object sender, RoutedEventArgs args) {
+            var dialog = new DawIntegrationDialog() {
+                DataContext = new DawIntegrationViewModel(),
+            };
+            dialog.ShowDialog(this);
+            if (dialog.Position.Y < 0) {
+                dialog.Position = dialog.Position.WithY(0);
+            }
+        }
+
         void OnMenuClearCache(object sender, RoutedEventArgs args) {
             Task.Run(() => {
                 DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, ThemeManager.GetString("progress.clearingcache")));
@@ -841,20 +889,16 @@ namespace OpenUtau.App.Views {
                 return;
             }
 
-            var tracksVm = viewModel.TracksViewModel;
+            GlobalHotkey(args);
+            if (viewModel.Page == 1) {
+                EditorHotkey(args);
+            }
+        }
 
+        private void GlobalHotkey(KeyEventArgs args) {
             if (args.KeyModifiers == KeyModifiers.None) {
                 args.Handled = true;
                 switch (args.Key) {
-                    case Key.Delete: viewModel.TracksViewModel.DeleteSelectedParts(); break;
-                    case Key.Space: PlayOrPause(); break;
-                    case Key.Home: viewModel.PlaybackViewModel.MovePlayPos(0); break;
-                    case Key.End:
-                        if (viewModel.TracksViewModel.Parts.Count > 0) {
-                            int endTick = viewModel.TracksViewModel.Parts.Max(part => part.End);
-                            viewModel.PlaybackViewModel.MovePlayPos(endTick);
-                        }
-                        break;
                     case Key.F11:
                         OnMenuFullScreen(this, new RoutedEventArgs());
                         break;
@@ -875,15 +919,44 @@ namespace OpenUtau.App.Views {
             } else if (args.KeyModifiers == cmdKey) {
                 args.Handled = true;
                 switch (args.Key) {
+                    case Key.N: NewProject(); break;
+                    case Key.O: Open(); break;
+                    default:
+                        args.Handled = false;
+                        break;
+                }
+            }
+        }
+
+        private void EditorHotkey(KeyEventArgs args) {
+            if (args.KeyModifiers == KeyModifiers.None) {
+                args.Handled = true;
+                switch (args.Key) {
+                    case Key.Delete: viewModel.TracksViewModel.DeleteSelectedParts(); break;
+                    case Key.Space: PlayOrPause(); break;
+                    case Key.Home: viewModel.PlaybackViewModel.MovePlayPos(0); break;
+                    case Key.End:
+                        if (viewModel.TracksViewModel.Parts.Count > 0) {
+                            int endTick = viewModel.TracksViewModel.Parts.Max(part => part.End);
+                            viewModel.PlaybackViewModel.MovePlayPos(endTick);
+                        }
+                        break;
+                    default:
+                        args.Handled = false;
+                        break;
+                }
+            } else if (args.KeyModifiers == cmdKey) {
+                args.Handled = true;
+                switch (args.Key) {
                     case Key.A: viewModel.TracksViewModel.SelectAllParts(); break;
                     case Key.N: NewProject(); break;
                     case Key.O: Open(); break;
                     case Key.S: _ = Save(); break;
                     case Key.Z: viewModel.Undo(); break;
                     case Key.Y: viewModel.Redo(); break;
-                    case Key.C: tracksVm.CopyParts(); break;
-                    case Key.X: tracksVm.CutParts(); break;
-                    case Key.V: tracksVm.PasteParts(); break;
+                    case Key.C: viewModel.TracksViewModel.CopyParts(); break;
+                    case Key.X: viewModel.TracksViewModel.CutParts(); break;
+                    case Key.V: viewModel.TracksViewModel.PasteParts(); break;
                     default:
                         args.Handled = false;
                         break;
@@ -949,7 +1022,7 @@ namespace OpenUtau.App.Views {
         async void OnDrop(object? sender, DragEventArgs args) {
             string[] ProjectExts = { ".ustx", ".ust", ".vsqx", ".ufdata", ".musicxml", ".mid", ".midi", ".svp" };
             string[] ArchiveExts = { ".zip", ".rar", ".uar" };
-            string[] AudioExts = { ".mp3", ".wav", ".ogg", ".flac" };
+            string[] AudioExts = { ".mp3", ".wav", ".ogg", ".flac", ".m4a" };
             string[] SupportedExts = ProjectExts
                 .Concat(ArchiveExts)
                 .Concat(AudioExts)
@@ -1286,13 +1359,20 @@ namespace OpenUtau.App.Views {
             }
         }
 
+        public void PartsCanvasPointerExited(object sender, PointerEventArgs args) {
+            // The hover cursor is set on the window; reset it when leaving the canvas from a part edge,
+            // otherwise it stays visible wherever nothing overrides it (e.g. around open popups).
+            if (partEditState == null) {
+                Cursor = null;
+            }
+        }
+
         public void PartsCanvasPointerReleased(object sender, PointerReleasedEventArgs args) {
             if (partEditState?.MouseButton != args.InitialPressMouseButton) {
                 return;
             }
             var control = (Control)sender;
             var point = args.GetCurrentPoint(control);
-            partEditState.Update(point.Pointer, point.Position);
             partEditState.End(point.Pointer, point.Position);
             partEditState = null;
             Cursor = null;

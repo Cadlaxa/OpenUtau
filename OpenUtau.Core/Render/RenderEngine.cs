@@ -16,6 +16,13 @@ namespace OpenUtau.Core.Render {
     public class Progress {
         readonly int total;
         int completed = 0;
+
+        Task pending = null;
+        double pendingProgress;
+        string pendingInfo = string.Empty;
+
+        internal bool DispatchInFlight => pending != null && !pending.IsCompleted;
+
         public Progress(int total) {
             this.total = total;
         }
@@ -30,9 +37,33 @@ namespace OpenUtau.Core.Render {
         }
 
         private void Notify(double progress, string info) {
-            var notif = new ProgressBarNotification(progress, info);
-            var task = new Task(() => DocManager.Inst.ExecuteCmd(notif));
-            task.Start(DocManager.Inst.MainScheduler);
+            lock (this) {
+                pendingProgress = progress;
+                pendingInfo = info;
+                if (pending == null || pending.IsCompleted) {
+                    StartPending();
+                }
+            }
+        }
+
+        private void StartPending() {
+            pending = new Task(Dispatch);
+            pending.Start(DocManager.Inst.MainScheduler ?? TaskScheduler.Default);
+        }
+
+        private void Dispatch() {
+            double progress;
+            string info;
+            lock (this) {
+                progress = pendingProgress;
+                info = pendingInfo;
+            }
+            DocManager.Inst.ExecuteCmd(new ProgressBarNotification(progress, info));
+            lock (this) {
+                if (progress != pendingProgress || info != pendingInfo) {
+                    StartPending();
+                }
+            }
         }
     }
 
@@ -41,8 +72,9 @@ namespace OpenUtau.Core.Render {
         public long timestamp;
         public int trackNo;
         public RenderPhrase[] phrases;
-        public WaveSource[] sources;
-        public WaveMix mix;
+        public double[] phraseOffsetMs;
+        public double[] phraseEstimatedLengthMs;
+        public int completedPhrases = 0;
     }
 
     class RenderEngine {
@@ -71,55 +103,63 @@ namespace OpenUtau.Core.Render {
             this.focusTick = focusTick;
         }
 
-        public Tuple<WaveMix, List<Fader>> RenderMixdown(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, bool wait = false) {
-            return RenderMixdown(uiScheduler, ref cancellation, wait, applyMixFx: true);
-        }
-
-        public Tuple<WaveMix, List<Fader>> RenderMixdown(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, bool wait, bool applyMixFx) {
+        public Tuple<WaveMix, List<Fader>> RenderMixdown(
+                TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, bool wait, bool applyMixFx, MixPlanner planner) {
             var newCancellation = new CancellationTokenSource();
             var oldCancellation = Interlocked.Exchange(ref cancellation, newCancellation);
             if (oldCancellation != null) {
                 oldCancellation.Cancel();
                 oldCancellation.Dispose();
-                
-                // Evict stale live preview waveforms to prevent visual stacking
-                if (trackNo != -1) {
-                    var keysToRemove = PlaybackManager.Inst.LiveWaveformCache
-                        .Where(kvp => kvp.Value.trackNo == trackNo)
-                        .Select(kvp => kvp.Key)
-                        .ToList();
-                    foreach (var k in keysToRemove) {
-                        PlaybackManager.Inst.LiveWaveformCache.TryRemove(k, out _);
-                    }
-                } else {
-                    PlaybackManager.Inst.LiveWaveformCache.Clear();
-                }
             }
             double startMs = project.timeAxis.TickPosToMsPos(startTick);
             double endMs = endTick == -1 ? double.PositiveInfinity : project.timeAxis.TickPosToMsPos(endTick);
             var faders = new List<Fader>();
             var trackOutputs = new List<ISignalSource>();
             var requests = PrepareRequests()
-                .Where(request => request.sources.Length > 0 && request.sources.Max(s => s.EndMs) > startMs && (double.IsPositiveInfinity(endMs) || request.sources.Min(s => s.offsetMs) < endMs))
+                .Where(request => request.phrases.Length > 0
+                    && request.phraseOffsetMs.Zip(request.phraseEstimatedLengthMs, (o, l) => o + l).Max() > startMs
+                    && (double.IsPositiveInfinity(endMs) || request.phraseOffsetMs.Min() < endMs))
                 .ToArray();
+
+            var specs = new List<MixPlanner.SlotSpec>();
+            foreach (var request in requests) {
+                for (int i = 0; i < request.phrases.Length; ++i) {
+                    specs.Add(new MixPlanner.SlotSpec(
+                        request.part, request.trackNo, request.phrases[i].hash,
+                        request.phraseOffsetMs[i], request.phraseEstimatedLengthMs[i], 1));
+                }
+            }
+            Dictionary<UWavePart, (double offsetMs, double estimatedLengthMs, int channels, float[] pcm)> waveTrims = null;
+            foreach (var part in project.parts.OfType<UWavePart>()) {
+                if (trackNo != -1 && part.trackNo != trackNo) {
+                    continue;
+                }
+                if (part.Samples == null) {
+                    continue;
+                }
+                var trim = part.GetTrimmedSamples(project);
+                if (waveTrims == null) {
+                    waveTrims = new Dictionary<UWavePart, (double offsetMs, double estimatedLengthMs, int channels, float[] pcm)>();
+                }
+                waveTrims[part] = trim;
+                specs.Add(new MixPlanner.SlotSpec(part, part.trackNo, 0, trim.offsetMs, trim.estimatedLengthMs, trim.channels));
+            }
+            planner.BeginSession(specs);
             for (int i = 0; i < project.tracks.Count; ++i) {
                 if (trackNo != -1 && trackNo != i) {
                     continue;
                 }
                 var track = project.tracks[i];
-                var trackRequests = requests
-                    .Where(req => req.trackNo == i)
-                    .ToArray();
-                var trackSources = trackRequests.Select(req => req.mix)
-                    .OfType<ISignalSource>()
-                    .ToList();
-                trackSources.AddRange(project.parts
-                    .Where(part => part is UWavePart && part.trackNo == i)
-                    .Select(part => part as UWavePart)
-                    .Where(part => part.Samples != null)
-                    .Select(part => part.TrimSamples(project)));
-                var trackMix = new WaveMix(trackSources);
-                var fader = new Fader(trackMix);
+                if (waveTrims != null) {
+                    foreach (var wave in waveTrims.Keys) {
+                        if (wave.trackNo != i) {
+                            continue;
+                        }
+                        var trim = waveTrims[wave];
+                        planner.RegisterWavePcm(wave, trim.offsetMs, trim.estimatedLengthMs, trim.channels, trim.pcm);
+                    }
+                }
+                var fader = new Fader(planner.GetTrackSource(i));
                 fader.Scale = PlaybackManager.DecibelToVolume(track.Muted ? -24 : track.Volume);
                 fader.Pan = (float)track.Pan;
                 fader.SetScaleToTarget();
@@ -131,7 +171,7 @@ namespace OpenUtau.Core.Render {
                 trackOutputs.Add(trackOut);
             }
             var task = Task.Run(() => {
-                RenderRequests(requests, newCancellation, playing: !wait);
+                RenderRequests(requests, newCancellation, playing: !wait, planner);
             });
             task.ContinueWith(task => {
                 if (task.IsFaulted && !wait) {
@@ -160,29 +200,27 @@ namespace OpenUtau.Core.Render {
             return Tuple.Create(resultMix, faders);
         }
 
-        public Tuple<MasterAdapter, List<Fader>> RenderProject(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation) {
-            double startMs = project.timeAxis.TickPosToMsPos(startTick);
-            double endMs = endTick == -1
-                ? double.PositiveInfinity
-                : project.timeAxis.TickPosToMsPos(endTick);
-            var renderMixdownResult = RenderMixdown(uiScheduler, ref cancellation, wait: false);
-            var master = new MasterAdapter(renderMixdownResult.Item1, endMs);
-            master.SetPosition((int)(startMs * 44100 / 1000) * 2);
-            return Tuple.Create(master, renderMixdownResult.Item2);
-        }
-
-        public List<WaveMix> RenderTracks(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation) {
+        public List<SlotMixSource> RenderTracks(TaskScheduler uiScheduler, ref CancellationTokenSource cancellation, MixPlanner planner) {
             var newCancellation = new CancellationTokenSource();
             var oldCancellation = Interlocked.Exchange(ref cancellation, newCancellation);
             if (oldCancellation != null) {
                 oldCancellation.Cancel();
                 oldCancellation.Dispose();
             }
-            var trackMixes = new List<WaveMix>();
+            var trackMixes = new List<SlotMixSource>();
             var requests = PrepareRequests();
             if (requests.Length == 0) {
                 return trackMixes;
             }
+            var specs = new List<MixPlanner.SlotSpec>();
+            foreach (var request in requests) {
+                for (int i = 0; i < request.phrases.Length; ++i) {
+                    specs.Add(new MixPlanner.SlotSpec(
+                        request.part, request.trackNo, request.phrases[i].hash,
+                        request.phraseOffsetMs[i], request.phraseEstimatedLengthMs[i], 1));
+                }
+            }
+            planner.BeginSession(specs);
             Enumerable.Range(0, requests.Max(req => req.trackNo) + 1)
                 .Select(trackNo => requests.Where(req => req.trackNo == trackNo).ToArray())
                 .ToList()
@@ -190,21 +228,19 @@ namespace OpenUtau.Core.Render {
                     if (trackRequests.Length == 0) {
                         trackMixes.Add(null);
                     } else {
-                        RenderRequests(trackRequests, newCancellation);
-                        var mix = new WaveMix(trackRequests.Select(req => req.mix).ToArray());
-                        trackMixes.Add(mix);
+                        RenderRequests(trackRequests, newCancellation, false, planner);
+                        trackMixes.Add(planner.GetTrackSource(trackRequests[0].trackNo));
                     }
                 });
             return trackMixes;
         }
 
-        public void PreRenderProject(ref CancellationTokenSource cancellation) {
+        public void PreRenderProject(ref CancellationTokenSource cancellation, MixPlanner planner) {
             var newCancellation = new CancellationTokenSource();
             var oldCancellation = Interlocked.Exchange(ref cancellation, newCancellation);
             if (oldCancellation != null) {
                 oldCancellation.Cancel();
                 oldCancellation.Dispose();
-                PlaybackManager.Inst.LiveWaveformCache.Clear();
             }
             Task.Run(() => {
                 try {
@@ -212,7 +248,7 @@ namespace OpenUtau.Core.Render {
                     if (newCancellation.Token.IsCancellationRequested) {
                         return;
                     }
-                    RenderRequests(PrepareRequests(), newCancellation);
+                    RenderRequests(PrepareRequests(), newCancellation, false, planner);
                 } catch (Exception e) {
                     if (!newCancellation.IsCancellationRequested) {
                         Log.Error(e, "Failed to pre-render.");
@@ -223,13 +259,20 @@ namespace OpenUtau.Core.Render {
         }
 
         private RenderPartRequest[] PrepareRequests() {
-            RenderPartRequest[] requests;
-            SingerManager.Inst.ReleaseSingersNotInUse(project);
+            UVoicePart[] parts;
             lock (project) {
-                requests = project.parts
+                parts = project.parts
                     .Where(part => part is UVoicePart && (trackNo == -1 || part.trackNo == trackNo))
                     .Where(part => !Preferences.Default.SkipRenderingMutedTracks || !project.tracks[part.trackNo].Muted)
                     .Select(part => part as UVoicePart)
+                    .ToArray();
+            }
+            foreach (var part in parts) {
+                part.WaitPhraseSource(TimeSpan.FromSeconds(10));
+            }
+            RenderPartRequest[] requests;
+            lock (project) {
+                requests = parts
                     .Select(part => part.GetRenderRequest())
                     .Where(request => request != null)
                     .ToArray();
@@ -240,15 +283,13 @@ namespace OpenUtau.Core.Render {
                         .Where(phrase => phrase.end > startTick && (endTick == -1 || phrase.position < endTick))
                         .ToArray();
                 }
-                request.sources = new WaveSource[request.phrases.Length];
+                request.phraseOffsetMs = new double[request.phrases.Length];
+                request.phraseEstimatedLengthMs = new double[request.phrases.Length];
                 for (var i = 0; i < request.phrases.Length; i++) {
-                    var phrase = request.phrases[i];
-                    var layout = phrase.renderer.Layout(phrase);
-                    double posMs = layout.positionMs - layout.leadingMs;
-                    double durMs = layout.estimatedLengthMs;
-                    request.sources[i] = new WaveSource(posMs, durMs, 0, 1);
+                    var layout = request.phrases[i].renderer.Layout(request.phrases[i]);
+                    request.phraseOffsetMs[i] = layout.positionMs - layout.leadingMs;
+                    request.phraseEstimatedLengthMs[i] = layout.estimatedLengthMs;
                 }
-                request.mix = new WaveMix(request.sources);
             }
             return requests;
         }
@@ -256,34 +297,37 @@ namespace OpenUtau.Core.Render {
         private void RenderRequests(
             RenderPartRequest[] requests,
             CancellationTokenSource cancellation,
-            bool playing = false) {
+            bool playing,
+            MixPlanner planner) {
             if (requests.Length == 0 || cancellation.IsCancellationRequested) {
                 return;
             }
-            var tuples = requests
-                .SelectMany(req => req.phrases
-                    .Zip(req.sources, (phrase, source) => (phrase, source, request: req)))
-                .ToArray();
-            if (tuples.Length == 0) {
+            var tuples = new List<(RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request)>();
+            foreach (var req in requests) {
+                for (int i = 0; i < req.phrases.Length; ++i) {
+                    tuples.Add((req.phrases[i], req.phraseOffsetMs[i], req.phraseEstimatedLengthMs[i], req));
+                }
+            }
+            var tupleArray = tuples.ToArray();
+            if (tupleArray.Length == 0) {
                 return;
             }
             if (playing) {
-                tuples = OrderForPlayback(tuples);
+                tupleArray = OrderForPlayback(tupleArray);
             } else if (focusPart != null || focusTick >= 0) {
-                tuples = OrderForPreRender(tuples);
+                tupleArray = OrderForPreRender(tupleArray);
             }
-            var progress = new Progress(tuples.Sum(t => t.Item1.phones.Length));
+            var progress = new Progress(tupleArray.Sum(t => t.phrase.phones.Length));
             bool maintainCoverage = startTick == 0 && endTick == -1;
             var coverageRanges = maintainCoverage
                 ? new Dictionary<UVoicePart, List<(int start, int end)>>()
                 : null;
 
-            foreach (var tuple in tuples) {
+            foreach (var tuple in tupleArray) {
                 if (cancellation.IsCancellationRequested) {
                     break;
                 }
                 var phrase = tuple.phrase;
-                var source = tuple.source;
                 var request = tuple.request;
                 RealCurveUpdate[]? publishedUpdates = null;
                 var renderEvents = phrase.renderer.SupportsRealCurve
@@ -298,23 +342,23 @@ namespace OpenUtau.Core.Render {
                     phrase.renderSalt = 0;
                     var task = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true, renderEvents);
                     task.Wait();
-                    if (cancellation.IsCancellationRequested) break;
-                    source.SetSamples(task.Result.samples);
+                    if (cancellation.IsCancellationRequested) {
+                        break;
+                    }
+                    planner.RegisterPcm(request.part, phrase.hash, tuple.offsetMs, tuple.estimatedLengthMs, 1, task.Result.samples);
                 } else {
                     string morphKey = $"{phrase.hash:x16}|" +
                         string.Join(",", morphTracks.Select(t => $"{t.TargetColor}:{t.Flag}:{t.Abbr}"));
 
                     if (!MorphBlendCache.TryGetValue(morphKey, out var blended)) {
-                        ulong passASalt = 0x0101010101010101UL;
-                        phrase.renderSalt = passASalt;
+                        phrase.renderSalt = 0;
                         var taskA = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true, renderEvents);
                         taskA.Wait();
-                        phrase.renderSalt = 0;
-                        if (cancellation.IsCancellationRequested) break;
+                        if (cancellation.IsCancellationRequested) {
+                            break;
+                        }
                         float[] samplesA = taskA.Result.samples;
-
                         if (samplesA == null || samplesA.Length == 0) {
-                            source.SetSamples(samplesA);
                             continue;
                         }
 
@@ -384,6 +428,11 @@ namespace OpenUtau.Core.Render {
                                     tempAuxCacheFiles.Add(Path.Join(PathManager.Inst.CachePath, $"wdl-v2-{saltedHash:x16}.wav"));
                                     tempAuxCacheFiles.Add(Path.Join(PathManager.Inst.CachePath, $"cat-{saltedHash:x16}.wav"));
 
+                                    foreach (var phone in phrase.phones) {
+                                        var item = new ResamplerItem(phrase, phone);
+                                        tempAuxCacheFiles.Add(item.outputFile);
+                                    }
+
                                     var taskB = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true);
                                     taskB.Wait();
                                     samplesB = taskB.Result.samples;
@@ -438,7 +487,6 @@ namespace OpenUtau.Core.Render {
                                     totalWeight += weight;
                                 }
 
-                                // Clamp total combined weight to 100% to prevent amplitude swelling
                                 if (totalWeight > 100f) {
                                     float scale = 100f / totalWeight;
                                     for (int t = 0; t < morphTracks.Count; t++) {
@@ -449,7 +497,6 @@ namespace OpenUtau.Core.Render {
 
                             blended = CrossSynthDSP.MorphN(samplesA, colorAudios, colorCurves);
 
-                            // Force blended buffer length to match samples
                             if (blended.Length != targetLength) {
                                 Array.Resize(ref blended, targetLength);
                             }
@@ -458,21 +505,6 @@ namespace OpenUtau.Core.Render {
                                 MorphBlendCache.Clear();
                             }
                             MorphBlendCache[morphKey] = blended;
-
-                            PlaybackManager.Inst.LiveWaveformCache[originalPhraseHash.ToString()] = (
-                                request.trackNo,
-                                phrase.positionMs - phrase.leadingMs,
-                                blended,
-                                DateTime.Now
-                            );
-                            Task.Factory.StartNew(() => {
-                                DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
-                            }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
-
-                            for (int t = 0; t < morphTracks.Count; t++) {
-                                ulong salt = (ulong)(t + 1) * 0x5858585858585858UL;
-                                PlaybackManager.Inst.LiveWaveformCache.TryRemove((originalPhraseHash ^ salt).ToString(), out _);
-                            }
                         } finally {
                             if (Preferences.Default.AutoDeleteMorphCache) {
                                 Task.Run(() => {
@@ -483,17 +515,18 @@ namespace OpenUtau.Core.Render {
                             }
                         }
                     }
-                    source.SetSamples(blended);
+                    planner.RegisterPcm(request.part, phrase.hash, tuple.offsetMs, tuple.estimatedLengthMs, 1, blended);
                 }
 
+                WaveformRefresh.Request();
                 if (publishedUpdates == null) {
                     publishedUpdates = PublishRealCurveUpdates(request.part, phrase);
                 }
                 if (coverageRanges != null && publishedUpdates != null) {
                     AccumulateCoverage(coverageRanges, request.part, publishedUpdates);
                 }
-                if (request.sources.All(s => s.HasSamples)) {
-                    request.part.SetMix(request.mix);
+                if (++request.completedPhrases == request.phrases.Length) {
+                    planner.MarkPartComplete(request.part, request.phrases.Select(p => p.hash));
                     if (coverageRanges != null &&
                         phrase.renderer.SupportsRealCurve &&
                         coverageRanges.TryGetValue(request.part, out var ranges) &&
@@ -504,6 +537,7 @@ namespace OpenUtau.Core.Render {
                 }
             }
             progress.Clear();
+            DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
         }
 
         private List<ActiveMorphTrack> GetActiveMorphTracks(RenderPhrase phrase, UVoicePart part, int trackNo) {
@@ -524,7 +558,6 @@ namespace OpenUtau.Core.Render {
                 project.expressions.TryGetValue(abbr, out var exp);
                 string matchedColor = null;
 
-                // Voice Color Matching (cl01..N or using MorphingCurves)
                 if (abbr.StartsWith("cl", StringComparison.OrdinalIgnoreCase) && int.TryParse(abbr.Substring(2), out int idx)) {
                     if (idx > 0 && idx <= uniqueColors.Count) {
                         matchedColor = uniqueColors[idx - 1];
@@ -546,7 +579,6 @@ namespace OpenUtau.Core.Render {
                     continue;
                 }
 
-                // Morphing Flag Curves (ONLY if explicitly configured as MorphingCurve)
                 if (exp != null && exp.type == UExpressionType.MorphingCurve && (exp.isFlag || !string.IsNullOrEmpty(exp.flag))) {
                     string flagBase = string.IsNullOrEmpty(exp.flag) ? exp.abbr : exp.flag;
                     float defVal = exp.defaultValue;
@@ -720,22 +752,22 @@ namespace OpenUtau.Core.Render {
             }
         }
 
-        private (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] OrderForPlayback(
-            (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] tuples) {
+        private (RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request)[] OrderForPlayback(
+            (RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request)[] tuples) {
             double playbackStartMs = project.timeAxis.TickPosToMsPos(startTick);
             return tuples
                 .Select((tuple, index) => (tuple, index))
                 .OrderBy(item => RenderPriority.PlaybackBucket(
-                    item.tuple.source.offsetMs, item.tuple.source.EndMs, playbackStartMs))
+                    item.tuple.offsetMs, item.tuple.offsetMs + item.tuple.estimatedLengthMs, playbackStartMs))
                 .ThenBy(item => RenderPriority.PlaybackDistance(
-                    item.tuple.source.offsetMs, item.tuple.source.EndMs, playbackStartMs))
+                    item.tuple.offsetMs, item.tuple.offsetMs + item.tuple.estimatedLengthMs, playbackStartMs))
                 .ThenBy(item => item.index)
                 .Select(item => item.tuple)
                 .ToArray();
         }
 
-        private (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] OrderForPreRender(
-            (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] tuples) {
+        private (RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request)[] OrderForPreRender(
+            (RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request)[] tuples) {
             return tuples
                 .Select((tuple, index) => (tuple, index))
                 .OrderBy(item => PreRenderAttentionBucket(item.tuple))
@@ -746,7 +778,7 @@ namespace OpenUtau.Core.Render {
         }
 
         private int PreRenderAttentionBucket(
-            (RenderPhrase phrase, WaveSource source, RenderPartRequest request) tuple) {
+            (RenderPhrase phrase, double offsetMs, double estimatedLengthMs, RenderPartRequest request) tuple) {
             bool isPriorityPart = focusPart != null && ReferenceEquals(tuple.request.part, focusPart);
             bool overlapsPriority = focusTick >= 0 &&
                 tuple.phrase.position <= focusTick &&

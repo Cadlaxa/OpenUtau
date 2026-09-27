@@ -47,6 +47,8 @@ namespace OpenUtau.Core.DiffSinger {
 
         public bool SupportsRealCurve => true;
 
+        public bool SupportsPhonemeEnvelope => false;
+
         public bool IsVoiceColorCurve(string abbr, out int subBankId) {
             subBankId = 0;
             if (abbr.StartsWith(VoiceColorHeader) && int.TryParse(abbr.Substring(2), out subBankId)) {;
@@ -88,6 +90,15 @@ namespace OpenUtau.Core.DiffSinger {
             return (DiffSingerUtils.GetHeadMs(frameMs), DiffSingerUtils.GetTailMs(frameMs));
         }
 
+        /// <summary>
+        /// Merging is opt-in (piano roll toggle): it changes how the model sees
+        /// a passage, so it stays off unless the user enables it.
+        /// </summary>
+        public bool ShouldMergePhrases(UProject project, UTrack track, UPhoneme prev, UPhoneme next) {
+            return Preferences.Default.DiffSingerMergeNearbyPhrases
+                && IRenderer.GapOverlapsPadding(this, track, prev, next);
+        }
+
         public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender, RenderPhraseEvents? renderEvents = null) {
             var task = Task.Run(() => {
                 lock (lockObj) {
@@ -125,17 +136,11 @@ namespace OpenUtau.Core.DiffSinger {
                     if (result.samples == null) {
                         result.samples = InvokeDiffsinger(phrase, depth, steps, cancellation, renderEvents);
                         if (result.samples != null) {
-                            var source = new WaveSource(0, 0, 0, 1);
-                            source.SetSamples(result.samples);
-                            WaveFileWriter.CreateWaveFile16(wavPath, new ExportAdapter(source).ToMono(1, 0));
+                            Wave.WriteMono16Wav(wavPath, result.samples);
                         }
                     }
                     if (result.samples != null) {
                         Renderers.ApplyDynamics(phrase, result);
-                        PlaybackManager.Inst.LiveWaveformCache[phrase.hash.ToString()] = (trackNo, phrase.positionMs - phrase.leadingMs, result.samples, DateTime.Now);
-                        Task.Factory.StartNew(() => {
-                            DocManager.Inst.ExecuteCmd(new WaveformReadyNotification());
-                        }, CancellationToken.None, TaskCreationOptions.None, DocManager.Inst.MainScheduler);
                     }
                     progress.Complete(phrase.phones.Length, progressInfo);
                     return result;
@@ -539,24 +544,20 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         public RenderPitchResult LoadRenderedPitch(RenderPhrase phrase, HashSet<int> selectedNotePositions) {
-            return LoadRenderedPitch(phrase, selectedNotePositions, pitchSteps: null, fastRealtime: false, forceLocalRetake: false);
+            return LoadRenderedPitch(phrase, selectedNotePositions, pitchSteps: null, fastRealtime: false);
         }
 
         /// <summary>Live pitch: partial retake for changed notes with fast sampling settings.</summary>
         internal RenderPitchResult LoadRenderedPitchLive(
             RenderPhrase phrase, HashSet<int> selectedNotePositions, double pitchSteps, bool fastRealtime) {
-            return LoadRenderedPitch(phrase, selectedNotePositions, pitchSteps, fastRealtime, forceLocalRetake: true);
+            return LoadRenderedPitch(phrase, selectedNotePositions, pitchSteps, fastRealtime);
         }
 
         RenderPitchResult LoadRenderedPitch(
             RenderPhrase phrase,
             HashSet<int> selectedNotePositions,
             double? pitchSteps,
-            bool fastRealtime,
-            bool forceLocalRetake) {
-            if (!forceLocalRetake && !Preferences.Default.DiffSingerLocalRetaking) {
-                return LoadRenderedPitch(phrase, pitchSteps, fastRealtime);
-            }
+            bool fastRealtime) {
             DiffSingerSinger singer = (DiffSingerSinger) phrase.singer;
             if (!singer.HasPitchPredictor) {
                 throw new Exception("This singer has no pitch predictor.");
