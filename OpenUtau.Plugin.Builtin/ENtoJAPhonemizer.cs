@@ -393,8 +393,8 @@ namespace OpenUtau.Plugin.Builtin {
                 case false:
                     if (HasOto(TryVcv(prevV, hiraganaCv, syllable.vowelTone), syllable.vowelTone) || HasOto(ValidateAlias(TryVcv(prevV, hiraganaCv, syllable.vowelTone), syllable.vowelTone), syllable.vowelTone)) {
                         hiraganaCv = TryVcv(prevV, hiraganaCv, syllable.vowelTone);
-                    } else if (HasOto(TryVcv(prevV, cv, syllable.vowelTone), syllable.vowelTone) || HasOto(ValidateAlias(TryVcv(prevV, cv, syllable.vowelTone), syllable.vowelTone), syllable.vowelTone)) {
-                        hiraganaCv = TryVcv(prevV, cv, syllable.vowelTone);
+                    } else if (HasOto(FixCv(hiraganaCv, syllable.vowelTone), syllable.vowelTone) || HasOto(ValidateAlias(FixCv(hiraganaCv, syllable.vowelTone), syllable.vowelTone), syllable.vowelTone)) {
+                        hiraganaCv = FixCv(hiraganaCv, syllable.vowelTone);
                     } else if ((HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone))
                     || (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone))) {
                         hiraganaCv = FixCv(AliasFormat($"{finalCons} {v}", "dynMid", syllable.vowelTone, ""), syllable.vowelTone);
@@ -402,16 +402,16 @@ namespace OpenUtau.Plugin.Builtin {
                         hiraganaCv = FixCv(hiraganaCv, syllable.vowelTone);
                     }
                     break;
-                case true when (HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone))
-                    || (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)):
-                    usingVC = true;
-                    hiraganaCv = FixCv(AliasFormat($"{finalCons} {v}", "dynMid", syllable.vowelTone, ""), syllable.vowelTone);
-                    break;
                 default:
                     usingVC = true;
                     var tryVcv = TryVcv(prevV, hiraganaCv, syllable.vowelTone);
                     if (HasOto(tryVcv, syllable.vowelTone) || HasOto(ValidateAlias(tryVcv, syllable.vowelTone), syllable.vowelTone)) {
                         hiraganaCv = tryVcv;
+                    } else if (HasOto(FixCv(hiraganaCv, syllable.vowelTone), syllable.vowelTone) || HasOto(ValidateAlias(FixCv(hiraganaCv, syllable.vowelTone), syllable.vowelTone), syllable.vowelTone)) {
+                        hiraganaCv = FixCv(hiraganaCv, syllable.vowelTone);
+                    } else if ((HasOto(crv, syllable.vowelTone) || HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone))
+                    || (HasOto(cv, syllable.vowelTone) || HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone))) {
+                        hiraganaCv = FixCv(AliasFormat($"{finalCons} {v}", "dynMid", syllable.vowelTone, ""), syllable.vowelTone);
                     } else {
                         hiraganaCv = FixCv(hiraganaCv, syllable.vowelTone);
                     }
@@ -420,6 +420,7 @@ namespace OpenUtau.Plugin.Builtin {
 
             var split = false;
             bool isStart = string.IsNullOrEmpty(syllable.prevV) || prevV == "-";
+            string finalAlias = null;
 
             if (isStart && cc.Length <= 1) {
                 var dashCv = $"- {hiraganaCv}";
@@ -427,26 +428,46 @@ namespace OpenUtau.Plugin.Builtin {
                 var dashRomaji = $"- {cv}";
                 var dashRomajiNoSpace = $"-{cv}";
 
-                if (HasOto(dashCv, syllable.vowelTone)) { hiraganaCv = dashCv; }
-                else if (HasOto(ValidateAlias(dashCv, syllable.vowelTone), syllable.vowelTone)) { hiraganaCv = ValidateAlias(dashCv, syllable.vowelTone); }
-                else if (HasOto(dashCvNoSpace, syllable.vowelTone)) { hiraganaCv = dashCvNoSpace; }
-                else if (HasOto(ValidateAlias(dashCvNoSpace, syllable.vowelTone), syllable.vowelTone)) { hiraganaCv = ValidateAlias(dashCvNoSpace, syllable.vowelTone); }
-                else if (HasOto(dashRomaji, syllable.vowelTone)) { hiraganaCv = dashRomaji; }
-                else if (HasOto(ValidateAlias(dashRomaji, syllable.vowelTone), syllable.vowelTone)) { hiraganaCv = ValidateAlias(dashRomaji, syllable.vowelTone); }
-                else if (HasOto(dashRomajiNoSpace, syllable.vowelTone)) { hiraganaCv = dashRomajiNoSpace; }
-                else if (HasOto(ValidateAlias(dashRomajiNoSpace, syllable.vowelTone), syllable.vowelTone)) { hiraganaCv = ValidateAlias(dashRomajiNoSpace, syllable.vowelTone); }
-            }
-
-            string finalAlias = null;
-            if (HasOto(hiraganaCv, syllable.vowelTone)) { finalAlias = hiraganaCv; }
-            else if (HasOto(ValidateAlias(hiraganaCv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(hiraganaCv, syllable.vowelTone); }
-            else {
-                var dashCv = $"- {hiraganaCv}";
-                var dashCvNoSpace = $"-{hiraganaCv}";
+                // PRIORITY 1: Kana with Dash
                 if (HasOto(dashCv, syllable.vowelTone)) { finalAlias = dashCv; }
                 else if (HasOto(ValidateAlias(dashCv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashCv, syllable.vowelTone); }
                 else if (HasOto(dashCvNoSpace, syllable.vowelTone)) { finalAlias = dashCvNoSpace; }
                 else if (HasOto(ValidateAlias(dashCvNoSpace, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashCvNoSpace, syllable.vowelTone); }
+                
+                // PRIORITY 2: Base Kana (No Dash)
+                else if (HasOto(hiraganaCv, syllable.vowelTone)) { finalAlias = hiraganaCv; }
+                else if (HasOto(ValidateAlias(hiraganaCv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(hiraganaCv, syllable.vowelTone); }
+                
+                // PRIORITY 3: Romaji with Dash
+                else if (HasOto(dashRomaji, syllable.vowelTone)) { finalAlias = dashRomaji; }
+                else if (HasOto(ValidateAlias(dashRomaji, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashRomaji, syllable.vowelTone); }
+                else if (HasOto(dashRomajiNoSpace, syllable.vowelTone)) { finalAlias = dashRomajiNoSpace; }
+                else if (HasOto(ValidateAlias(dashRomajiNoSpace, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashRomajiNoSpace, syllable.vowelTone); }
+                
+                // PRIORITY 4: Base Romaji (No Dash)
+                else if (HasOto(cv, syllable.vowelTone)) { finalAlias = cv; }
+                else if (HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(cv, syllable.vowelTone); }
+                
+                // PRIORITY 5: Complex Romaji Fallback (crv like "ky o")
+                else if (HasOto(crv, syllable.vowelTone)) { finalAlias = crv; }
+                else if (HasOto(ValidateAlias(crv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(crv, syllable.vowelTone); }
+
+            } else {
+                // Non-start behavior (Mid-phrase syllables)
+                if (HasOto(hiraganaCv, syllable.vowelTone)) { finalAlias = hiraganaCv; }
+                else if (HasOto(ValidateAlias(hiraganaCv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(hiraganaCv, syllable.vowelTone); }
+                else {
+                    var dashCv = $"- {hiraganaCv}";
+                    var dashCvNoSpace = $"-{hiraganaCv}";
+                    if (HasOto(dashCv, syllable.vowelTone)) { finalAlias = dashCv; }
+                    else if (HasOto(ValidateAlias(dashCv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashCv, syllable.vowelTone); }
+                    else if (HasOto(dashCvNoSpace, syllable.vowelTone)) { finalAlias = dashCvNoSpace; }
+                    else if (HasOto(ValidateAlias(dashCvNoSpace, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(dashCvNoSpace, syllable.vowelTone); }
+                    
+                    // Final rescue fallback to Romaji for mid-phrase notes
+                    else if (HasOto(cv, syllable.vowelTone)) { finalAlias = cv; }
+                    else if (HasOto(ValidateAlias(cv, syllable.vowelTone), syllable.vowelTone)) { finalAlias = ValidateAlias(cv, syllable.vowelTone); }
+                }
             }
 
             if (finalAlias != null) {
