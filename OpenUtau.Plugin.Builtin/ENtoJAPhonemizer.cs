@@ -27,7 +27,7 @@ namespace OpenUtau.Plugin.Builtin {
         protected override string[] GetConsonants() => consonants;
         protected override string GetDictionaryName() => "";
         protected override bool EnablePhonemeTokenization => true;
-
+        public Dictionary<string, bool> TransitionalClusterSettings = new Dictionary<string, bool>();
         public Dictionary<string, List<string>> WanaKanaDictionary = new Dictionary<string, List<string>>();
 
         protected override IG2p[] GetBaseG2ps() {
@@ -36,6 +36,7 @@ namespace OpenUtau.Plugin.Builtin {
 
         public class ChildYAMLData: YAMLData {
             public WanaKanaData[] wanakana { get; set; } = Array.Empty<WanaKanaData>();
+            public TransitionalClusterData[] transitionalclusters { get; set; } = Array.Empty<TransitionalClusterData>();
         }
 
         public class WanaKanaData {
@@ -59,6 +60,11 @@ namespace OpenUtau.Plugin.Builtin {
             }
         }
 
+        public class TransitionalClusterData {
+            public string symbol { get; set; }
+            public bool value { get; set; } = true;
+        }
+
         public override void SetSinger(USinger singer) {
             base.SetSinger(singer);
 
@@ -78,26 +84,34 @@ namespace OpenUtau.Plugin.Builtin {
                         var data = Core.Yaml.DefaultDeserializer.Deserialize<ChildYAMLData>(File.ReadAllText(file));
 
                         if (data?.wanakana != null) {
-                            foreach (var entry in data.wanakana) {
+                            // Reverse the array so when we Insert(0), the top of the YAML stays at the top of the final list
+                            foreach (var entry in data.wanakana.Reverse()) {
                                 string key = string.Join("", entry.FromList);
                                 string value = string.Join(" ", entry.ToList);
 
                                 if (!WanaKanaDictionary.ContainsKey(key)) {
                                     WanaKanaDictionary.Add(key, new List<string>());
                                 }
-                                
+                                // Prepends the Kana value to the very top of the priority list
                                 if (!WanaKanaDictionary[key].Contains(value)) {
-                                    WanaKanaDictionary[key].Add(value); 
+                                    WanaKanaDictionary[key].Insert(0, value); 
                                 }
-                                
-                                // Add the romaji (key) as a fallback at the very end of the candidates
+                                // Keeps the Romaji (key) as a fallback at the very end of the candidates
                                 if (!WanaKanaDictionary[key].Contains(key)) {
                                     WanaKanaDictionary[key].Add(key); 
                                 }
                             }
                         }
+                        TransitionalClusterSettings.Clear();
+                        if (data?.transitionalclusters != null) {
+                            foreach (var tc in data.transitionalclusters) {
+                                if (!string.IsNullOrEmpty(tc.symbol)) {
+                                    TransitionalClusterSettings[tc.symbol] = tc.value;
+                                }
+                            }
+                        }
                     } catch (Exception ex) {
-                        Log.Error($"Failed to parse wanakana from {file}: {ex.Message}");
+                        Log.Error($"Failed to parse yaml data from {file}: {ex.Message}");
                     }
                 }
             }
@@ -151,6 +165,13 @@ namespace OpenUtau.Plugin.Builtin {
             {"mye", new [] { "mi", "e" } }, {"ye", new [] { "i", "e" } }, {"rye", new [] { "ri", "e" } },
             {"wi", new [] { "u", "i" } }, {"we", new [] { "u", "e" } }, {"ulo", new [] { "u", "o" } },
         };
+
+        private bool IsTransitionalCEnabled(string symbol) {
+            if (TransitionalClusterSettings.TryGetValue(symbol, out bool isEnabled)) {
+                return isEnabled;
+            }
+            return true;
+        }
 
         protected override List<string> ProcessSyllable(Syllable syllable) {
             string prevV = string.IsNullOrEmpty(syllable.prevV) ? "" : ReplacePhoneme(syllable.prevV, syllable.tone);
@@ -282,7 +303,10 @@ namespace OpenUtau.Plugin.Builtin {
                     // Singular C Handling
                     bool isStop = stop != null && stop.Contains(cc[i]);
                     bool hasRomanC = HasOto(cc[i], syllable.tone) || HasOto(ValidateAlias(cc[i], syllable.tone), syllable.tone);
-
+                    bool isTransitionEnabled = true;
+                    if (cc.Length == 2) {
+                        isTransitionEnabled = IsTransitionalCEnabled(cc[i]);
+                    }
                     // Skip the stop ONLY if a VC already absorbed it (usingVC && i == start) in a <= 2 CC cluster
                     if (isStop && usingVC && i == start && cc.Length <= 2 && !hasRomanC) {
                         continue;
@@ -306,7 +330,7 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                         }
 
-                        if (selectedPhoneme != null) {
+                        if (selectedPhoneme != null && isTransitionEnabled) {
                             TryAddPhoneme(phonemes, syllable.tone, selectedPhoneme);
                             prevV = WanaKana.ToRomaji(selectedPhoneme).Last<char>().ToString();
                         }
@@ -336,7 +360,7 @@ namespace OpenUtau.Plugin.Builtin {
                             }
                         }
 
-                        if (selectedPhoneme != null) {
+                        if (selectedPhoneme != null && isTransitionEnabled) {
                             TryAddPhoneme(phonemes, syllable.tone, selectedPhoneme);
                             prevV = WanaKana.ToRomaji(selectedPhoneme).Last<char>().ToString();
                         }
@@ -345,7 +369,7 @@ namespace OpenUtau.Plugin.Builtin {
                         continue;
                     }
                     // Only fall back to Kana / CV representations if Roman standalone C doesn't exist in OTO
-                    else {
+                    else if (isTransitionEnabled) {
                         var hiraganaCC = ToHiragana(cc[i], syllable.tone);
                         var hiraganaVcv = TryVcv(prevV, hiraganaCC, syllable.tone);
 
