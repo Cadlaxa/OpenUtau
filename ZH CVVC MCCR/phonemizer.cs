@@ -17,7 +17,7 @@ namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("MCCR Mandarin Chinese Phonemizer", "ZH CVVC", "Cadlaxa", language: "ZH")]
     public class MandarinPhonemizer : SyllableBasedPhonemizer {
         protected override string YamlFileName => "zh-cvvc-mccr.yaml";
-        protected override string YamlVersion => "1.1.8";
+        protected override string YamlVersion => "1.1.9";
         protected override byte[] YamlTemplate => ZH_CVVC_MCCR.data.Resources.template;
         public MandarinPhonemizer() {
             this.vowels = Array.Empty<string>();
@@ -395,9 +395,14 @@ namespace OpenUtau.Plugin.Builtin {
                 for (int len = cc[i + 1].Length; len > 0; len--) {
                     string c = cc[i + 1].Substring(0, len);   // shr → sh → s
                     string ccTry = $"{cc[i]} {c}";
+                    string ccTry1 = $"{cc[i]}{c}";
+
 
                     if (HasOto(ccTry, syllable.tone) && !(HasOto(cc1, syllable.tone) || HasOto(ValidateAlias(cc1, syllable.tone), syllable.tone))) {
                         cc1 = ccTry;
+                        break;
+                    } else {
+                        cc1 = ccTry1;
                         break;
                     }
                 }
@@ -458,8 +463,12 @@ namespace OpenUtau.Plugin.Builtin {
                         basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
                     }
                     // [C1 C2C3]
-                    if ((HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone))) {
+                    if (HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone)) {
                         cc1 = $"{cc[i]} {string.Join("", cc.Skip(i + 1))}";
+                        lastC = i;
+                    }
+                    if (HasOto($"{cc[i]}{string.Join("", cc.Skip(i + 1))}", syllable.tone)) {
+                        cc1 = $"{cc[i]}{string.Join("", cc.Skip(i + 1))}";
                         lastC = i;
                     }
                     if (canGlide) {
@@ -539,8 +548,13 @@ namespace OpenUtau.Plugin.Builtin {
                             basePhoneme = AliasFormat($"{cc.Last()} {v}", "dynMid", syllable.vowelTone, "");
                         }
                         // [C1 C2C3]
-                        if ((HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone))) {
+                        if (HasOto($"{cc[i]} {string.Join("", cc.Skip(i + 1))}", syllable.tone)) {
                             cc1 = $"{cc[i]} {string.Join("", cc.Skip(i + 1))}";
+                            lastC = i;
+                        }
+                        if (HasOto($"{cc[i]}{string.Join("", cc.Skip(i + 1))}", syllable.tone)) {
+                            cc1 = $"{cc[i]}{string.Join("", cc.Skip(i + 1))}";
+                            lastC = i;
                         }
                         if (canGlide) {
                             if (liquid.Contains(cc[i + 1]) || semivowel.Contains(cc[i + 1])

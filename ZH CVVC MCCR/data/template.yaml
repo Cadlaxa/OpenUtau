@@ -1,4 +1,4 @@
-version: 1.1.8
+version: 1.1.9
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -113,6 +113,7 @@ fallbacks:
   - {from: VV, to: v}
   - {from: Ei, to: i}
   - {from: R, to: "-"}
+  - {from: "hUU", to: "hu"}
   
 timings:
   # glide timings
@@ -138,7 +139,7 @@ timings:
   - {symbol: "3", value: 1.6}
 
 replacements:
-  - {from: ["null", "consonants"], to: ["null", "-", "consonants"], where: all}
+  - {from: ["null", "consonants", "consonants"], to: ["null", "-", "consonants", "consonants"], where: all}
   - {from: a, to: a}
   - {from: ai, to: [a, II]}
   - {from: an, to: [a, n]}
@@ -571,7 +572,7 @@ entries:
   - {grapheme: vn, phonemes: [v, n]}
   - {grapheme: wa, phonemes: [w, a]}
   - {grapheme: wai, phonemes: [w, ai]}
-  - {grapheme: wan, phonemes: [w, E, n]}
+  - {grapheme: wan, phonemes: [w, a, n]}
   - {grapheme: wang, phonemes: [w, a, ng]}
   - {grapheme: wei, phonemes: [w, ei]}
   - {grapheme: wen, phonemes: [w, "@", n]}
