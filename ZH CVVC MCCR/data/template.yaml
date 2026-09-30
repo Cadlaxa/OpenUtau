@@ -1,4 +1,4 @@
-version: 1.1.9
+version: 1.2
 
 symbols:
   - {symbol: "1", type: vowel}
@@ -120,23 +120,25 @@ timings:
   - {symbol: "i a", value: 0.8}
   - {symbol: "i e", value: 0.8}
   - {symbol: "i E", value: 0.8}
-  - {symbol: "i o", value: 1.2}
-  - {symbol: "u o", value: 1.2}
-  - {symbol: "u a", value: 1.2}
-  - {symbol: "u e", value: 1.2}
+  - {symbol: "i o", value: 1.1}
+  - {symbol: "u o", value: 1.1}
+  - {symbol: "u a", value: 1.1}
+  - {symbol: "u e", value: 1.1}
   - {symbol: "v E", value: 0.8}
   - {symbol: "v E", value: 0.8}
   - {symbol: "v i", value: 0.8}
-  - {symbol: "u Ei", value: 1.2}
+  - {symbol: "u Ei", value: 1.1}
   - {symbol: "e Ei", value: 0.4}
-  - {symbol: "a -", value: 1.3}
-  - {symbol: "e -", value: 1.3}
-  - {symbol: "i -", value: 1.3}
-  - {symbol: "o -", value: 1.3}
-  - {symbol: "u -", value: 1.3}
-  - {symbol: n, value: 1.6}
-  - {symbol: ng, value: 1.6}
-  - {symbol: "3", value: 1.6}
+  - {symbol: n, value: 1.5}
+  - {symbol: ng, value: 1.5}
+  - {symbol: "3", value: 1.5}
+  # secondary vowel diphthongs
+  - {symbol: "a i", value: 1.3}
+  - {symbol: "a o", value: 1.3}
+  - {symbol: "a u", value: 1.3}
+  - {symbol: "o i", value: 1.3}
+  - {symbol: "o u", value: 1.3}
+
 
 replacements:
   - {from: ["null", "consonants", "consonants"], to: ["null", "-", "consonants", "consonants"], where: all}
