@@ -34,6 +34,7 @@ namespace OpenUtau.Core.Format {
         public const string SHFC = "shfc";
         public const string TENC = "tenc";
         public const string VOIC = "voic";
+        public const string GRWC = "grwc";
         public const string RPIT = "rpit";
         public const string PITO = "pito";
 
