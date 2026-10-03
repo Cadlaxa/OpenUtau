@@ -37,6 +37,11 @@ namespace OpenUtau.App.Views {
             OS.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         private readonly MainWindowViewModel viewModel;
 
+        private readonly ValueGlide hScroll;
+        private readonly ValueGlide vScroll;
+        private readonly ZoomGlide xZoom;
+        private readonly ValueGlide trackHeight;
+
         private PianoRollDetachedWindow? pianoRollWindow;
         private PianoRoll? pianoRoll;
         private WindowNotificationManager notificationManager;
@@ -70,6 +75,17 @@ namespace OpenUtau.App.Views {
             };
             InitializeComponent();
             Log.Information("Initialized main window component.");
+
+            var smoothViewport = new SmoothViewport(this);
+            hScroll = smoothViewport.Scroll(HScrollBar);
+            vScroll = smoothViewport.Scroll(VScrollBar);
+            xZoom = smoothViewport.Zoom((position, delta) => viewModel.TracksViewModel.OnXZoomed(position, delta));
+            // Track height steps by TrackHeightDelta per wheel step and glides between the steps.
+            trackHeight = smoothViewport.Value(
+                () => viewModel.TracksViewModel.TrackHeight,
+                height => viewModel.TracksViewModel.SetTrackHeight(height),
+                () => ViewConstants.TrackHeightMin,
+                () => ViewConstants.TrackHeightMax);
 
             viewModel.AddTempoChangeCmd = ReactiveCommand.Create<int>(tick => AddTempoChange(tick));
             viewModel.DelTempoChangeCmd = ReactiveCommand.Create<int>(tick => DelTempoChange(tick));
@@ -1153,13 +1169,11 @@ namespace OpenUtau.App.Views {
         }
 
         public void HScrollPointerWheelChanged(object sender, PointerWheelEventArgs args) {
-            var scrollbar = (ScrollBar)sender;
-            scrollbar.Value = Math.Max(scrollbar.Minimum, Math.Min(scrollbar.Maximum, scrollbar.Value - scrollbar.SmallChange * args.Delta.Y));
+            hScroll.By(-HScrollBar.SmallChange * args.Delta.Y, SmoothViewport.IsWheelStep(args.Delta.Y));
         }
 
         public void VScrollPointerWheelChanged(object sender, PointerWheelEventArgs args) {
-            var scrollbar = (ScrollBar)sender;
-            scrollbar.Value = Math.Max(scrollbar.Minimum, Math.Min(scrollbar.Maximum, scrollbar.Value - scrollbar.SmallChange * args.Delta.Y));
+            vScroll.By(-VScrollBar.SmallChange * args.Delta.Y, SmoothViewport.IsWheelStep(args.Delta.Y));
         }
 
         public void TimelinePointerWheelChanged(object sender, PointerWheelEventArgs args) {
@@ -1167,11 +1181,11 @@ namespace OpenUtau.App.Views {
             var position = args.GetCurrentPoint((Visual)sender).Position;
             var size = control.Bounds.Size;
             position = position.WithX(position.X / size.Width).WithY(position.Y / size.Height);
-            viewModel.TracksViewModel.OnXZoomed(position, 0.1 * args.Delta.Y);
+            xZoom.By(position, 0.1 * args.Delta.Y, SmoothViewport.IsWheelStep(args.Delta.Y));
         }
 
         public void ViewScalerPointerWheelChanged(object sender, PointerWheelEventArgs args) {
-            viewModel.TracksViewModel.OnYZoomed(new Point(0, 0.5), 0.1 * args.Delta.Y);
+            trackHeight.By(Math.Sign(args.Delta.Y) * ViewConstants.TrackHeightDelta, SmoothViewport.IsWheelStep(args.Delta.Y));
         }
 
         public void TimelinePointerPressed(object sender, PointerPressedEventArgs args) {
@@ -1250,6 +1264,10 @@ namespace OpenUtau.App.Views {
                         partEditState = new PartMoveEditState(control, viewModel, part);
                         Cursor = ViewConstants.cursorSizeAll;
                     }
+                } else if (pianoRoll != null &&
+                    hitPartControl.HitPianoRollViewportHandle(point.Position - hitPartControl.Bounds.Position)) {
+                    partEditState = new PianoRollViewportDragState(control, viewModel, pianoRoll.ViewModel.NotesViewModel);
+                    Cursor = HandCursors.Grabbing;
                 } else {
                     // Clicked on a part
                     bool fadein = false;
@@ -1347,7 +1365,9 @@ namespace OpenUtau.App.Views {
                 }
                 bool skip = point.Position.X < hitPartControl.Bounds.Left + ViewConstants.ResizeMargin;
                 bool trim = point.Position.X > hitPartControl.Bounds.Right - ViewConstants.ResizeMargin;
-                if (fadein || fadeout) {
+                if (hitPartControl.HitPianoRollViewportHandle(point.Position - hitPartControl.Bounds.Position)) {
+                    Cursor = HandCursors.Grab;
+                } else if (fadein || fadeout) {
                     Cursor = ViewConstants.cursorHand;
                 } else if (skip || trim) {
                     Cursor = ViewConstants.cursorSizeWE;
@@ -1452,12 +1472,10 @@ namespace OpenUtau.App.Views {
                     delta = new Vector(delta.Y, delta.X);
                 }
                 if (delta.X != 0) {
-                    HScrollBar.Value = Math.Max(HScrollBar.Minimum,
-                        Math.Min(HScrollBar.Maximum, HScrollBar.Value - HScrollBar.SmallChange * delta.X));
+                    hScroll.By(-HScrollBar.SmallChange * delta.X, SmoothViewport.IsWheelStep(delta.X));
                 }
                 if (delta.Y != 0) {
-                    VScrollBar.Value = Math.Max(VScrollBar.Minimum,
-                        Math.Min(VScrollBar.Maximum, VScrollBar.Value - VScrollBar.SmallChange * delta.Y));
+                    vScroll.By(-VScrollBar.SmallChange * delta.Y, SmoothViewport.IsWheelStep(delta.Y));
                 }
             } else if (args.KeyModifiers == KeyModifiers.Alt) {
                 ViewScalerPointerWheelChanged(VScaler, args);
