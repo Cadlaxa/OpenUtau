@@ -456,6 +456,10 @@ namespace OpenUtau.App.ViewModels {
                 value => Preferences.Default.DefaultSnapCurve = value);
             PersistOn(this.WhenAnyValue(vm => vm.ClearCacheOnQuit),
                 value => Preferences.Default.ClearCacheOnQuit = value);
+            PersistOn(this.WhenAnyValue(vm => vm.PhaseLocked),
+                value => Preferences.Default.PhaseLocked = value);
+            PersistOn(this.WhenAnyValue(vm => vm.AutoDeleteMorphCache),
+                value => Preferences.Default.AutoDeleteMorphCache = value);
             PersistOn(this.WhenAnyValue(vm => vm.DiffSingerSteps),
                 value => Preferences.Default.DiffSingerSteps = value);
             PersistOn(this.WhenAnyValue(vm => vm.DiffSingerStepsVariance),
