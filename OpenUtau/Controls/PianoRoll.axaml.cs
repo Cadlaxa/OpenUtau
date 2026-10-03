@@ -1001,6 +1001,20 @@ namespace OpenUtau.App.Controls {
             }
         }
 
+        private void UpdateEditState(PointerEventArgs args, Control control, PointerPoint point) {
+            if (editState == null) {
+                return;
+            }
+            if (editState.UsesIntermediatePoints) {
+                // The last of these is the current point.
+                foreach (var p in args.GetIntermediatePoints(control)) {
+                    editState.Update(p.Pointer, p.Position);
+                }
+            } else {
+                editState.Update(point.Pointer, point.Position);
+            }
+        }
+
         public void NotesCanvasPointerMoved(object sender, PointerEventArgs args) {
             var control = (Control)sender;
             var point = args.GetCurrentPoint(control);
@@ -1014,7 +1028,7 @@ namespace OpenUtau.App.Controls {
                 editState.shiftHeld = args.KeyModifiers == KeyModifiers.Shift;
                 editState.ctrlHeld = args.KeyModifiers == cmdKey;
                 editState.altHeld = args.KeyModifiers == KeyModifiers.Alt;
-                editState.Update(point.Pointer, point.Position);
+                UpdateEditState(args, control, point);
                 return;
             }
             if (ViewModel?.NotesViewModel?.HitTest == null) {
@@ -1235,7 +1249,7 @@ namespace OpenUtau.App.Controls {
             if (editState != null) {
                 editState.ctrlShiftHeld = ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool;
                 editState.shiftHeld = (args.KeyModifiers == KeyModifiers.Shift && (ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool || ViewModel.CurveViewModel.CurveTool == CurveTools.CurvePenTool));
-                editState.Update(point.Pointer, point.Position);
+                UpdateEditState(args, control, point);
             } else {
                 Cursor = null;
             }
