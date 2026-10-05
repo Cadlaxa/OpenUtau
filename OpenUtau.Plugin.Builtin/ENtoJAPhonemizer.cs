@@ -43,10 +43,12 @@ namespace OpenUtau.Plugin.Builtin {
             public object roma { get; set; }
             public object kana { get; set; }
 
+            // Ensure numeric symbols (3, 4) in YAML don't deserialize to empty lists
             public List<string> FromList {
                 get {
                     if (roma is string s) return new List<string> { s };
-                    if (roma is IEnumerable<object> list) return list.Select(x => x.ToString()).ToList();
+                    if (roma is IEnumerable<object> list) return list.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                    if (roma != null) return new List<string> { roma.ToString() };
                     return new List<string>();
                 }
             }
@@ -54,7 +56,8 @@ namespace OpenUtau.Plugin.Builtin {
             public List<string> ToList {
                 get {
                     if (kana is string s) return new List<string> { s };
-                    if (kana is IEnumerable<object> list) return list.Select(x => x.ToString()).ToList();
+                    if (kana is IEnumerable<object> list) return list.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                    if (kana != null) return new List<string> { kana.ToString() };
                     return new List<string>();
                 }
             }
@@ -84,10 +87,10 @@ namespace OpenUtau.Plugin.Builtin {
                         var data = Core.Yaml.DefaultDeserializer.Deserialize<ChildYAMLData>(File.ReadAllText(file));
 
                         if (data?.wanakana != null) {
-                            // Reverse the array so when we Insert(0), the top of the YAML stays at the top of the final list
                             foreach (var entry in data.wanakana.Reverse()) {
                                 string key = string.Join("", entry.FromList);
                                 string value = string.Join(" ", entry.ToList);
+                                if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
 
                                 if (!WanaKanaDictionary.ContainsKey(key)) {
                                     WanaKanaDictionary.Add(key, new List<string>());
@@ -1098,86 +1101,63 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         private string ToHiragana(string alias, int tone) {
-            string fallbackAlias = alias;
-            var singleRules = yamlFallbacks.Where(r => r.FromList.Count == 1).ToList();
-            
-            // Romaji Fallbacks
-            foreach (var rule in singleRules) {
-                string fromKey = rule.FromList[0];
-                string toValue = rule.ToList.Count > 0 ? rule.ToList[0] : fromKey;
-
-                if (fallbackAlias == fromKey) {
-                    fallbackAlias = toValue;
-                    break;
-                } 
-                else if (fallbackAlias.EndsWith(fromKey) && fromKey != toValue) {
-                    fallbackAlias = fallbackAlias.Substring(0, fallbackAlias.Length - fromKey.Length) + toValue;
-                    break;
-                }
-            }
-
-            var convertedHiragana = "";
+            if (string.IsNullOrEmpty(alias)) return "";
+            string text = "";
             int i = 0;
 
-            // WanaKana Dictionary Lookup Loop
-            while (i < fallbackAlias.Length) {
-                bool foundMatch = false;
+            while (i < alias.Length) {
+                bool flag = false;
 
-                var potentialRomajiKeys = WanaKanaDictionary.Keys
-                    .Where(key => fallbackAlias.Length >= i + key.Length &&
-                                fallbackAlias.Substring(i, key.Length).Equals(key, StringComparison.Ordinal))
+                // Case-insensitive greedy lookup on the intact alias (no premature fallback stripping)
+                var matchingKeys = WanaKanaDictionary.Keys
+                    .Where(key => alias.Length >= i + key.Length &&
+                                  alias.Substring(i, key.Length).Equals(key, StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(key => key.Length)
                     .ToList();
 
-                foreach (var romajiKey in potentialRomajiKeys) {
-                    var kanaValues = WanaKanaDictionary[romajiKey];
-                    
-                    foreach (var kana in kanaValues) {
-                        bool isMatch = HasOto(kana, tone) || HasOto(ValidateAlias(kana, tone), tone);
-                        
-                        // Pure VCV Probe
-                        if (!isMatch) {
-                            string[] probes = { $"- {kana}", $"-{kana}", $"a {kana}", $"a{kana}", $"e {kana}", $"e{kana}" };
-                            foreach (var probe in probes) {
-                                if (HasOto(probe, tone) || HasOto(ValidateAlias(probe, tone), tone)) {
-                                    isMatch = true;
-                                    break;
-                                }
-                            }
-                        }
+                if (matchingKeys.Count > 0) {
+                    string currentKey = matchingKeys[0];
+                    List<string> candidates = WanaKanaDictionary[currentKey];
+                    string selected = null;
 
-                        if (isMatch) {
-                            convertedHiragana += kana;
-                            i += romajiKey.Length;
-                            foundMatch = true;
+                    // Singer entries are at the beginning of candidates (index 0) due to Insert(0)
+                    foreach (string cand in candidates) {
+                        if (HasOto(cand, tone) || HasOto(ValidateAlias(cand), tone)) {
+                            selected = cand;
                             break;
                         }
                     }
-                    if (foundMatch) break;
+
+                    // If no OTO hit, fall back to the highest-priority definition (Singer's top entry)
+                    if (selected == null && candidates.Count > 0) {
+                        selected = candidates[0];
+                    }
+
+                    if (selected != null) {
+                        text += selected;
+                        i += currentKey.Length;
+                        flag = true;
+                    }
                 }
 
-                if (!foundMatch && potentialRomajiKeys.Count > 0) {
-                    // Fall back to the very first item (top of YAML list)
-                    convertedHiragana += WanaKanaDictionary[potentialRomajiKeys[0]].FirstOrDefault() ?? fallbackAlias[i].ToString();
-                    i += potentialRomajiKeys[0].Length;
-                    foundMatch = true;
-                }
-
-                if (!foundMatch) {
-                    convertedHiragana += fallbackAlias[i];
+                if (!flag) {
+                    text += alias[i];
                     i++;
                 }
             }
+
+            // Post-conversion Kana-only fallbacks (e.g., mapping rare Japanese characters if missing)
+            var singleRules = yamlFallbacks.Where(r => r.FromList.Count == 1).ToList();
             foreach (var rule in singleRules) {
                 string fromKey = rule.FromList[0];
                 string toValue = rule.ToList.Count > 0 ? rule.ToList[0] : fromKey;
 
                 if (fromKey.Any(c => c > 0xFF)) {
-                    convertedHiragana = convertedHiragana.Replace(fromKey, toValue);
+                    text = text.Replace(fromKey, toValue);
                 }
             }
 
-            return convertedHiragana;
+            return text;
         }
 
         protected override double GetTransitionBasicLengthMs(string alias, int tone, PhonemeAttributes attr) {
