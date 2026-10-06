@@ -53,9 +53,19 @@ namespace OpenUtau.App.Views {
             newTemplateContent = templateYaml;
             targetVersion = newVersion;
 
-            TitleBanner.Text = $"Migration Conflict: {Path.GetFileName(filePath)} ({oldVersion} ➔ {newVersion})";
-            OldVersionLabel.Text = $"Current / Local (v{oldVersion})";
-            NewVersionLabel.Text = $"Incoming / Template (v{newVersion})";
+            TitleBanner.Text = string.Format(
+                ThemeManager.GetString("yamlmigration.banner"),
+                Path.GetFileName(filePath),
+                oldVersion,
+                newVersion);
+
+            OldVersionLabel.Text = string.Format(
+                ThemeManager.GetString("yamlmigration.local.version"),
+                oldVersion);
+
+            NewVersionLabel.Text = string.Format(
+                ThemeManager.GetString("yamlmigration.incoming.version"),
+                newVersion);
 
             try {
                 SetupSyntaxHighlighting();
