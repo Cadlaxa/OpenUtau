@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
@@ -37,6 +38,10 @@ namespace OpenUtau.App.Views {
         private DiffLineRenderer newDiffRenderer = null!;
         private DiffLineRenderer resultDiffRenderer = null!;
 
+        // Error & Warning Highlighter
+        private readonly DiagnosticRenderer diagnosticRenderer;
+        private List<YamlDiagnostic> diagnostics = new();
+
         private readonly DispatcherTimer validateTimer = null!;
         private bool hasErrors = false;
 
@@ -44,6 +49,7 @@ namespace OpenUtau.App.Views {
 
         public YamlMigrationDialog() {
             InitializeComponent();
+            diagnosticRenderer = new DiagnosticRenderer(this);
         }
 
         public YamlMigrationDialog(string filePath, string oldYaml, string templateYaml, string oldVersion, string newVersion) {
@@ -54,7 +60,7 @@ namespace OpenUtau.App.Views {
             targetVersion = newVersion;
 
             TitleBanner.Text = string.Format(
-                ThemeManager.GetString("yamlmigration.banner"),
+                ThemeManager.GetString("yamlmigration.banner.format"),
                 Path.GetFileName(filePath),
                 oldVersion,
                 newVersion);
@@ -76,7 +82,6 @@ namespace OpenUtau.App.Views {
             OldEditor.Document = new TextDocument(oldContent);
             NewEditor.Document = new TextDocument(newTemplateContent);
 
-            // Compute initial auto-merge
             try {
                 initialMergedText = YamlMigrator.AutoMerge(oldContent, newTemplateContent, targetVersion);
             } catch (Exception ex) {
@@ -86,8 +91,16 @@ namespace OpenUtau.App.Views {
 
             ResultEditor.Document = new TextDocument(initialMergedText);
 
-            // Setup Diff Background Renderers for all 3 Windows
+            // 1. Setup Diff Line Renderers
             SetupDiffRenderers();
+
+            // 2. Setup Wavy Error/Warning Underlines
+            diagnosticRenderer = new DiagnosticRenderer(this);
+            ResultEditor.TextArea.TextView.BackgroundRenderers.Add(diagnosticRenderer);
+
+            // 3. Setup Hover Tooltip on errors
+            ResultEditor.PointerHover += OnResultEditorPointerHover;
+            ResultEditor.PointerHoverStopped += (s, e) => ToolTip.SetIsOpen(ResultEditor, false);
 
             validateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             validateTimer.Tick += (s, e) => {
@@ -102,7 +115,6 @@ namespace OpenUtau.App.Views {
                 validateTimer.Start();
             };
 
-            // Resolution Quick Actions
             UseOldButton.Click += (s, e) => {
                 ResultEditor.Document.Text = oldContent;
                 UpdateRevertState();
@@ -125,7 +137,6 @@ namespace OpenUtau.App.Views {
                 InvalidateDiffRenderers();
             };
 
-            // Revert restores Result back to the initial auto-merged state
             RevertButton.Click += (s, e) => {
                 ResultEditor.Document.Text = initialMergedText;
                 UpdateRevertState();
@@ -157,7 +168,6 @@ namespace OpenUtau.App.Views {
             var oldLinesSet = ExtractNormalizedLines(oldContent);
             var newLinesSet = ExtractNormalizedLines(newTemplateContent);
 
-            // Left Window: Highlight local customizations
             oldDiffRenderer = new DiffLineRenderer(OldEditor, lineNum => {
                 string trimmed = GetLineTrimmed(OldEditor.Document, lineNum);
                 if (IsIgnoredLine(trimmed)) return null;
@@ -165,7 +175,6 @@ namespace OpenUtau.App.Views {
             });
             OldEditor.TextArea.TextView.BackgroundRenderers.Add(oldDiffRenderer);
 
-            // Right Window: Highlight incoming template additions
             newDiffRenderer = new DiffLineRenderer(NewEditor, lineNum => {
                 string trimmed = GetLineTrimmed(NewEditor.Document, lineNum);
                 if (IsIgnoredLine(trimmed)) return null;
@@ -173,7 +182,6 @@ namespace OpenUtau.App.Views {
             });
             NewEditor.TextArea.TextView.BackgroundRenderers.Add(newDiffRenderer);
 
-            // Bottom Window: Highlight added, local, or manually modified lines
             resultDiffRenderer = new DiffLineRenderer(ResultEditor, lineNum => {
                 string trimmed = GetLineTrimmed(ResultEditor.Document, lineNum);
                 if (IsIgnoredLine(trimmed)) return null;
@@ -181,9 +189,9 @@ namespace OpenUtau.App.Views {
                 bool inOld = oldLinesSet.Contains(trimmed);
                 bool inNew = newLinesSet.Contains(trimmed);
 
-                if (inNew && !inOld) return DiffType.Added;    // Incoming addition
-                if (inOld && !inNew) return DiffType.Local;    // Local customization
-                if (!inOld && !inNew) return DiffType.Modified; // Manual edit / conflict edit
+                if (inNew && !inOld) return DiffType.Added;
+                if (inOld && !inNew) return DiffType.Local;
+                if (!inOld && !inNew) return DiffType.Modified;
                 return null;
             });
             ResultEditor.TextArea.TextView.BackgroundRenderers.Add(resultDiffRenderer);
@@ -222,20 +230,26 @@ namespace OpenUtau.App.Views {
 
         private async void ValidateResult() {
             string text = ResultEditor.Text;
-            var diagnostics = await Task.Run(() => YamlValidator.Validate(text, typeof(SyllableBasedPhonemizer.YAMLData)));
+            var results = await Task.Run(() => YamlValidator.Validate(text, typeof(SyllableBasedPhonemizer.YAMLData)));
 
+            diagnostics = results;
             hasErrors = diagnostics.Any(d => d.IsError);
             int errors = diagnostics.Count(d => d.IsError);
             int warnings = diagnostics.Count - errors;
 
+            // Redraw wavy underlines
+            ResultEditor.TextArea.TextView.InvalidateLayer(diagnosticRenderer.Layer);
+
             if (errors > 0) {
-                ValidationSummary.Text = $"❌ {errors} Error(s) detected. Fix errors before saving.";
+                var firstError = diagnostics.First(d => d.IsError);
+                ValidationSummary.Text = $"❌ [{errors}] Line {firstError.StartLine}:{firstError.StartColumn} — {Describe(firstError)}";
                 SaveButton.IsEnabled = false;
             } else if (warnings > 0) {
-                ValidationSummary.Text = $"⚠️ {warnings} Warning(s) detected (can be saved).";
+                var firstWarn = diagnostics.First();
+                ValidationSummary.Text = $"⚠️ [{warnings}] Line {firstWarn.StartLine}:{firstWarn.StartColumn} — {Describe(firstWarn)}";
                 SaveButton.IsEnabled = true;
             } else {
-                ValidationSummary.Text = "✅ YAML is valid and ready to save.";
+                ValidationSummary.Text = ThemeManager.GetString("yamlmigration.status.valid");
                 SaveButton.IsEnabled = true;
             }
         }
@@ -254,8 +268,96 @@ namespace OpenUtau.App.Views {
             }
         }
 
+        // Show ToolTip when hovering over wavy underlined text
+        private void OnResultEditorPointerHover(object? sender, PointerEventArgs e) {
+            var position = ResultEditor.GetPositionFromPoint(e.GetPosition(ResultEditor));
+            if (position == null) return;
+
+            int offset = ResultEditor.Document.GetOffset(position.Value.Location);
+            var problems = diagnostics.Where(d => {
+                var (start, end) = OffsetsOf(d);
+                return start <= offset && offset <= end;
+            }).ToList();
+
+            if (problems.Count == 0) return;
+
+            var tip = new StackPanel { MaxWidth = 450, Spacing = 2 };
+            foreach (var problem in problems) {
+                var text = new TextBlock { 
+                    Text = $"Line {problem.StartLine}:{problem.StartColumn} - {Describe(problem)}", 
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = problem.IsError ? DiagnosticRenderer.ErrorBrush : DiagnosticRenderer.WarningBrush
+                };
+                tip.Children.Add(text);
+            }
+            ToolTip.SetTip(ResultEditor, tip);
+            ToolTip.SetIsOpen(ResultEditor, true);
+        }
+
+        private static string Describe(YamlDiagnostic d) => d.Kind switch {
+            YamlDiagnosticKind.Syntax => string.Format(ThemeManager.GetString("yamleditor.syntax"), d.Detail),
+            YamlDiagnosticKind.UnknownKey => string.Format(ThemeManager.GetString("yamleditor.unknownkey"), d.Detail),
+            YamlDiagnosticKind.WrongType => string.Format(ThemeManager.GetString("yamleditor.wrongtype"), d.Detail),
+            _ => d.Detail,
+        };
+
+        private (int start, int end) OffsetsOf(YamlDiagnostic d) {
+            var document = ResultEditor.Document;
+            int Offset(int line, int column) {
+                line = Math.Clamp(line, 1, document.LineCount);
+                var docLine = document.GetLineByNumber(line);
+                return docLine.Offset + Math.Clamp(column - 1, 0, docLine.Length);
+            }
+            int start = Offset(d.StartLine, d.StartColumn);
+            int end = Math.Max(start, Offset(d.EndLine, d.EndColumn));
+            if (end == start) {
+                end = document.GetLineByOffset(start).EndOffset;
+            }
+            return (start, end);
+        }
+
         /// <summary>
-        /// Renders full-width translucent backgrounds and 3px left gutter accent bars.
+        /// Wavy underlines for syntax errors and schema warnings (Matches YamlEditor).
+        /// </summary>
+        public class DiagnosticRenderer : IBackgroundRenderer {
+            public static readonly IBrush ErrorBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0x14, 0x00));
+            public static readonly IBrush WarningBrush = new SolidColorBrush(Color.FromRgb(0xD4, 0x8B, 0x00));
+            private static readonly IPen errorPen = new Pen(ErrorBrush, 1);
+            private static readonly IPen warningPen = new Pen(WarningBrush, 1);
+            private readonly YamlMigrationDialog dialog;
+
+            public DiagnosticRenderer(YamlMigrationDialog dialog) {
+                this.dialog = dialog;
+            }
+
+            public KnownLayer Layer => KnownLayer.Selection;
+
+            public void Draw(TextView textView, DrawingContext drawingContext) {
+                if (!textView.VisualLinesValid) return;
+
+                foreach (var d in dialog.diagnostics) {
+                    var (start, end) = dialog.OffsetsOf(d);
+                    var segment = new TextSegment { StartOffset = start, EndOffset = end };
+                    var pen = d.IsError ? errorPen : warningPen;
+
+                    foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, segment)) {
+                        var geometry = new StreamGeometry();
+                        using (var context = geometry.Open()) {
+                            double y = rect.Bottom - 1;
+                            context.BeginFigure(new Point(rect.Left, y), false);
+                            for (double x = rect.Left + 2, dy = -2; x <= rect.Right + 2; x += 2, dy = -dy) {
+                                context.LineTo(new Point(x, y + (dy < 0 ? -2 : 0)));
+                            }
+                            context.EndFigure(false);
+                        }
+                        drawingContext.DrawGeometry(null, pen, geometry);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Background line colors and left gutter bars for diff tracking.
         /// </summary>
         public class DiffLineRenderer : IBackgroundRenderer {
             private static readonly IBrush AddedBg = new SolidColorBrush(Color.FromArgb(0x33, 0x2E, 0xCC, 0x71));
@@ -293,9 +395,7 @@ namespace OpenUtau.App.Views {
 
                     var docLine = visualLine.FirstDocumentLine;
                     foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(textView, docLine)) {
-                        // Full line background tint
                         drawingContext.DrawRectangle(bg, null, new Rect(0, rect.Y, textView.Bounds.Width, rect.Height));
-                        // 3px left accent bar
                         drawingContext.DrawRectangle(stripe, null, new Rect(0, rect.Y, 3, rect.Height));
                     }
                 }
