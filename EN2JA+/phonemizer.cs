@@ -43,7 +43,6 @@ namespace OpenUtau.Plugin.Builtin {
             public object roma { get; set; }
             public object kana { get; set; }
 
-            // Ensure numeric symbols (3, 4) in YAML don't deserialize to empty lists
             public List<string> FromList {
                 get {
                     if (roma is string s) return new List<string> { s };
@@ -87,9 +86,11 @@ namespace OpenUtau.Plugin.Builtin {
                         var data = Core.Yaml.DefaultDeserializer.Deserialize<ChildYAMLData>(File.ReadAllText(file));
 
                         if (data?.wanakana != null) {
+                            // Reverse the array so when we Insert(0), the top of the YAML stays at the top of the final list
                             foreach (var entry in data.wanakana.Reverse()) {
                                 string key = string.Join("", entry.FromList);
                                 string value = string.Join(" ", entry.ToList);
+
                                 if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
 
                                 if (!WanaKanaDictionary.ContainsKey(key)) {
@@ -117,23 +118,10 @@ namespace OpenUtau.Plugin.Builtin {
                         Log.Error($"Failed to parse yaml data from {file}: {ex.Message}");
                     }
                 }
-
-                // Synchronize tails so both Romaji symbols and Kana targets are recognized as valid tails
-                var extraTails = new List<string>();
-                foreach (var tSym in tails) {
-                    if (WanaKanaDictionary.TryGetValue(tSym, out var kList)) {
-                        extraTails.AddRange(kList);
-                    }
-                }
-                tails = tails.Concat(extraTails).Distinct().ToArray();
             }
         }
 
         protected override string[] GetSymbols(Note note) {
-            if (tails != null && tails.Contains(note.lyric)) {
-                return new string[] { note.lyric };
-            }
-
             string[] original = base.GetSymbols(note);
             if (original == null) {
                 return null;
@@ -189,49 +177,6 @@ namespace OpenUtau.Plugin.Builtin {
             return true;
         }
 
-        private List<string> GetTailCandidates(string t, int tone) {
-            var list = new List<string>();
-            if (string.IsNullOrEmpty(t)) {
-                list.Add("-");
-                list.Add("R");
-                return list;
-            }
-            list.Add(t);
-
-            if (WanaKanaDictionary.TryGetValue(t, out var kanaList)) {
-                list.AddRange(kanaList);
-            }
-
-            var tailSymbols = tails != null ? tails.ToHashSet() : new HashSet<string> { "-", "R", "EX", "IN" };
-            string cur = t;
-            var singleRules = yamlFallbacks.Where(r => r.FromList.Count == 1).ToList();
-            for (int depth = 0; depth < 3; depth++) {
-                var rule = singleRules.FirstOrDefault(r => r.FromList[0] == cur && r.ToList.Count > 0);
-                if (rule != null) {
-                    string next = rule.ToList[0];
-                    if (tailSymbols.Contains(next) || next == "-" || next == "R" || next == "EX" || next == "IN") {
-                        cur = next;
-                        list.Add(cur);
-                        if (WanaKanaDictionary.TryGetValue(cur, out var kList)) {
-                            list.AddRange(kList);
-                        }
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            if (!list.Contains("-")) list.Add("-");
-            if (!list.Contains("R")) list.Add("R");
-
-            var knownVowels = GetVowels() ?? Array.Empty<string>();
-            list.RemoveAll(x => string.IsNullOrWhiteSpace(x) || knownVowels.Contains(x));
-
-            return list.Distinct().ToList();
-        }
-
         protected override List<string> ProcessSyllable(Syllable syllable) {
             string prevV = string.IsNullOrEmpty(syllable.prevV) ? "" : ReplacePhoneme(syllable.prevV, syllable.tone);
             string v = ReplacePhoneme(syllable.v, syllable.vowelTone);
@@ -239,6 +184,8 @@ namespace OpenUtau.Plugin.Builtin {
 
             List<string> vowels = new List<string> { v };
             var phonemes = new List<string>();
+            var lastC = cc.Length - 1;
+            var firstC = 0;
 
             if (CanMakeAliasExtension(syllable)) {
                 return new List<string> { null };
@@ -276,13 +223,8 @@ namespace OpenUtau.Plugin.Builtin {
                 finalCons = cc[cc.Length - 1];
 
                 var start = 0;
-                // Only build VC if cc.Length > 1 (clusters). Single onset connects directly via VCV/CV
-                if (cc.Length > 1) {
-                    (var hasVc, var vcPhonemes, var vcConsumed, _) = HasVc(prevV, cc, v, "", syllable.tone);
-                    usingVC = hasVc;
-                    phonemes.AddRange(vcPhonemes);
-                    start = vcConsumed;
-                }
+                (var hasVc, var vcPhonemes, var vcConsumed, _) = HasVc(prevV, cc, v, "", syllable.tone);
+                usingVC = hasVc;
 
                 bool hasStartAlias = false;
                 int step = 0;
@@ -300,7 +242,7 @@ namespace OpenUtau.Plugin.Builtin {
                             $"-{merged}", ValidateAlias($"-{merged}", syllable.tone)
                         )) {
                             hasStartAlias = true;
-                            step = i - 1;
+                            step = i; // Consumed i consonants from cluster
                             break;
                         }
                     }
@@ -313,12 +255,22 @@ namespace OpenUtau.Plugin.Builtin {
                             $"-{cc[0]}", ValidateAlias($"-{cc[0]}", syllable.tone)
                         )) {
                             hasStartAlias = true;
-                            step = 0;
+                            step = 1; // Consumed 1 consonant
+                        }
+                        // If no starting - c exists, use singular c before the hiragana one in clusters
+                        else if (cc.Length > 1 && TryAddPhoneme(phonemes, syllable.tone,
+                            cc[0], ValidateAlias(cc[0], syllable.tone)
+                        )) {
+                            hasStartAlias = true;
+                            step = 1; // Consumed 1 consonant
                         }
                     }
                 }
 
-                if (hasStartAlias) {
+                if (!hasStartAlias) {
+                    phonemes.AddRange(vcPhonemes);
+                    start = vcConsumed;
+                } else {
                     usingVC = true;
                     start = step;
                 }
@@ -404,7 +356,9 @@ namespace OpenUtau.Plugin.Builtin {
                             selectedPhoneme = cc[i];
                         } else if (HasOto(ValidateAlias(cc[i], syllable.tone), syllable.tone)) {
                             selectedPhoneme = ValidateAlias(cc[i], syllable.tone);
-                        } else if (isAffricate) {
+                        } 
+                        // If it's an affricate, also check and allow Japanese Kana entries (e.g. [ち], [つ])
+                        else if (isAffricate) {
                             var hiraganaAff = ToHiragana(cc[i], syllable.tone);
                             var hiraganaVcv = TryVcv(prevV, hiraganaAff, syllable.tone);
 
@@ -602,6 +556,9 @@ namespace OpenUtau.Plugin.Builtin {
             string v = ReplacePhoneme(ending.prevV, ending.tone);
             string t = ending.HasTail ? ReplacePhoneme(ending.tail, ending.tone) : "-";
 
+            var lastC = cc.Length - 1;
+            var firstC = 0;
+
             var adjustedCC = new List<string>();
             for (var i = 0; i < cc.Length; i++) {
                 if (i == cc.Length - 1) {
@@ -635,6 +592,8 @@ namespace OpenUtau.Plugin.Builtin {
                     addedEnding = true;
                 }
 
+                var hasVCV = HasOto(TryVcv(prevV, ToHiragana($"{cc[0]}{v}", ending.tone), ending.tone), ending.tone);
+                bool skipFirstFallback = usingVC && hasVCV;
                 var start = vcConsumed;
 
                 if (phonemes.Count > 0) {
@@ -648,61 +607,84 @@ namespace OpenUtau.Plugin.Builtin {
                     bool isCCEndingIndex = (i == cc.Length - 2);
                     bool isCCEndingSkipped = (i == cc.Length - 1 && start > cc.Length - 2 && cc.Length > 1);
 
-                    // 1. Multi-consonant tail endings
                     if ((isCCEndingIndex || isCCEndingSkipped) && ending.IsEndingVCWithMoreThanOneConsonant) {
                         int c1Idx = cc.Length - 2;
                         int c2Idx = cc.Length - 1;
-                        var tCandidates = GetTailCandidates(t, ending.tone);
+                        string[] possibleCCEnds = new[] {
+                            $"{cc[c1Idx]} {cc[c2Idx]} {t}", $"{cc[c1Idx]}{cc[c2Idx]} {t}",
+                            $"{cc[c1Idx]} {cc[c2Idx]}{t}", $"{cc[c1Idx]}{cc[c2Idx]}{t}"
+                        };
 
-                        foreach (var tailCand in tCandidates) {
-                            string[] possibleCCEnds = new[] {
-                                $"{cc[c1Idx]} {cc[c2Idx]} {tailCand}", $"{cc[c1Idx]}{cc[c2Idx]} {tailCand}",
-                                $"{cc[c1Idx]} {cc[c2Idx]}{tailCand}", $"{cc[c1Idx]}{cc[c2Idx]}{tailCand}"
-                            };
-
-                            foreach (var endAlias in possibleCCEnds) {
-                                if (HasOto(endAlias, ending.tone)) {
-                                    selectedPhoneme = endAlias;
-                                    loopStep = isCCEndingIndex ? 1 : 0;
-                                    addedEnding = true;
-                                    break;
-                                } else if (HasOto(ValidateAlias(endAlias), ending.tone)) {
-                                    selectedPhoneme = ValidateAlias(endAlias);
-                                    loopStep = isCCEndingIndex ? 1 : 0;
-                                    addedEnding = true;
-                                    break;
-                                }
+                        foreach (var endAlias in possibleCCEnds) {
+                            if (HasOto(endAlias, ending.tone)) {
+                                selectedPhoneme = endAlias;
+                                loopStep = isCCEndingIndex ? 1 : 0;
+                                addedEnding = true;
+                                break;
+                            } else if (HasOto(ValidateAlias(endAlias), ending.tone)) {
+                                selectedPhoneme = ValidateAlias(endAlias);
+                                loopStep = isCCEndingIndex ? 1 : 0;
+                                addedEnding = true;
+                                break;
                             }
-                            if (selectedPhoneme != null) break;
                         }
                     }
 
-                    // 2. Single consonant endings with tail
+                    if (selectedPhoneme == null && (cc[i] == "n" || cc[i] == "w" || cc[i] == "y")) {
+                        var hiraganaN = ToHiragana(cc[i], ending.tone);
+                        var hiraganaNVcv = TryVcv(prevV, hiraganaN, ending.tone);
+
+                        bool hasVcv = hiraganaNVcv != hiraganaN && (HasOto(hiraganaNVcv, ending.tone) || HasOto(ValidateAlias(hiraganaNVcv, ending.tone), ending.tone));
+                        bool hasKana = HasOto(hiraganaN, ending.tone) || HasOto(ValidateAlias(hiraganaN, ending.tone), ending.tone);
+
+                        if (i == cc.Length - 1 || hasVcv) {
+                            if (hasVcv || hasKana) {
+                                selectedPhoneme = hasVcv 
+                                    ? (HasOto(hiraganaNVcv, ending.tone) ? hiraganaNVcv : ValidateAlias(hiraganaNVcv, ending.tone))
+                                    : (HasOto(hiraganaN, ending.tone) ? hiraganaN : ValidateAlias(hiraganaN, ending.tone));
+                                usingVC = true;
+                                loopStep = 0;
+
+                                // At final position, check if a coda tail (e.g. [n R], [n -]) can follow this mora
+                                if (i == cc.Length - 1) {
+                                    TryAddPhoneme(phonemes, ending.tone, selectedPhoneme);
+                                    prevV = WanaKana.ToRomaji(selectedPhoneme).Last<char>().ToString();
+
+                                    string[] nTails = new[] { $"{cc[i]} {t}", $"{cc[i]} R", $"{cc[i]}{t}", $"{cc[i]} -", $"{cc[i]}-" };
+                                    selectedPhoneme = null;
+                                    foreach (var tailAlias in nTails) {
+                                        if (HasOto(tailAlias, ending.tone)) {
+                                            selectedPhoneme = tailAlias;
+                                            addedEnding = true;
+                                            break;
+                                        }
+                                    }
+                                    if (selectedPhoneme != null) {
+                                        TryAddPhoneme(phonemes, ending.tone, selectedPhoneme);
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
                     if (selectedPhoneme == null && i == cc.Length - 1 && (ending.IsEndingVCWithOneConsonant || ending.IsEndingVCWithMoreThanOneConsonant)) {
-                        var tCandidates = GetTailCandidates(t, ending.tone);
-                        foreach (var tailCand in tCandidates) {
-                            string[] possibleEnds = new[] { 
-                                $"{cc[i]} {tailCand}", $"{cc[i]}{tailCand}", 
-                                $"{ValidateAlias(cc[i])} {tailCand}", $"{ValidateAlias(cc[i])}{tailCand}"
-                            };
-                            foreach (var endAlias in possibleEnds) {
-                                if (HasOto(endAlias, ending.tone)) {
-                                    selectedPhoneme = endAlias;
-                                    loopStep = 0;
-                                    addedEnding = true;
-                                    break;
-                                } else if (HasOto(ValidateAlias(endAlias), ending.tone)) {
-                                    selectedPhoneme = ValidateAlias(endAlias);
-                                    loopStep = 0;
-                                    addedEnding = true;
-                                    break;
-                                }
+                        string[] possibleEnds = new[] { 
+                            $"{cc[i]} {t}", $"{cc[i]} R", $"{cc[i]}{t}", 
+                            $"{cc[i]} -", $"{cc[i]}-", cc[i], 
+                            $"{ValidateAlias(cc[i])} {t}", $"{ValidateAlias(cc[i])} R", $"{ValidateAlias(cc[i])}{t}",
+                            $"{ValidateAlias(cc[i])} -", $"{ValidateAlias(cc[i])}-", ValidateAlias(cc[i])
+                        };
+                        foreach (var endAlias in possibleEnds) {
+                            if (HasOto(endAlias, ending.tone)) {
+                                selectedPhoneme = endAlias;
+                                loopStep = 0;
+                                addedEnding = true;
+                                break;
                             }
-                            if (selectedPhoneme != null) break;
                         }
                     }
 
-                    // 3. Multi-consonant transitions
                     if (selectedPhoneme == null && i < cc.Length - 1) {
                         var extendedSpace1 = $"{cc[i]} {string.Join("", cc.Skip(i + 1))}";
                         var extendedSpace2 = $"{cc[i]} {string.Join(" ", cc.Skip(i + 1))}";
@@ -717,15 +699,11 @@ namespace OpenUtau.Plugin.Builtin {
                         else if (HasOto(ValidateAlias($"{cc[i]}{cc[i + 1]}"), ending.tone)) { selectedPhoneme = ValidateAlias($"{cc[i]}{cc[i + 1]}"); loopStep = 0; }
                     }
 
-                    // 4. Singular C preservation
-                    if (selectedPhoneme == null) {
-                        if (HasOto(cc[i], ending.tone)) { 
-                            selectedPhoneme = cc[i]; 
-                            loopStep = 0; 
-                        } else if (HasOto(ValidateAlias(cc[i]), ending.tone)) { 
-                            selectedPhoneme = ValidateAlias(cc[i]); 
-                            loopStep = 0; 
-                        }
+                    bool skipSingular = (usingVC && i == start);
+
+                    if (selectedPhoneme == null && !skipSingular) {
+                        if (HasOto(cc[i], ending.tone)) { selectedPhoneme = cc[i]; loopStep = 0; }
+                        else if (HasOto(ValidateAlias(cc[i]), ending.tone)) { selectedPhoneme = ValidateAlias(cc[i]); loopStep = 0; }
                     }
 
                     if (selectedPhoneme != null) {
@@ -733,15 +711,15 @@ namespace OpenUtau.Plugin.Builtin {
                         prevV = WanaKana.ToRomaji(selectedPhoneme).Last<char>().ToString();
                         i += loopStep;
                     } else {
-                        // 5. Prevent double mora generation if a VC was already used for cc[0]
-                        if (usingVC && i == 0) {
+                        if (skipSingular) {
                             continue;
                         }
 
                         var hiragana = ToHiragana(cc[i], ending.tone);
                         var hiraganaVcv = TryVcv(prevV, hiragana, ending.tone);
+                        bool blockVcv = usingVC && i == start;
 
-                        if (!usingVC && HasOto(hiraganaVcv, ending.tone)) {
+                        if (!blockVcv && HasOto(hiraganaVcv, ending.tone)) {
                             TryAddPhoneme(phonemes, ending.tone, hiraganaVcv);
                             prevV = WanaKana.ToRomaji(hiraganaVcv).Last<char>().ToString();
                             usingVC = true;
@@ -757,46 +735,20 @@ namespace OpenUtau.Plugin.Builtin {
             }
 
             if (ending.IsEndingV) {
+                // If there is no previous vowel (e.g. "-" on a pure tail note), do not generate a vowel tail
                 if (string.IsNullOrEmpty(prevV) || prevV == "-") {
                     return phonemes;
                 }
 
-                var tCandidates = GetTailCandidates(t, ending.tone);
-
-                bool foundComposite = false;
-                foreach (var tailCand in tCandidates) {
-                    if (WanaKanaDictionary.TryGetValue($"{prevV}{tailCand}", out var compList)) {
-                        foreach (var comp in compList) {
-                            if (TryAddPhoneme(phonemes, ending.tone, comp, ValidateAlias(comp))) {
-                                foundComposite = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (foundComposite) break;
-                }
-
-                if (!foundComposite) {
-                    foreach (var tailCand in tCandidates) {
-                        if (TryAddPhoneme(phonemes, ending.tone, 
-                            $"{prevV} {tailCand}", $"{prevV}{tailCand}",
-                            $"{ValidateAlias(prevV)} {tailCand}", $"{ValidateAlias(prevV)}{tailCand}")) {
-                            break;
-                        }
-                    }
-                }
-            } 
-            else if (!addedEnding && (ending.IsEndingVCWithOneConsonant || ending.IsEndingVCWithMoreThanOneConsonant)) {
+                TryAddPhoneme(phonemes, ending.tone, $"{prevV} {t}", $"{prevV} R", $"{prevV}{t}",
+                $"{ValidateAlias(prevV)} {t}", $"{ValidateAlias(prevV)} R", $"{ValidateAlias(prevV)}{t}");
+                
+            } else if (!addedEnding && (ending.IsEndingVCWithOneConsonant || ending.IsEndingVCWithMoreThanOneConsonant)) {
                 if (cc.Length > 0) { 
                     string lastCC = cc.Last();
-                    var tCandidates = GetTailCandidates(t, ending.tone);
-                    foreach (var tailCand in tCandidates) {
-                        if (TryAddPhoneme(phonemes, ending.tone, 
-                            $"{lastCC} {tailCand}", $"{lastCC}{tailCand}",
-                            $"{ValidateAlias(lastCC)} {tailCand}", $"{ValidateAlias(lastCC)}{tailCand}")) {
-                            break;
-                        }
-                    }
+                    TryAddPhoneme(phonemes, ending.tone, 
+                        $"{lastCC} {t}", $"{lastCC} R", $"{lastCC}{t}",
+                        $"{ValidateAlias(lastCC)} {t}", $"{ValidateAlias(lastCC)} R", $"{ValidateAlias(lastCC)}{t}");
                 }
             }
 
@@ -1027,22 +979,19 @@ namespace OpenUtau.Plugin.Builtin {
                     .Where(x => !string.IsNullOrEmpty(x))
                     .ToList();
 
-                // Multi-consonant tail endings
+                // Tail endings FIRST (Returns 2 consumed, isTail = true)
                 if (!string.IsNullOrEmpty(t)) {
-                    var tCandidates = GetTailCandidates(t, tone);
                     foreach (var v in vowelsToTry) {
                         foreach (var cA in c1Candidates) {
                             foreach (var cB in c2Candidates) {
-                                foreach (var tailCand in tCandidates) {
-                                    var formats = new[] {
-                                        $"{v} {cA}{cB} {tailCand}", $"{v} {cA} {cB} {tailCand}", $"{v}{cA} {cB} {tailCand}", $"{v}{cA}{cB} {tailCand}",
-                                        $"{v} {cA}{cB}{tailCand}", $"{v} {cA} {cB}{tailCand}", $"{v}{cA} {cB}{tailCand}", $"{v}{cA}{cB}{tailCand}"
-                                    };
-                                    foreach (var format in formats) {
-                                        if (HasOto(format, tone) || HasOto(ValidateAlias(format, tone), tone)) {
-                                            phonemes.Add(HasOto(format, tone) ? format : ValidateAlias(format, tone));
-                                            return (true, phonemes.ToArray(), 2, true);
-                                        }
+                                var formats = new[] {
+                                    $"{v} {cA}{cB} {t}", $"{v} {cA} {cB} {t}", $"{v}{cA} {cB} {t}", $"{v}{cA}{cB} {t}",
+                                    $"{v} {cA}{cB}{t}", $"{v} {cA} {cB}{t}", $"{v}{cA} {cB}{t}", $"{v}{cA}{cB}{t}"
+                                };
+                                foreach (var format in formats) {
+                                    if (HasOto(format, tone) || HasOto(ValidateAlias(format, tone), tone)) {
+                                        phonemes.Add(HasOto(format, tone) ? format : ValidateAlias(format, tone));
+                                        return (true, phonemes.ToArray(), 2, true);
                                     }
                                 }
                             }
@@ -1050,7 +999,7 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                 }
 
-                // Standard VCC formats
+                // Standard VCC formats (Returns 1 consumed, isTail = false)
                 foreach (var v in vowelsToTry) {
                     foreach (var cA in c1Candidates) {
                         foreach (var cB in c2Candidates) {
@@ -1068,9 +1017,15 @@ namespace OpenUtau.Plugin.Builtin {
                 }
             }
 
-            // Standard VC formats
+            // Standard VC formats (v c, vc)
             if (cc.Length > 0) {
-                // Standard formats
+                if (c1 == "n") {
+                    c1Candidates.Add("ん");
+                    c1Candidates.Add("N");
+                    c1Candidates.Add("n");
+                }
+
+                // Standard formats (Returns 0 consumed, isTail = false, or 1 if full mora ん matched)
                 foreach (var v in vowelsToTry) {
                     foreach (var cA in c1Candidates) {
                         var formats = new[] {
@@ -1079,27 +1034,25 @@ namespace OpenUtau.Plugin.Builtin {
                         foreach (var format in formats) {
                             if (HasOto(format, tone) || HasOto(ValidateAlias(format, tone), tone)) {
                                 phonemes.Add(HasOto(format, tone) ? format : ValidateAlias(format, tone));
-                                return (true, phonemes.ToArray(), 0, false);
+                                bool consumedMora = (cA == "ん" || cA == "N");
+                                return (true, phonemes.ToArray(), consumedMora ? 1 : 0, false);
                             }
                         }
                     }
                 }
 
-                // Single consonant tail endings
+                // PRIORITIZE Tail endings FIRST (Returns 1 consumed, isTail = true)
                 if (!string.IsNullOrEmpty(t)) {
-                    var tCandidates = GetTailCandidates(t, tone);
                     foreach (var v in vowelsToTry) {
                         foreach (var cA in c1Candidates) {
-                            foreach (var tailCand in tCandidates) {
-                                var formats = new[] {
-                                    $"{v} {cA} {tailCand}", $"{v}{cA} {tailCand}",
-                                    $"{v} {cA}{tailCand}", $"{v}{cA}{tailCand}"
-                                };
-                                foreach (var format in formats) {
-                                    if (HasOto(format, tone) || HasOto(ValidateAlias(format, tone), tone)) {
-                                        phonemes.Add(HasOto(format, tone) ? format : ValidateAlias(format, tone));
-                                        return (true, phonemes.ToArray(), 1, true);
-                                    }
+                            var formats = new[] {
+                                $"{v} {cA} {t}", $"{v}{cA} {t}",
+                                $"{v} {cA}{t}", $"{v}{cA}{t}"
+                            };
+                            foreach (var format in formats) {
+                                if (HasOto(format, tone) || HasOto(ValidateAlias(format, tone), tone)) {
+                                    phonemes.Add(HasOto(format, tone) ? format : ValidateAlias(format, tone));
+                                    return (true, phonemes.ToArray(), 1, true);
                                 }
                             }
                         }
@@ -1161,71 +1114,98 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         private string ToHiragana(string alias, int tone) {
-            if (string.IsNullOrEmpty(alias)) return "";
-            string text = "";
+            string fallbackAlias = alias;
+            var singleRules = yamlFallbacks.Where(r => r.FromList.Count == 1).ToList();
+            
+            // Romaji Fallbacks (do not strip if WanaKanaDictionary already defines an exact match for alias)
+            if (!WanaKanaDictionary.ContainsKey(fallbackAlias)) {
+                foreach (var rule in singleRules) {
+                    string fromKey = rule.FromList[0];
+                    string toValue = rule.ToList.Count > 0 ? rule.ToList[0] : fromKey;
+
+                    if (fallbackAlias == fromKey) {
+                        fallbackAlias = toValue;
+                        break;
+                    } 
+                    else if (fallbackAlias.EndsWith(fromKey) && fromKey != toValue && !WanaKanaDictionary.ContainsKey(fromKey)) {
+                        fallbackAlias = fallbackAlias.Substring(0, fallbackAlias.Length - fromKey.Length) + toValue;
+                        break;
+                    }
+                }
+            }
+
+            var convertedHiragana = "";
             int i = 0;
 
-            while (i < alias.Length) {
-                bool flag = false;
+            // WanaKana Dictionary Lookup Loop
+            while (i < fallbackAlias.Length) {
+                bool foundMatch = false;
 
-                var matchingKeys = WanaKanaDictionary.Keys
-                    .Where(key => alias.Length >= i + key.Length &&
-                                  alias.Substring(i, key.Length).Equals(key, StringComparison.Ordinal))
+                // Priority 1: Exact case match (Ordinal) so capital letters (N, J, C, S, T, Z) are distinct from lowercase
+                var potentialRomajiKeys = WanaKanaDictionary.Keys
+                    .Where(key => fallbackAlias.Length >= i + key.Length &&
+                                fallbackAlias.Substring(i, key.Length).Equals(key, StringComparison.Ordinal))
                     .OrderByDescending(key => key.Length)
                     .ToList();
 
-                // Fall back to case-insensitive only if no exact case entry exists in the dictionary
-                if (matchingKeys.Count == 0) {
-                    matchingKeys = WanaKanaDictionary.Keys
-                        .Where(key => alias.Length >= i + key.Length &&
-                                      alias.Substring(i, key.Length).Equals(key, StringComparison.OrdinalIgnoreCase))
+                // Priority 2: Case-insensitive fallback only if no exact case key exists
+                if (potentialRomajiKeys.Count == 0) {
+                    potentialRomajiKeys = WanaKanaDictionary.Keys
+                        .Where(key => fallbackAlias.Length >= i + key.Length &&
+                                    fallbackAlias.Substring(i, key.Length).Equals(key, StringComparison.OrdinalIgnoreCase))
                         .OrderByDescending(key => key.Length)
                         .ToList();
                 }
 
-                if (matchingKeys.Count > 0) {
-                    string currentKey = matchingKeys[0];
-                    List<string> candidates = WanaKanaDictionary[currentKey];
-                    string selected = null;
+                foreach (var romajiKey in potentialRomajiKeys) {
+                    var kanaValues = WanaKanaDictionary[romajiKey];
+                    
+                    foreach (var kana in kanaValues) {
+                        bool isMatch = HasOto(kana, tone) || HasOto(ValidateAlias(kana, tone), tone);
+                        
+                        // Pure VCV Probe
+                        if (!isMatch) {
+                            string[] probes = { $"- {kana}", $"-{kana}", $"a {kana}", $"a{kana}", $"e {kana}", $"e{kana}" };
+                            foreach (var probe in probes) {
+                                if (HasOto(probe, tone) || HasOto(ValidateAlias(probe, tone), tone)) {
+                                    isMatch = true;
+                                    break;
+                                }
+                            }
+                        }
 
-                    // Singer entries are at the beginning of candidates (index 0) due to Insert(0)
-                    foreach (string cand in candidates) {
-                        if (HasOto(cand, tone) || HasOto(ValidateAlias(cand), tone)) {
-                            selected = cand;
+                        if (isMatch) {
+                            convertedHiragana += kana;
+                            i += romajiKey.Length;
+                            foundMatch = true;
                             break;
                         }
                     }
-
-                    // If no OTO hit, fall back to the highest-priority definition (Singer's top entry)
-                    if (selected == null && candidates.Count > 0) {
-                        selected = candidates[0];
-                    }
-
-                    if (selected != null) {
-                        text += selected;
-                        i += currentKey.Length;
-                        flag = true;
-                    }
+                    if (foundMatch) break;
                 }
 
-                if (!flag) {
-                    text += alias[i];
+                if (!foundMatch && potentialRomajiKeys.Count > 0) {
+                    // Fall back to the very first item (top of YAML list)
+                    convertedHiragana += WanaKanaDictionary[potentialRomajiKeys[0]].FirstOrDefault() ?? fallbackAlias[i].ToString();
+                    i += potentialRomajiKeys[0].Length;
+                    foundMatch = true;
+                }
+
+                if (!foundMatch) {
+                    convertedHiragana += fallbackAlias[i];
                     i++;
                 }
             }
-
-            // Post-conversion Kana-only fallbacks (e.g., mapping rare Japanese characters if missing)
-            var singleRules = yamlFallbacks.Where(r => r.FromList.Count == 1).ToList();
             foreach (var rule in singleRules) {
                 string fromKey = rule.FromList[0];
                 string toValue = rule.ToList.Count > 0 ? rule.ToList[0] : fromKey;
 
                 if (fromKey.Any(c => c > 0xFF)) {
-                    text = text.Replace(fromKey, toValue);
+                    convertedHiragana = convertedHiragana.Replace(fromKey, toValue);
                 }
             }
 
-            return text;
+            return convertedHiragana;
         }
 
         protected override double GetTransitionBasicLengthMs(string alias, int tone, PhonemeAttributes attr) {
