@@ -1087,7 +1087,4 @@ General
   <system:String x:Key="yamlmigration.status.valid">✅ YAML is valid and ready to save.</system:String>
   <system:String x:Key="yamlmigration.status.errors">❌ {0} Error(s) detected. Fix errors before saving.</system:String>
   <system:String x:Key="yamlmigration.status.warnings">⚠️ {0} Warning(s) detected (can be saved).</system:String>
-  <system:String x:Key="yamlmigration.banner">Migration Conflict: {0} ({1} ➔ {2})</system:String>
-  <system:String x:Key="yamlmigration.local.version">Current / Local (v{0})</system:String>
-  <system:String x:Key="yamlmigration.incoming.version">Incoming / Template (v{0})</system:String>
 </ResourceDictionary>
