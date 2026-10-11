@@ -29,6 +29,8 @@
   <Project Path="ZH CVVC MCCR/ZH CVVC MCCR.csproj" />
   <Project Path="ZH-YUE CpV/ZH-YUE CpV.csproj" />
   <Project Path="EN2JA+/EN2JA_plus.csproj" />
+  <Project Path="IDN_CVVC/IDN_CVVC.csproj" />
+  <Project Path="IDN_VCCV/IDN_VCCV.csproj" />
   <Project Path="JA C+V/JA_CpV.csproj" />
   <Project Path="JA SBP/JA_CVVX.csproj" />
 </Solution>
