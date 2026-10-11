@@ -14,4 +14,21 @@
   <Project Path="OpenUtau/OpenUtau.csproj">
     <BuildDependency Project="OpenUtau.Plugin.Builtin/OpenUtau.Plugin.Builtin.csproj" />
   </Project>
+  <Project Path="Adrian EN VCV/Adrian EN VCV.csproj" />
+  <Project Path="ARPA-X/ARPAX.csproj" />
+  <Project Path="Asaxi phonemizer/ASAXI.csproj" />
+  <Project Path="CV-C English/CV_C_English.csproj" />
+  <Project Path="German_CpV/German_CpV.csproj" />
+  <Project Path="JA_CVC/JA_CVC.csproj" />
+  <Project Path="KO CVVC (SBP)/KO_CVVCP.csproj" />
+  <Project Path="MarshyENG/MarshyENG.csproj" />
+  <Project Path="MS-VCV-CVVC/MS-VCV-CVVC.csproj" />
+  <Project Path="SEL ENGLISH/SEL ENG.csproj" />
+  <Project Path="Spanish_CpV/Spanish_CpV.csproj" />
+  <Project Path="ZH CpV/ZH CpV.csproj" />
+  <Project Path="ZH CVVC MCCR/ZH CVVC MCCR.csproj" />
+  <Project Path="ZH-YUE CpV/ZH-YUE CpV.csproj" />
+  <Project Path="EN2JA+/EN2JA_plus.csproj" />
+  <Project Path="JA C+V/JA_CpV.csproj" />
+  <Project Path="JA SBP/JA_CVVX.csproj" />
 </Solution>
