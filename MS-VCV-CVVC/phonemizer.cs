@@ -130,13 +130,6 @@ namespace OpenUtau.Plugin.Builtin {
             string[] PreviousWordCc = syllable.PreviousWordCc.Select(c => ReplacePhoneme(c, syllable.tone)).ToArray();
             int prevWordConsonantsCount = syllable.prevWordConsonantsCount;
 
-            
-            foreach (var entry in yamlFallbacks) {
-                if (!HasOto(entry.Key, syllable.tone) && !HasOto(entry.Value, syllable.tone)) {
-                    isYamlFallbacks = true;
-                    break;
-                }
-            }
 
             if (HasOto("a ny", syllable.vowelTone) || HasOto("o ny", syllable.vowelTone)) {
                 isMissingCPhones = true;
@@ -811,20 +804,23 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias) {
-            // Validate alias depending on method
+        protected override string ValidateAlias(string alias, int tone = 0) {
+            if (HasOto(alias, tone)) return alias;
+
+            string baseResolved = base.ValidateAlias(alias, tone);
+            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
+                if (HasOto(baseResolved, tone)) {
+                    return baseResolved;
+                }
+                alias = baseResolved;
+            }
+            
             if (isReplacements) {
                 foreach (var syllable in replacements.OrderByDescending(f => f.Key.Length)) {
                     alias = alias.Replace(syllable.Key, syllable.Value);
                 }
             }
-
-            if (isYamlFallbacks) {
-                foreach (var syllable in yamlFallbacks.OrderByDescending(f => f.Key.Length)) {
-                    alias = alias.Replace(syllable.Key, syllable.Value);
-                }
-            }
-
+            
             if (isMissingCPhones) {
                 foreach (var syllable in missingCphonemes) {
                     alias = alias.Replace(syllable.Key, syllable.Value);
