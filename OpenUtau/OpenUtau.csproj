@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup Condition=" '$(OS)' == 'Windows_NT' ">
+<<<<<<< Updated upstream
     <TargetFramework>net10.0-windows</TargetFramework>
+=======
+    <TargetFramework>net8.0</TargetFramework>
+>>>>>>> Stashed changes
   </PropertyGroup>
   <PropertyGroup Condition=" '$(OS)' != 'Windows_NT' ">
     <TargetFramework>net10.0</TargetFramework>

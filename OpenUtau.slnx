@@ -5,6 +5,9 @@
     <File Path="LICENSE.txt" />
     <File Path="README.md" />
   </Folder>
+  <Project Path="AutoAlts4Arpasing/AutoAlts4Arpasing.csproj" />
+  <Project Path="AutoNormalize/AutoNormalize.csproj" />
+  <Project Path="ExternalDictionaryEditor/ExternalDictionaryEditor.csproj" />
   <Project Path="OpenUtau.Core/OpenUtau.Core.csproj" />
   <Project Path="OpenUtau.Plugin.Builtin/OpenUtau.Plugin.Builtin.csproj" />
   <Project Path="OpenUtau.Test/OpenUtau.Test.csproj">
@@ -14,4 +17,5 @@
   <Project Path="OpenUtau/OpenUtau.csproj">
     <BuildDependency Project="OpenUtau.Plugin.Builtin/OpenUtau.Plugin.Builtin.csproj" />
   </Project>
+  <Project Path="SingersExpression/SingersExpression.csproj" />
 </Solution>
