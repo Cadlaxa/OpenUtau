@@ -3,19 +3,41 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Colors;
 using OpenUtau.Core;
-using Avalonia.Input;
 
 namespace OpenUtau.App.Views {
     public partial class PreferencesDialog : Window {
-        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;
+        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;   
 
         public PreferencesDialog() {
             InitializeComponent();
+        }
+
+        void OnMetronomeSliderPointerPressed(object? sender, PointerPressedEventArgs e) {
+            if (sender is not Slider slider || viewModel == null) {
+                return;
+            }
+            var point = e.GetCurrentPoint(slider);
+            if (!point.Properties.IsRightButtonPressed) {
+                return;
+            }
+            switch (slider.Tag as string) {
+                case "MetronomeVolume":
+                    viewModel.ResetMetronomeVolume();
+                    break;
+                case "MetronomeHighFrequency":
+                    viewModel.ResetMetronomeHighFrequency();
+                    break;
+                case "MetronomeLowFrequency":
+                    viewModel.ResetMetronomeLowFrequency();
+                    break;
+            }
+            e.Handled = true;
         }
 
         void OnKeyDown(object sender, KeyEventArgs e) {
@@ -44,7 +66,7 @@ namespace OpenUtau.App.Views {
                 e.Handled = true;
             }
         }
-        
+
         void OnShortcutMiscClick(object? sender, RoutedEventArgs e) {
             if (sender is Button btn &&
                 btn.DataContext is ShortcutItemViewModel item) {
@@ -169,7 +191,7 @@ namespace OpenUtau.App.Views {
             dialog.SetPrompt(ThemeManager.GetString("prefs.appearance.customtheme.create.prompt"));
             dialog.onFinish = s => {
                 if (string.IsNullOrEmpty(s)) {
-                    MessageBox.ShowModal(this,
+                    MessageBox.ShowModal(this, 
                         ThemeManager.GetString("prefs.appearance.customtheme.create.empty"),
                         ThemeManager.GetString("prefs.appearance.customtheme.create.title"));
                     return;
