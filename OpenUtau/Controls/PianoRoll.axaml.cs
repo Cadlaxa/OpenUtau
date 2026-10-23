@@ -1643,11 +1643,13 @@ namespace OpenUtau.App.Controls {
                 case "ToolSelect2Main": {
                     ViewModel.ToolIndex = 1;
                     ViewModel.PenToolIndex = 0;
+                    SetPenToolIcon();
                     return true;
                 }
                 case "ToolSelect2Alt": {
                     ViewModel.ToolIndex = 1;
                     ViewModel.PenToolIndex = 1;
+                    SetPenToolIcon();
                     return true;
                 }
                 // Eraser Tool

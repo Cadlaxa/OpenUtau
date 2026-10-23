@@ -514,7 +514,7 @@
                 </ListBox.Items>
             </ListBox>
 
-            <ToggleButton Classes="toolbar" Margin="0" Padding="1" Height="20" Width="20" IsChecked="{Binding PitchOverwrite}">
+            <ToggleButton Classes="toolbar" Margin="0" Padding="1" Height="20" Width="20" IsChecked="{Binding PitchOverwrite, Mode=TwoWay}">
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.overwritepitch}"/>
