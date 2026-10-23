@@ -414,6 +414,7 @@ namespace OpenUtau.App.Controls {
             FlyoutBase.GetAttachedFlyout(penTool)?.Hide(); ;
             SetPenToolIcon();
         }
+
         void SetPenToolIcon() {
             penTool.Classes.Remove("penTool");
             penTool.Classes.Remove("penPlusTool");
@@ -1639,23 +1640,31 @@ namespace OpenUtau.App.Controls {
                 // Cursor Tool
                 case "ToolSelect1": ViewModel.ToolIndex = 0; return true;
                 // Draw Notes Tool
-                case "ToolSelect2Main": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 0; return true;
-                case "ToolSelect2Alt": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 1; return true;
+                case "ToolSelect2Main": {
+                    ViewModel.ToolIndex = 1;
+                    ViewModel.PenToolIndex = 0;
+                    return true;
+                }
+                case "ToolSelect2Alt": {
+                    ViewModel.ToolIndex = 1;
+                    ViewModel.PenToolIndex = 1;
+                    return true;
+                }
                 // Eraser Tool
                 case "ToolSelect3": ViewModel.ToolIndex = 2; return true;
                 // Draw Pitch Tool
-                case "ToolSelect4Main": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = false; return true;
-                case "ToolSelect4Overwrite": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = true; return true;
+                case "ToolSelect4Main": ViewModel.ToolIndex = 5; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect4Overwrite": ViewModel.ToolIndex = 5; ViewModel.PitchOverwrite = true; return true;
                 // Draw Pitch Line Tool
-                case "ToolSelect4Line": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = false; return true;
-                case "ToolSelect4LineOverwrite": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = true; return true;
-                case "ToolSelectSCurve": ViewModel.ToolIndex = 5; ViewModel.PitchOverwrite = false; return true;
-                case "ToolSelectSine": ViewModel.ToolIndex = 6; ViewModel.PitchOverwrite = false; return true;
-                case "ToolSelectSmoothen": ViewModel.ToolIndex = 7; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect4Line": ViewModel.ToolIndex = 6; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect4LineOverwrite": ViewModel.ToolIndex = 6; ViewModel.PitchOverwrite = true; return true;
+                case "ToolSelectSCurve": ViewModel.ToolIndex = 7; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelectSine": ViewModel.ToolIndex = 8; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelectSmoothen": ViewModel.ToolIndex = 9; ViewModel.PitchOverwrite = false; return true;
                 // Knife Tool
-                case "ToolSelect5": ViewModel.ToolIndex = 8; return true;
+                case "ToolSelect5": ViewModel.ToolIndex = 3; return true;
                 // Move Pitch Point Tool
-                case "ToolSelectPoint": ViewModel.ToolIndex = 9; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelectPoint": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = false; return true;
 
 
 
