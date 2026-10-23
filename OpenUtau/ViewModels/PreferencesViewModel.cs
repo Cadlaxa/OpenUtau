@@ -4,8 +4,6 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using Avalonia.Input;
 using OpenUtau.Audio;
@@ -13,14 +11,12 @@ using OpenUtau.Classic;
 using OpenUtau.Core;
 using OpenUtau.Core.Render;
 using OpenUtau.Core.Editing;
-using OpenUtau.Core.Render;
 using OpenUtau.Core.Util;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.SourceGenerators;
 using Serilog;
-// TODO: Remove unused usings
 
 namespace OpenUtau.App.ViewModels {
     public class LyricsHelperOption {
@@ -261,11 +257,11 @@ namespace OpenUtau.App.ViewModels {
         }
 
         // Shortcuts
-        [Reactive] public ShortcutItemViewModel? ActiveShortcut { get; set; }
+        [Reactive] public partial ShortcutItemViewModel? ActiveShortcut { get; set; }
         private List<ShortcutItemViewModel> allShortcuts = new List<ShortcutItemViewModel>();
         public ObservableCollection<ShortcutItemViewModel> FilteredShortcuts { get; } = new ObservableCollection<ShortcutItemViewModel>();
-        [Reactive] public string ShortcutSearchText { get; set; } = string.Empty;
-        public ReactiveCommand<ShortcutItemViewModel, Unit> ListenForShortcutCommand { get; }
+        [Reactive] public partial string ShortcutSearchText { get; set; } = string.Empty;
+        public ReactiveCommand<ShortcutItemViewModel, RxVoid> ListenForShortcutCommand { get; }
 
         public PreferencesViewModel() {
             var audioOutput = PlaybackManager.Inst.AudioOutput;

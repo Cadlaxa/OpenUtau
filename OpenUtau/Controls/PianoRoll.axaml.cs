@@ -1324,7 +1324,6 @@ namespace OpenUtau.App.Controls {
                         return;
                     }
                 }
-                // TODO: Note Alt-Click behaviour for error dialog
                 // NEW: Alt + Click to show full, copyable error dialog
                 else if (args.KeyModifiers == KeyModifiers.Alt) {
                     var clickAliasInfo = ViewModel.NotesViewModel.HitTest.HitTestAlias(args.GetPosition(control));
@@ -1759,7 +1758,7 @@ namespace OpenUtau.App.Controls {
                 case "Show Ghost Notes": OnMenuShowGhostNotes(this, new RoutedEventArgs()); return true;
                 case "Use Track Color": OnMenuUseTrackColor(this, new RoutedEventArgs()); return true;
                 case "Detach Piano Roll": OnMenuDetachPianoRoll(this, new RoutedEventArgs()); return true;
-                case "Hide Piano Roll": OnMenuHidePianoRoll(this, new RoutedEventArgs()); return true;
+                case "Hide Piano Roll": OnHidePianoRoll(this, new RoutedEventArgs()); return true;
             }
 
             // External and batch note edits

@@ -95,7 +95,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool CanRedo { get; set; } = false;
         [Reactive] public partial string UndoText { get; set; } = ThemeManager.GetString("menu.edit.undo");
         [Reactive] public partial string RedoText { get; set; } = ThemeManager.GetString("menu.edit.redo");
-        [Reactive] public Dictionary<string, KeyGesture> Hotkeys { get; set; } = new Dictionary<string, KeyGesture>();]
+        [Reactive] public partial Dictionary<string, KeyGesture> Hotkeys { get; set; } = new Dictionary<string, KeyGesture>();
 
         private ObservableCollectionExtended<MenuItemViewModel> openRecentMenuItems
             = new ObservableCollectionExtended<MenuItemViewModel>();

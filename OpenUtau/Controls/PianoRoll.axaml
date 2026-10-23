@@ -414,29 +414,29 @@
                         <TextBlock Text="{Binding Hotkeys[ToolSelect2Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                       </StackPanel>
                     </ToolTip.Tip>
-                      <FlyoutBase.AttachedFlyout>
-                        <Flyout Placement="Bottom" ShowMode="Transient">
-                            <Border BorderThickness="0">
-                                <ListBox SelectedIndex="{Binding PenToolIndex}" Background="Transparent" PointerReleased="PenToolListBox_PointerReleased">
-                                    <ListBoxItem Classes="toolbar penTool">
-                                      <ToolTip.Tip>
-                                        <StackPanel>
-                                          <TextBlock Text="{DynamicResource pianoroll.tool.penv2}"/>
-                                          <TextBlock Text="{Binding Hotkeys[ToolSelect2Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
-                                        </StackPanel>
-                                      </ToolTip.Tip>
-                                    </ListBoxItem>
-                                    <ListBoxItem Classes="toolbar penPlusTool">
-                                      <ToolTip.Tip>
-                                        <StackPanel>
-                                          <TextBlock Text="{DynamicResource pianoroll.tool.penplus}"/>
-                                          <TextBlock Text="{Binding Hotkeys[ToolSelect2Alt], StringFormat='[ {0} ]'}" Opacity="0.6"/>
-                                        </StackPanel>
-                                      </ToolTip.Tip>
-                                    </ListBoxItem>
-                                </ListBox>
-                            </Border>
-                        </Flyout>
+                    <FlyoutBase.AttachedFlyout>
+                      <Flyout Placement="Bottom" ShowMode="Transient">
+                          <Border BorderThickness="0">
+                              <ListBox SelectedIndex="{Binding PenToolIndex}" Background="Transparent" PointerReleased="PenToolListBox_PointerReleased">
+                                  <ListBoxItem Classes="toolbar penTool">
+                                    <ToolTip.Tip>
+                                      <StackPanel>
+                                        <TextBlock Text="{DynamicResource pianoroll.tool.penv2}"/>
+                                        <TextBlock Text="{Binding Hotkeys[ToolSelect2Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                                      </StackPanel>
+                                    </ToolTip.Tip>
+                                  </ListBoxItem>
+                                  <ListBoxItem Classes="toolbar penPlusTool">
+                                    <ToolTip.Tip>
+                                      <StackPanel>
+                                        <TextBlock Text="{DynamicResource pianoroll.tool.penplus}"/>
+                                        <TextBlock Text="{Binding Hotkeys[ToolSelect2Alt], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                                      </StackPanel>
+                                    </ToolTip.Tip>
+                                  </ListBoxItem>
+                              </ListBox>
+                          </Border>
+                      </Flyout>
                     </FlyoutBase.AttachedFlyout>
                   </ListBoxItem>
 

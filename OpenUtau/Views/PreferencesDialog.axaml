@@ -96,7 +96,7 @@
             </ComboBox.ItemTemplate>
           </ComboBox>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.channel}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.channel}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ComboBox SelectedIndex="{Binding Channel}" HorizontalAlignment="Right" Width="120">
               <ComboBoxItem Content="{DynamicResource prefs.channel.stable}"/>
               <ComboBoxItem Content="{DynamicResource prefs.channel.beta}"/>
@@ -147,7 +147,7 @@
             <Slider Grid.Column="4" Classes="fader" Value="{Binding PlayPosMarkerMargin}" Minimum="0" Maximum="1"
                     TickPlacement="BottomRight" TickFrequency="0.1" IsSnapToTickEnabled="true"/>
           </Grid>
-          <TextBlock Text="{DynamicResource prefs.playback.metronome}" Margin="0,10,0,0"/>
+          <TextBlock Text="{DynamicResource prefs.playback.metronome}" Margin="0,10,0,0" FontWeight="Bold"/>
           <Grid ColumnDefinitions="Auto,8,30,8,*" Margin="0,10,0,0">
             <TextBlock Grid.Column="0" Text="{DynamicResource prefs.playback.metronome.volume}"/>
             <TextBlock Grid.Column="2">
@@ -229,12 +229,6 @@
             <TextBlock Text="{DynamicResource prefs.advanced.lyricshelper.brackets}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding LyricsHelperBrackets}"/>
           </Grid>
-          <!--TODO Review if PenPlus needed
-          <Grid>
-            <TextBlock Text="{DynamicResource prefs.penplus}" HorizontalAlignment="Left" FontWeight="Bold"/>
-            <ToggleSwitch IsChecked="{Binding PenPlusDefault}"/>
-          </Grid>
-          -->
         </StackPanel>
 
         <!-- Rendering -->
@@ -244,7 +238,7 @@
             <ToggleSwitch IsChecked="{Binding PreRender}"/>
           </Grid>
           <Grid ColumnDefinitions="Auto,8,16,8,*">
-            <TextBlock Grid.Column="0" Text="{DynamicResource prefs.rendering.threads.numthreads}"/>
+            <TextBlock Grid.Column="0" Text="{DynamicResource prefs.rendering.threads.numthreads}" FontWeight="Bold"/>
             <TextBlock Grid.Column="2">
               <TextBlock.Text>
                 <MultiBinding StringFormat="{}{0:#0}">
@@ -273,9 +267,9 @@
             <ComboBox ItemsSource="{Binding OnnxGpuOptions}" SelectedItem="{Binding OnnxGpu}"/>
             <TextBlock Classes="restart"/>
           </StackPanel>
-          <TextBlock Text="{DynamicResource prefs.rendering.gamebackend}" Margin="0,10,0,0"/>
+          <TextBlock Text="{DynamicResource prefs.rendering.gamebackend}" Margin="0,10,0,0" FontWeight="Bold"/>
           <ComboBox ItemsSource="{Binding GameBackendOptions}" SelectedItem="{Binding GameBackend}"/>
-          <TextBlock Text="{DynamicResource prefs.rendering.mergephrases}" Margin="0,10,0,0"/>
+          <TextBlock Text="{DynamicResource prefs.rendering.mergephrases}" Margin="0,10,0,0" FontWeight="Bold"/>
           <ComboBox ItemsSource="{Binding MergePhrasesSecs}" SelectedIndex="{Binding MergePhrasesSecIndex}"/>
         </StackPanel>
 
@@ -336,23 +330,23 @@
             <ToggleSwitch IsChecked="{Binding ShowGhostNotes}"/>
           </Grid>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.appearance.notehoverglow}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.appearance.notehoverglow}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding NoteHoverGlow}"/>
           </Grid>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.appearance.playbacknotehighlight}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.appearance.playbacknotehighlight}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding ShowPlaybackNoteHighlight}"/>
           </Grid>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.appearance.playbacknotebounce}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.appearance.playbacknotebounce}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding ShowPlaybackNoteBounce}"/>
           </Grid>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.appearance.reduceanimations}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.appearance.reduceanimations}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding ReduceAnimations}"/>
           </Grid>
           <Grid Margin="0,5,0,0">
-            <TextBlock Text="{DynamicResource prefs.appearance.detachpianoroll}" HorizontalAlignment="Left"/>
+            <TextBlock Text="{DynamicResource prefs.appearance.detachpianoroll}" HorizontalAlignment="Left" FontWeight="Bold"/>
             <ToggleSwitch IsChecked="{Binding DetachPianoRoll}"/>
           </Grid>
         </StackPanel>
@@ -494,7 +488,7 @@
                           <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding ContextMenuItems}">
                               <ContextMenu.Styles>
-                                <Style Selector="MenuItem">
+                                <Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
                                   <Setter Property="Header" Value="{Binding Header}"/>
                                   <Setter Property="Command" Value="{Binding Command}"/>
                                   <Setter Property="Height" Value="{Binding Height}"/>
