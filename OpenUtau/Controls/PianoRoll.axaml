@@ -458,12 +458,11 @@
                     </ToolTip.Tip>
                   </ListBoxItem>
 
-                  <!--TODO:Connect to hotkeys-->
                   <ListBoxItem Classes="toolbar pitchPointTool">
                     <ToolTip.Tip>
                       <StackPanel>
                         <TextBlock Text="{DynamicResource pianoroll.tool.pitchpoint}"/>
-                        <TextBlock Text="{Binding Hotkeys[ToolSelect5], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                        <TextBlock Text="{Binding Hotkeys[ToolSelectPoint], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                       </StackPanel>
                     </ToolTip.Tip>
                   </ListBoxItem>

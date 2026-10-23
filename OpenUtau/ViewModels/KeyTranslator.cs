@@ -56,6 +56,7 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("ToolSelectSCurve", ["D5"]),
                 new Preferences.ShortcutBinding("ToolSelectSine", ["Shift+D5"]),
                 new Preferences.ShortcutBinding("ToolSelectSmoothen", ["D6"]),
+                new Preferences.ShortcutBinding("ToolSelectPoint", ["D8"]),
                 
                 // Knife Tool (Bumped to D7)
                 new Preferences.ShortcutBinding("ToolSelect5", ["D7"]),

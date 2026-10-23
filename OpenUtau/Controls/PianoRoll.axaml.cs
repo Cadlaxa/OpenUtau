@@ -1595,7 +1595,7 @@ namespace OpenUtau.App.Controls {
             string? action = KeyTranslator.GetActionIdFromKey(args.Key, args.KeyModifiers);
             if (action == null) return false;
 
-            //TODO: Review if shortcuts have correlative versions in old->new
+            Log.Debug("Key Pressed: {0}", action);
             switch (action) {
                 // Playback & Selection
                 case "PlayOrPause": playVm.PlayOrPause(); return true;
@@ -1635,18 +1635,29 @@ namespace OpenUtau.App.Controls {
                     return true;
 
                 // Tools
+
+                // Cursor Tool
                 case "ToolSelect1": ViewModel.ToolIndex = 0; return true;
+                // Draw Notes Tool
                 case "ToolSelect2Main": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 0; return true;
                 case "ToolSelect2Alt": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 1; return true;
+                // Eraser Tool
                 case "ToolSelect3": ViewModel.ToolIndex = 2; return true;
+                // Draw Pitch Tool
                 case "ToolSelect4Main": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = false; return true;
                 case "ToolSelect4Overwrite": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = true; return true;
+                // Draw Pitch Line Tool
                 case "ToolSelect4Line": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = false; return true;
                 case "ToolSelect4LineOverwrite": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = true; return true;
                 case "ToolSelectSCurve": ViewModel.ToolIndex = 5; ViewModel.PitchOverwrite = false; return true;
                 case "ToolSelectSine": ViewModel.ToolIndex = 6; ViewModel.PitchOverwrite = false; return true;
                 case "ToolSelectSmoothen": ViewModel.ToolIndex = 7; ViewModel.PitchOverwrite = false; return true;
+                // Knife Tool
                 case "ToolSelect5": ViewModel.ToolIndex = 8; return true;
+                // Move Pitch Point Tool
+                case "ToolSelectPoint": ViewModel.ToolIndex = 9; ViewModel.PitchOverwrite = false; return true;
+
+
 
                 // Expressions
                 case "ExpSelect1": expSelector1?.SelectExp(); return true;

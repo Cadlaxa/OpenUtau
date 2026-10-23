@@ -773,6 +773,7 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="shortcut.ToolSelectSCurve">S-Curve Pitch Tool</system:String>
   <system:String x:Key="shortcut.ToolSelectSine">Sine Wave Pitch Tool</system:String>
   <system:String x:Key="shortcut.ToolSelectSmoothen">Smoothen Pitch Tool</system:String>
+  <system:String x:Key="shortcut.ToolSelectPoint">Pitch Point Tool</system:String>
   <system:String x:Key="shortcut.ToolSelect5">Knife Tool</system:String>
   <system:String x:Key="shortcut.ExpSelect1">Select Expression 1</system:String>
   <system:String x:Key="shortcut.ExpSelect2">Select Expression 2</system:String>

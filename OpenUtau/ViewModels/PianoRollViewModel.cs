@@ -127,49 +127,19 @@ namespace OpenUtau.App.ViewModels {
             Hotkeys = newHotkeys;
         }
 
-        private int IndexToBaseTool(int index) {
-            return index switch {
-                0 => 0, // UI Mouse -> Backend 0 (Mouse)
-                1 => 1, // UI Draw -> Backend 1 (Draw)
-                2 => 2, // UI Eraser -> Backend 2 (Eraser)
-                3 => 4, // UI Draw Pitch -> Backend 4 (Draw Pitch)
-                4 => 5, // UI Line -> Backend 5 (Line)
-                5 => 6, // UI S-Curve -> Backend 6 (S-Curve)
-                6 => 7, // UI Sine Wave -> Backend 7 (Sine Wave)
-                7 => 8, // UI Smoothen -> Backend 8 (Smoothen)
-                8 => 3, // UI Knife -> Backend 3 (Knife)
-                _ => 0
-            };
-        }
-
-        private int BaseToolToIndex(int baseTool) {
-            return baseTool switch {
-                0 => 0, // Backend 0 (Mouse) -> UI Mouse
-                1 => 1, // Backend 1 (Draw) -> UI Draw
-                2 => 2, // Backend 2 (Eraser) -> UI Eraser
-                3 => 8, // Backend 3 (Knife) -> UI Knife
-                4 => 3, // Backend 4 (Draw Pitch) -> UI Draw Pitch
-                5 => 4, // Backend 5 (Line) -> UI Line
-                6 => 5, // Backend 6 (S-Curve) -> UI S-Curve
-                7 => 6, // Backend 7 (Sine Wave) -> UI Sine Wave
-                8 => 7, // Backend 8 (Smoothen) -> UI Smoothen
-                _ => 0
-            };
-        }
-
         public PianoRollViewModel() {
             ReloadShortcuts();
             NotesViewModel = new NotesViewModel();
             CurveViewModel = new CurveViewModel();
 
             // Safely initialize from preferences
-            ToolIndex = BaseToolToIndex(EditTool.BaseTool);
+            ToolIndex = EditTool.BaseTool;
             PenToolIndex = EditTool.PenToolVariation;
             PitchOverwrite = EditTool.OverwritePitch;
 
             this.WhenAnyValue(vm => vm.ToolIndex)
                 .Subscribe(index => {
-                    EditTool.BaseTool = IndexToBaseTool(index);
+                    EditTool.BaseTool = index;
                     Preferences.Default.EditTool.BaseTool = EditTool.BaseTool;
                     Preferences.Save();
                 });
