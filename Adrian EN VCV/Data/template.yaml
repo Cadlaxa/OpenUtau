@@ -1,6 +1,4 @@
-%YAML 1.2
----
-version: 1.3.1
+version: 1.0
 symbols:
   - {symbol: aa, type: vowel}
   - {symbol: ae, type: vowel}
@@ -30,6 +28,7 @@ symbols:
   - {symbol: oy, type: vowel}
   - {symbol: p, type: stop}
   - {symbol: r, type: liquid}
+  - {symbol: rr, type: tap}
   - {symbol: s, type: fricative}
   - {symbol: sh, type: fricative}
   - {symbol: t, type: stop}
@@ -48,45 +47,68 @@ symbols:
   - {symbol: i, type: vowel}
   - {symbol: o, type: vowel}
   - {symbol: u, type: vowel}
+  - {symbol: U, type: semivowel}
+  - {symbol: I, type: semivowel}
 
 replacements:
   - {from: aa, to: [aw]}
+  - {from: [aa, r], to: [a, 3]}
+  - {from: [aa, l], to: [aw, ll]}
   - {from: ae, to: ['@']}
   - {from: ao, to: [aw]}
-  - {from: aw, to: [a, U]}
   - {from: ah, to: [uh]}
-  - {from: ax, to: [eu]}
+  - {from: ax, to: [uh]}
+  - {from: [ax, n], to: [ih, n]}
+  - {from: [ax, m], to: [ih, m]}
+  - {from: [ax, ng], to: [ih, ng]}
   - {from: ay, to: [a, I]}
+  - {from: aw, to: ['@', U]}
   - {from: dh, to: [th]}
   - {from: dr, to: [d, 3]}
-  - {from: dx, to: [r]}
+  - {from: dx, to: [dx]}
   - {from: eh, to: [e]}
   - {from: er, to: [er]}
   - {from: ey, to: [e, I]}
   - {from: hh, to: [h]}
-  - {from: ih, to: [e]}
+  - {from: ih, to: [ih]}
+  - {from: [ih, l], to: [ih, ll]}
+  - {from: [iy, l], to: [iy, ll]}
   - {from: iy, to: [i]}
   - {from: jh, to: [j]}
   - {from: k, to: [kk]}
   - {from: l, to: [l]}
   - {from: ng, to: [ng]}
+  - {from: p, to: [pp]}
+  - {from: oy, to: [o, I]}
   - {from: ow, to: [o, U]}
-  - {from: oy, to: [o, Y]}
-  - {from: q, to: ['-']}
   - {from: r, to: [3]}
+  - {from: [s, t], to: [st]}
   - {from: t, to: [tt]}
   - {from: th, to: [th]}
-  - {from: [th, r], to: [ts, 3]}
-  - {from: tr, to: [ch, 3]}
-  - {from: ts, to: [ts]}
-  - {from: uh, to: [u]}
+  - {from: tr, to: [tt, 3]}
+  - {from: [t, s], to: [ts]}
+  - {from: uh, to: [eu]}
   - {from: uw, to: [u]}
   - {from: v, to: [v]}
   - {from: zh, to: [zh]}
+  - {from: [t, s], to: [ts], where: all}
+  - {from: [tt, s], to: [ts], where: all}
+  - {from: [d, z], to: [dz]}
+  - {from: [ao, r], to: [o, 3]}
+  - {from: [l, l], to: [ll], where: all}
+  - {from: [ao, r], to: [o, 3]}
+  - {from: [ao, l], to: [o, ll]}
 
 fallbacks:
-  - {from: Y, to: i}
   - {from: U, to: u}
+  - {from: I, to: i}
+  - {from: tt, to: t}
+  - {from: kk, to: k}
+  - {from: pp, to: p}
+  - {from: ng, to: n}
+  - {from: m, to: n}
+  - {from: dx, to: r}
+
 entries:
-  - grapheme: openutau
-    phonemes: [ow, p, ah, n, uw, t, aw]
+  - {grapheme: openutau, phonemes: [ow, p, ah, n, uw, t, aw]}
+  - {grapheme: around, phonemes: [ah, r, aw, n, d]}

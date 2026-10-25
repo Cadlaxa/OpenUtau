@@ -18,8 +18,8 @@ using System.Text.RegularExpressions;
 namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("Adrian EN VCV Legacy", "Adrian EN VCV", "Cadlaxa", language: "EN")]
     public class AdrianVCV : SyllableBasedPhonemizer {
-        protected override string YamlVersion => "1.3.1";
-        protected override string YamlFileName => "adrian_envcv.yaml";
+        protected override string YamlVersion => "1.0";
+        protected override string YamlFileName => "adrian_en_vcv.yaml";
         protected override byte[] YamlTemplate => Adrian_EN_VCV.Data.Resources.template;
         public AdrianVCV() {
             this.vowels = Array.Empty<string>();
