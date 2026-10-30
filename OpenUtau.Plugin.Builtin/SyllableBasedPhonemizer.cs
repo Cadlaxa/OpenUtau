@@ -821,13 +821,24 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                 }
 
+                // Merge Diphthongs
+                var mergedDiphthongs = newTemplate.diphthongs?.ToList() ?? new List<YAMLData.DiphthongData>();
+                if (userYaml.diphthongs != null) {
+                    foreach (var ud in userYaml.diphthongs) {
+                        mergedDiphthongs.RemoveAll(d => string.Equals(d.from, ud.from, StringComparison.Ordinal));
+                        mergedDiphthongs.Add(ud);
+                    }
+                }
+
                 // Set properties on new template base
                 newTemplate.version = targetVersion;
+                newTemplate.isglides = userYaml.isglides ?? newTemplate.isglides;
                 newTemplate.timings = mergedTimings.ToArray();
                 newTemplate.replacements = mergedReplacements.ToArray();
                 newTemplate.fallbacks = mergedFallbacks.ToArray();
                 newTemplate.vowelsustains = mergedSustains.ToArray();
                 newTemplate.symbols = mergedSymbols.ToArray();
+                newTemplate.diphthongs = mergedDiphthongs.ToArray();
                 newTemplate.entries = mergedEntries.ToArray();
 
                 // Create safety backup
@@ -2160,9 +2171,9 @@ namespace OpenUtau.Plugin.Builtin {
                             shouldEvaluate = true;
                         }
                     } else {
-                        if (rule.where == "boundary") {
+                        if (rule.where == "boundary" && isBoundary) {
                             shouldEvaluate = true;
-                        } else if (rule.where == "all" && rule.FromList.Count > 1) {
+                        } else if (rule.where == "all" && idx == 0) {
                             shouldEvaluate = true;
                         }
                     }
@@ -2172,7 +2183,7 @@ namespace OpenUtau.Plugin.Builtin {
                         
                         if (fromArray != null && fromArray.Count > 0 && idx + fromArray.Count <= inputPhonemes.Count) {
                             bool match = true;
-                            var captures = new Dictionary<string, List<string>>();
+                            var captures = new Dictionary<string, List<string>>(StringComparer.Ordinal);
                             
                             for (int j = 0; j < fromArray.Count; j++) {
                                 string rulePh = fromArray[j];
@@ -2188,7 +2199,7 @@ namespace OpenUtau.Plugin.Builtin {
                                     } else {
                                         match = false; break;
                                     }
-                                } else if (rulePh != actualPh) {
+                                } else if (!string.Equals(rulePh, actualPh, StringComparison.Ordinal)) {
                                     match = false; break;
                                 }
                             }
@@ -2197,7 +2208,7 @@ namespace OpenUtau.Plugin.Builtin {
                                 List<string> toArray = rule.ToList;
 
                                 if (toArray != null && toArray.Count > 0) {
-                                    var captureIndices = new Dictionary<string, int>();
+                                    var captureIndices = new Dictionary<string, int>(StringComparer.Ordinal);
                                     
                                     foreach (string toPh in toArray) {
                                         string[] parts = toPh.Split('+');
@@ -2226,7 +2237,7 @@ namespace OpenUtau.Plugin.Builtin {
                                             
                                             string reconstructed = "";
                                             for (int k = 0; k < cleanParts.Length; k++) {
-                                                if (cleanParts[k] == baseGroupTo) {
+                                                if (string.Equals(cleanParts[k], baseGroupTo, StringComparison.Ordinal)) {
                                                     reconstructed += capturedPhoneme;
                                                 } else {
                                                     reconstructed += cleanParts[k]; 
@@ -2268,7 +2279,8 @@ namespace OpenUtau.Plugin.Builtin {
             if (syllable.cc != null) currentPhonemes.AddRange(syllable.cc);
             if (hasV) currentPhonemes.Add(syllable.v);
 
-            List<string> finalPhonemes = ApplyReplacements(currentPhonemes, isBoundary: true, isRawStream: false);
+            bool isBoundary = (hasPrevV && syllable.position == 0) || !hasPrevV;
+            List<string> finalPhonemes = ApplyReplacements(currentPhonemes, isBoundary: isBoundary, isRawStream: false);
 
             string newPrevV = "";
             string newV = "";
@@ -2289,7 +2301,7 @@ namespace OpenUtau.Plugin.Builtin {
                     int vIndex = finalPhonemes.Count - 1;
                     
                     for (int i = finalPhonemes.Count - 1; i >= 0; i--) {
-                        if (vowelsList.Contains(finalPhonemes[i])) {
+                        if (vowelsList.Contains(finalPhonemes[i], StringComparer.Ordinal)) {
                             vIndex = i;
                             break;
                         }
