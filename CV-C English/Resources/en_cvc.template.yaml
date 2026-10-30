@@ -1,89 +1,437 @@
-%YAML 1.2
----
+isglides: false
+version: 1.0
 symbols:
-#Delta-style (X-SAMPA) symbols
   - {symbol: a, type: vowel}
-  - {symbol: e, type: vowel}
-  - {symbol: i, type: vowel}
-  - {symbol: o, type: vowel}
-  - {symbol: u, type: vowel}
-  - {symbol: I, type: vowel}
-  - {symbol: O, type: vowel}
-  - {symbol: U, type: vowel}
-  - {symbol: '{', type: vowel}
-  - {symbol: V, type: vowel}
-  - {symbol: 3, type: vowel}
-  - {symbol: aI, type: vowel}
-  - {symbol: eI, type: vowel}
-  - {symbol: OI, type: vowel}
-  - {symbol: aU, type: vowel}
-  - {symbol: oU, type: vowel}
-  - {symbol: h, type: aspirate}
-  - {symbol: j, type: semivowel}
-#Arpasing
-  - {symbol: aa, type: vowel}
-  - {symbol: ae, type: vowel}
-  - {symbol: ah, type: vowel}
-  - {symbol: ao, type: vowel}
-  - {symbol: aw, type: vowel}
-  - {symbol: ax, type: vowel}
-  - {symbol: ay, type: vowel}
   - {symbol: b, type: stop}
   - {symbol: ch, type: affricate}
   - {symbol: d, type: stop}
-  - {symbol: dd, type: stop}
   - {symbol: dh, type: fricative}
-  - {symbol: dr, type: fricative}
-  - {symbol: dx, type: tap}
-  - {symbol: eh, type: vowel}
-  - {symbol: er, type: vowel}
-  - {symbol: ey, type: vowel}
+  - {symbol: e, type: vowel}
   - {symbol: f, type: fricative}
   - {symbol: ff, type: fricative}
   - {symbol: g, type: stop}
+  - {symbol: h, type: aspirate}
   - {symbol: hh, type: aspirate}
-  - {symbol: ih, type: vowel}
-  - {symbol: iy, type: vowel}
-  - {symbol: jh, type: affricate}
+  - {symbol: i, type: vowel}
+  - {symbol: I, type: vowel}
+  - {symbol: j, type: affricate}
   - {symbol: k, type: stop}
   - {symbol: l, type: liquid}
   - {symbol: m, type: nasal}
   - {symbol: n, type: nasal}
   - {symbol: ng, type: nasal}
-  - {symbol: ow, type: vowel}
-  - {symbol: oy, type: vowel}
+  - {symbol: o, type: vowel}
   - {symbol: p, type: stop}
-  - {symbol: pp, type: stop}
-  - {symbol: q, type: stop}
   - {symbol: r, type: liquid}
+  - {symbol: rr, type: liquid}
+  - {symbol: R, type: liquid}
   - {symbol: s, type: fricative}
+  - {symbol: sf, type: fricative}
   - {symbol: sh, type: fricative}
+  - {symbol: sk, type: fricative}
+  - {symbol: sm, type: fricative}
+  - {symbol: sn, type: fricative}
+  - {symbol: sp, type: fricative}
+  - {symbol: st, type: fricative}
   - {symbol: t, type: stop}
-  - {symbol: tt, type: stop}
   - {symbol: th, type: fricative}
-  - {symbol: tr, type: fricative}
-  - {symbol: uh, type: vowel}
-  - {symbol: uw, type: vowel}
+  - {symbol: ts, type: affricate}
+  - {symbol: u, type: vowel}
+  - {symbol: U, type: vowel}
   - {symbol: v, type: fricative}
+  - {symbol: vf, type: stop}
+  - {symbol: V, type: vowel}
   - {symbol: w, type: semivowel}
   - {symbol: y, type: semivowel}
   - {symbol: z, type: fricative}
   - {symbol: zh, type: fricative}
-  #bonus symbols
-  - {symbol: L, type: vowel}
-  - {symbol: M, type: vowel}
-  - {symbol: N, type: vowel}
-  - {symbol: eIR, type: vowel}
-  - {symbol: 0r, type: vowel}
-  - {symbol: 6r, type: vowel}
-  - {symbol: 9, type: vowel}
-  - {symbol: 0, type: vowel}
-  - {symbol: eo, type: vowel}
-  - {symbol: eu, type: vowel}
-  - {symbol: y0, type: vowel}
-  - {symbol: Q, type: vowel}
-  - {symbol: 1, type: vowel}
-  - {symbol: '@r', type: vowel}
-entries:
-  - grapheme: openutau
-    phonemes: [ou, p, V, n, u, tt, V, u]
+  - {symbol: "{", type: vowel}
+  - {symbol: "3", type: vowel}
+  - {symbol: "a^", type: semivowel}
+
+#Basic+
+  - {symbol: aI, type: diphthong}
+  - {symbol: aU, type: diphthong}
+  - {symbol: eI, type: diphthong}
+  - {symbol: OI, type: diphthong}
+  - {symbol: oU, type: diphthong}
+
+#extended
+  - {symbol: dd, type: tap}
+  - {symbol: dz, type: affricate}
+  - {symbol: kh, type: fricative}
+  - {symbol: kk, type: stop}
+  - {symbol: pp, type: stop}
+  - {symbol: rh, type: liquid}
+  - {symbol: tt, type: stop}
+
+#if you record extras
+  - {symbol: "・", type: stop}
+  - {symbol: "'", type: stop}
+#breathes
+  - {symbol: "ex", type: exhale}
+  - {symbol: "EX", type: exhale}
+  - {symbol: "in", type: inhale}
+  - {symbol: "IN", type: inhale}
+
+#Extended Vowels
+  - {symbol: "9", type: vowel}
+  - {symbol: x, type: vowel}
+#consonants as vowel
+  - {symbol: L, type: liquid}
+  - {symbol: M, type: nasal}
+  - {symbol: N, type: nasal}
+
+#consonants carried
+  - {symbol: "~", type: fricative}
+
+#bonus symbols
+# Japanese [N]
+  - {symbol: "ん", type: vowel} 
+#Korean
+  - {symbol: A, type: vowel}
+  - {symbol: bb, type: stop}
+  - {symbol: gg, type: stop}
+  - {symbol: jj, type: affricate}
+  - {symbol: ss, type: fricative}
+#Russian
+  - {symbol: Y, type: vowel}
+
+replacements:
+#for Basic, Basic+
+  - {from: [d, z], to: dz}
+#the same note
+  - {from: [s, f], to: sf}
+  - {from: [s, ff], to: sf}
+  - {from: [s, k], to: sk}
+  - {from: [s, kk], to: sk}
+  - {from: [sh, kk], to: [sh, k]}
+  - {from: [s, m], to: sm}
+  - {from: [s, n], to: sn}
+  - {from: [s, p], to: sp}
+  - {from: [s, pp], to: sp}
+  - {from: [s, t], to: st}
+  - {from: [s, tt], to: st}
+  - {from: vf, to: "'"}
+  - {from: q, to: "・"}
+
+#Contextual ax
+  - {from: "@", to: V}
+  - {from: ["@", n], to: [I, n]}
+  - {from: ["@", m], to: [I, m]}
+  - {from: ["@", ng], to: [I, ng]}
+  - {from: ["@", l], to: [oU, l]}
+  - {from: ["@", s], to: [I, s]}
+  - {from: ["@", d], to: [I, d]}
+  - {from: ["@", t], to: [I, t]}
+  - {from: ["@", j], to: [I, j]}
+  - {from: ["@", ch], to: [If, ch]}
+
+#dr/tr
+  - {from: dr, to: [d, R]}
+  - {from: tr, to: [t, R]}
+
+#Palatized h
+  - {from: [h, i], to: [C, i]}
+  - {from: [h, y], to: [C, y]}
+
+#American Vowel(the phonemes[{], [eI] to [m],[n],[ng], and[ん])
+  - {from: ["{", m], to: [e, a^, m]}
+  - {from: ["{", n], to: [e, a^, n]}
+  - {from: ["{", ng], to: [eI, ng]}
+  - {from: ["{", ng, k], to: [eI, n, k]}
+  - {from: ["{", ん], to: [e, a^, ん]}
+#the phonemes [eIR], and [eI, R] in the same note
+  - {from: eIR, to: [e, R]}
+  - {from: [eI, R], to: [e, R]}
+
+fallbacks:
+  - {from: "&", to: "{"}
+  - {from: C, to: hh}
+  - {from: "a^", to: a}
+  - {from: hy, to: hhy}
+  - {from: fw, to: ffw}
+  - {from: x, to: U}
+  - {from: ndh, to: nth}
+  - {from: ngs, to: ngz}
+  - {from: shtt, to: sht}
+  - {from: shk, to: sht}
+  - {from: "sh k", to: "- k"}
+  - {from: shkk, to: sht}
+  - {from: "sh kk", to: "- kk"}
+  - {from: fftt, to: fft}
+  - {from: np, to: mp}
+  - {from: ms, to: mz}
+  - {from: skk, to: sk}
+  - {from: stt, to: st}
+  - {from: spp, to: sp}
+  - {from: ts, to: dz}
+  - {from: dd, to: r}
+  - {from: R, to: 3}
+  - {from: kk, to: k}
+  - {from: tt, to: t}
+  - {from: pp, to: p}
+  - {from: ttR, to: chR}
+  - {from: kh, to: h}
+  - {from: khi, to: hhi}
+  - {from: khI, to: hhI}
+  - {from: rha, to: rra}
+  - {from: rhi, to: rri}
+  - {from: rhu, to: rru}
+  - {from: rhe, to: rre}
+  - {from: rho, to: rro}
+  - {from: rhI, to: rrI}
+  - {from: "rh{", to: "rr{"}
+  - {from: rhV, to: rrV}
+  - {from: rhU, to: rrU}
+  - {from: "rh3", to: "rr3"}
+  - {from: rhaI, to: rraI}
+  - {from: rhoU, to: rroU}
+  - {from: rhaU, to: rraU}
+  - {from: rheI, to: rreI}
+  - {from: rhOI, to: rrOI}
+  - {from: rh, to: h}
+  - {from: h, to: "-"}
+  - {from: s k, to: "- kk"}
+  - {from: s t, to: "- tt"}
+  - {from: s p, to: "- pp"}
+  - {from: f k, to: "- kk"}
+  - {from: f t, to: "- tt"}
+  - {from: f p, to: "- pp"}
+  - {from: ff k, to: "- kk"}
+  - {from: ff t, to: "- tt"}
+  - {from: ff p, to: "- pp"}
+  - {from: rr k, to: "rr -"}
+  - {from: rr g, to: "rr -"}
+  - {from: rr t, to: "rr -"}
+  - {from: rr d, to: "rr -"}
+  - {from: rr b, to: "rr -"}
+  - {from: rr p, to: "rr -"}
+  - {from: rr r, to: "rr -"}
+  - {from: rr l, to: "rr -"}
+  - {from: h rr, to: "- rr"}
+  - {from: hrr, to: "- rr"}
+
+  - {from: "/", to: "・"}
+  - {from: vf, to: "'"}
+  - {from: in, to: "-"}
+  - {from: ex, to: "-"}
+  - {from: "'", to: "・"}
+  - {from: q, to: "・"}
+  - {from: "・", to: "- "}
+  - {from: "・", to: "-"}
+
+  - {from: A, to: 9}
+  - {from: 9, to: a}
+  - {from: Y, to: I}
+  - {from: x, to: U}
+
+timings:
+  - {symbol: dz, value: 0.4}
+  - {symbol: ts, value: 1.7}
+  - {symbol: ch, value: 1.7}
+  - {symbol: "- ts", value: 1.5}
+  - {symbol: "- ch", value: 1.5}
+  - {symbol: s, value: 1.5}
+  - {symbol: sh, value: 1.5}
+  - {symbol: z, value: 1.5}
+  - {symbol: zh, value: 1.5}
+  - {symbol: k, value: 1.8}
+  - {symbol: g, value: 1.3}
+  - {symbol: kk, value: 1.8}
+  - {symbol: t, value: 1.8}
+  - {symbol: d, value: 1.3}
+  - {symbol: tt, value: 1.8}
+  - {symbol: b, value: 1.3}
+  - {symbol: p, value: 1.8}
+  - {symbol: pp, value: 1.8}
+  - {symbol: "a dz", value: 1.3}
+  - {symbol: "i dz", value: 1.3}
+  - {symbol: "u dz", value: 1.3}
+  - {symbol: "e dz", value: 1.3}
+  - {symbol: "o dz", value: 1.3}
+  - {symbol: "n dz", value: 1.3}
+  - {symbol: "I dz", value: 1.3}
+  - {symbol: "{ dz", value: 1.3}
+  - {symbol: "V dz", value: 1.3}
+  - {symbol: "U dz", value: 1.3}
+  - {symbol: "3 dz", value: 1.3}
+  - {symbol: "aI dz", value: 1.3}
+  - {symbol: "oU dz", value: 1.3}
+  - {symbol: "oU dz", value: 1.3}
+  - {symbol: "eI dz", value: 1.3}
+  - {symbol: "OI dz", value: 1.3}
+  - {symbol: "- dz", value: 1.3}
+  - {symbol: "- j", value: 1.3}
+  - {symbol: j, value: 1.3}
+
+  - {symbol: "'", value: 2.8}
+  - {symbol: sk, value: 2.5}
+  - {symbol: st, value: 2.5}
+  - {symbol: sp, value: 2.5}
+  - {symbol: sm, value: 1.8}
+  - {symbol: sn, value: 1.8}
+  - {symbol: nk, value: 0.5}
+  - {symbol: nt, value: 0.5}
+  - {symbol: mp, value: 0.5}
+
+#CCs
+  - {symbol: Rk, value: 0.5}
+  - {symbol: Rg, value: 0.8}
+  - {symbol: Rs, value: 0.6}
+  - {symbol: Rz, value: 0.6}
+  - {symbol: Rj, value: 0.8}
+  - {symbol: Rt, value: 0.5}
+  - {symbol: Rd, value: 0.8}
+  - {symbol: Rn, value: 0.5}
+  - {symbol: Rff, value: 0.5}
+  - {symbol: Rb, value: 0.8}
+  - {symbol: Rp, value: 0.5}
+  - {symbol: Rm, value: 0.5}
+  - {symbol: Rl, value: 0.4}
+  - {symbol: Rv, value: 0.5}
+  - {symbol: Rth, value: 0.5}
+  - {symbol: Rch, value: 0.5}
+
+  - {symbol: bd, value: 0.8}
+  - {symbol: bz, value: 0.6}
+  - {symbol: ffs, value: 0.6}
+  - {symbol: Rd, value: 0.8}
+  - {symbol: fft, value: 0.5}
+  - {symbol: gz, value: 0.6}
+  - {symbol: jd, value: 0.4}
+  - {symbol: ks, value: 0.6}
+  - {symbol: kt, value: 0.5}
+  - {symbol: nj, value: 0.5}
+  - {symbol: pt, value: 0.5}
+  - {symbol: vd, value: 0.8}
+  - {symbol: cht, value: 0.5}
+  - {symbol: ths, value: 0.6}
+  - {symbol: ngz, value: 0.6}
+
+  - {symbol: gd, value: 0.5}
+  - {symbol: lb, value: 0.8}
+  - {symbol: ld, value: 0.8}
+  - {symbol: lff, value: 0.5}
+  - {symbol: lk, value: 0.5}
+  - {symbol: lp, value: 0.5}
+  - {symbol: ls, value: 0.6}
+  - {symbol: lt, value: 0.5}
+  - {symbol: lv, value: 0.5}
+  - {symbol: lz, value: 0.6}
+  - {symbol: md, value: 0.8}
+  - {symbol: mff, value: 0.5}
+  - {symbol: mp, value: 0.5}
+  - {symbol: mz, value: 0.6}
+  - {symbol: nd, value: 0.8}
+  - {symbol: ns, value: 0.8}
+  - {symbol: nz, value: 0.8}
+  - {symbol: ps, value: 0.8}
+  - {symbol: vz, value: 0.8}
+  - {symbol: zd, value: 0.8}
+  - {symbol: lch, value: 0.5}
+  - {symbol: lsh, value: 0.6}
+  - {symbol: lth, value: 0.6}
+  - {symbol: nch, value: 0.5}
+  - {symbol: lsh, value: 0.6}
+  - {symbol: sht, value: 0.5}
+
+#semivowels and liquid phonemes(y, w, r, l and R)
+  - {symbol: y, value: 0.4}
+  - {symbol: "- y", value: 0.7}
+  - {symbol: "a y", value: 0.7}
+  - {symbol: "i y", value: 0.7}
+  - {symbol: "u y", value: 0.7}
+  - {symbol: "e y", value: 0.7}
+  - {symbol: "o y", value: 0.7}
+  - {symbol: "n y", value: 0.7}
+  - {symbol: "I y", value: 0.7}
+  - {symbol: "{ y", value: 0.7}
+  - {symbol: "V y", value: 0.7}
+  - {symbol: "U y", value: 0.7}
+  - {symbol: "3 y", value: 0.7}
+  - {symbol: "aI y", value: 0.7}
+  - {symbol: "oU y", value: 0.7}
+  - {symbol: "aU y", value: 0.7}
+  - {symbol: "eI y", value: 0.7}
+  - {symbol: "OI y", value: 0.7}
+  - {symbol: w, value: 0.4}
+  - {symbol: "- w", value: 0.7}
+  - {symbol: "a w", value: 0.7}
+  - {symbol: "i w", value: 0.7}
+  - {symbol: "u w", value: 0.7}
+  - {symbol: "e w", value: 0.7}
+  - {symbol: "o w", value: 0.7}
+  - {symbol: "n w", value: 0.7}
+  - {symbol: "I w", value: 0.7}
+  - {symbol: "{ w", value: 0.7}
+  - {symbol: "V w", value: 0.7}
+  - {symbol: "U w", value: 0.7}
+  - {symbol: "3 w", value: 0.7}
+  - {symbol: "aI w", value: 0.7}
+  - {symbol: "oU w", value: 0.7}
+  - {symbol: "aU w", value: 0.7}
+  - {symbol: "eI w", value: 0.7}
+  - {symbol: "OI w", value: 0.7}
+  - {symbol: r, value: 0.4}
+  - {symbol: "- r", value: 0.7}
+  - {symbol: "a r", value: 0.7}
+  - {symbol: "i r", value: 0.7}
+  - {symbol: "u r", value: 0.7}
+  - {symbol: "e r", value: 0.7}
+  - {symbol: "o r", value: 0.7}
+  - {symbol: "n r", value: 0.7}
+  - {symbol: "I r", value: 0.7}
+  - {symbol: "{ r", value: 0.7}
+  - {symbol: "V r", value: 0.7}
+  - {symbol: "U r", value: 0.7}
+  - {symbol: "3 r", value: 0.7}
+  - {symbol: "aI r", value: 0.7}
+  - {symbol: "oU r", value: 0.7}
+  - {symbol: "aU r", value: 0.7}
+  - {symbol: "eI r", value: 0.7}
+  - {symbol: "OI r", value: 0.7}
+  - {symbol: l, value: 0.4}
+  - {symbol: "- l", value: 1.3}
+  - {symbol: "a l", value: 1.3}
+  - {symbol: "i l", value: 1.3}
+  - {symbol: "u l", value: 1.3}
+  - {symbol: "e l", value: 1.3}
+  - {symbol: "o l", value: 1.3}
+  - {symbol: "n l", value: 1.3}
+  - {symbol: "I l", value: 1.3}
+  - {symbol: "{ l", value: 1.3}
+  - {symbol: "V l", value: 1.3}
+  - {symbol: "U l", value: 1.3}
+  - {symbol: "3 l", value: 1.3}
+  - {symbol: "aI l", value: 1.3}
+  - {symbol: "oU l", value: 1.3}
+  - {symbol: "aU l", value: 1.3}
+  - {symbol: "eI l", value: 1.3}
+  - {symbol: "OI l", value: 1.3}
+  - {symbol: R, value: 0.4}
+  - {symbol: "- R", value: 0.7}
+  - {symbol: "a R", value: 1.3}
+  - {symbol: "i R", value: 1.3}
+  - {symbol: "u R", value: 1.3}
+  - {symbol: "e R", value: 1.3}
+  - {symbol: "o R", value: 1.3}
+  - {symbol: "n R", value: 1.3}
+  - {symbol: "I R", value: 1.3}
+  - {symbol: "{ R", value: 1.3}
+  - {symbol: "V R", value: 1.3}
+  - {symbol: "U R", value: 1.3}
+  - {symbol: "3 R", value: 1.3}
+  - {symbol: "aI R", value: 1.3}
+  - {symbol: "oU R", value: 1.3}
+  - {symbol: aU R", value: 1.3}
+  - {symbol: "eI R", value: 1.3}
+  - {symbol: "OI R", value: 1.3}
+
+diphthongs: 
+  - {from: aI, to: P}
+  - {from: oU, to: U}
+  - {from: aU, to: U}
+  - {from: eI, to: I}
+  - {from: OI, to: I}
+  - {from: "&", to: a}
