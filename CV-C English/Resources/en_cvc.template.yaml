@@ -1,5 +1,5 @@
+version: 1.1
 isglides: false
-version: 1.0
 symbols:
   - {symbol: a, type: vowel}
   - {symbol: b, type: stop}
@@ -48,6 +48,8 @@ symbols:
   - {symbol: "{", type: vowel}
   - {symbol: "3", type: vowel}
   - {symbol: "a^", type: semivowel}
+  - {symbol: "I^", type: semivowel}
+  - {symbol: "U^", type: semivowel}
 
 #Basic+
   - {symbol: aI, type: diphthong}
@@ -100,6 +102,8 @@ symbols:
 replacements:
 #for Basic, Basic+
   - {from: [d, z], to: dz}
+  - {from: k, to: kk}
+  - {from: p, to: pp}
 #the same note
   - {from: [s, f], to: sf}
   - {from: [s, ff], to: sf}
@@ -125,13 +129,14 @@ replacements:
   - {from: ["@", d], to: [I, d]}
   - {from: ["@", t], to: [I, t]}
   - {from: ["@", j], to: [I, j]}
-  - {from: ["@", ch], to: [If, ch]}
+  - {from: ["@", ch], to: [I, ch]}
 
 #dr/tr
   - {from: dr, to: [d, R]}
   - {from: tr, to: [t, R]}
 
 #Palatized h
+  - {from: hh, to: C}
   - {from: [h, i], to: [C, i]}
   - {from: [h, y], to: [C, y]}
 
@@ -144,20 +149,23 @@ replacements:
 #the phonemes [eIR], and [eI, R] in the same note
   - {from: eIR, to: [e, R]}
   - {from: [eI, R], to: [e, R]}
-
+  
 fallbacks:
   - {from: "&", to: "{"}
   - {from: C, to: hh}
+  - {from: "O", to: o}
   - {from: "a^", to: a}
+  - {from: "I^", to: I}
+  - {from: "U^", to: U}
   - {from: hy, to: hhy}
   - {from: fw, to: ffw}
   - {from: x, to: U}
   - {from: ndh, to: nth}
   - {from: ngs, to: ngz}
-  - {from: shtt, to: sht}
-  - {from: shk, to: sht}
+  - {from: sh tt, to: sht}
+  - {from: sh k, to: sht}
   - {from: "sh k", to: "- k"}
-  - {from: shkk, to: sht}
+  - {from: sh kk, to: sht}
   - {from: "sh kk", to: "- kk"}
   - {from: fftt, to: fft}
   - {from: np, to: mp}
@@ -191,7 +199,7 @@ fallbacks:
   - {from: rheI, to: rreI}
   - {from: rhOI, to: rrOI}
   - {from: rh, to: h}
-  - {from: h, to: "-"}
+  - {from: " h", to: " -"}
   - {from: s k, to: "- kk"}
   - {from: s t, to: "- tt"}
   - {from: s p, to: "- pp"}
@@ -211,6 +219,14 @@ fallbacks:
   - {from: rr l, to: "rr -"}
   - {from: h rr, to: "- rr"}
   - {from: hrr, to: "- rr"}
+  - {from: "aI ", to: "I "}
+  - {from: "oU ", to: "U "}
+  - {from: "aU ", to: "U "}
+  - {from: "eI ", to: "I "}
+  - {from: "OI ", to: "I "}
+  - {from: "k tt", to: "kt"}
+  - {from: "s kk", to: "sk"}
+  - {from: "OI ", to: "I "}
 
   - {from: "/", to: "・"}
   - {from: vf, to: "'"}
@@ -225,7 +241,7 @@ fallbacks:
   - {from: 9, to: a}
   - {from: Y, to: I}
   - {from: x, to: U}
-
+  
 timings:
   - {symbol: dz, value: 0.4}
   - {symbol: ts, value: 1.7}
@@ -427,11 +443,11 @@ timings:
   - {symbol: aU R", value: 1.3}
   - {symbol: "eI R", value: 1.3}
   - {symbol: "OI R", value: 1.3}
-
-diphthongs: 
-  - {from: aI, to: P}
+  
+diphthongs:
+  - {from: aI, to: I}
   - {from: oU, to: U}
   - {from: aU, to: U}
   - {from: eI, to: I}
   - {from: OI, to: I}
-  - {from: "&", to: a}
+  - {from: '&', to: a}
