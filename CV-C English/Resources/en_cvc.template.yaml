@@ -1,4 +1,4 @@
-version: 1.1
+version: 1.2
 isglides: false
 symbols:
   - {symbol: a, type: vowel}
@@ -102,8 +102,8 @@ symbols:
 replacements:
 #for Basic, Basic+
   - {from: [d, z], to: dz}
-  - {from: k, to: kk}
-  - {from: p, to: pp}
+  #- {from: k, to: kk}
+  #- {from: p, to: pp}
 #the same note
   - {from: [s, f], to: sf}
   - {from: [s, ff], to: sf}

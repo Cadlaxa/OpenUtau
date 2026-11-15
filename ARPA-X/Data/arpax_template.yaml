@@ -1,13 +1,11 @@
-%YAML 1.2
----
-version: 1.4.3
-isglides: true
+version: 2.1
+isglides: "true"
 symbols:
   - {symbol: 3, type: diphthong}
   - {symbol: 0r, type: diphthong}
   - {symbol: 0l, type: diphthong}
-  #- {symbol: '@r', type: diphthong}
-  - {symbol: '@l', type: diphthong} 
+  - {symbol: "@r", type: diphthong}
+  - {symbol: "@l", type: diphthong}
   - {symbol: ax, type: vowel}
   - {symbol: ex, type: vowel}
   - {symbol: ix, type: vowel}
@@ -32,10 +30,14 @@ symbols:
   - {symbol: p, type: stop}
   - {symbol: k, type: stop}
   - {symbol: t, type: stop}
-  - {symbol: 'p:', type: stop}
-  - {symbol: 't:', type: stop}
-  - {symbol: 'k:', type: stop}
-  - {symbol: 'd:', type: stop}
+  - {symbol: "p:", type: stop}
+  - {symbol: "t:", type: stop}
+  - {symbol: "k:", type: stop}
+  - {symbol: "d:", type: stop}
+  - {symbol: pp, type: stop}
+  - {symbol: tt, type: stop}
+  - {symbol: kk, type: stop}
+  - {symbol: dd, type: stop}
   - {symbol: dr, type: fricative}
   - {symbol: tr, type: fricative}
   - {symbol: kr, type: stop}
@@ -64,64 +66,49 @@ symbols:
   - {symbol: jh, type: affricate}
   - {symbol: ll, type: liquid}
   - {symbol: hy, type: fricative}
-
-diphthongs:
-  - {from: 3, to: rh}
-  #- {from: '@r', to: rh}
-  - {from: '0r', to: rh}
-  
 replacements:
-#vowels
-  # contextual ae
   - {from: [ae, n], to: [ex, n]}
   - {from: [ae, m], to: [ex, m]}
   - {from: [ae, ng], to: [ex, ng]}
   - {from: [ih, ng], to: [ix, ng]}
-  # rhotics
   - {from: er, to: [3]}
   - {from: r, to: [rx]}
-  - {from: [ao, rx], to: [0r]}
-  - {from: [rx, 'consonants!p:,t:,k:,d:'], to: [rx, 'consonants!p:,t:,k:,d:'], where: all}
-  - {from: ['vowel!ax', rx, 'vowel'], to: ['vowel!ax', rh, 'vowel'], where: all}
-  - {from: ['vowel!ax', rx, 'null'], to: ['vowel!ax', rh, 'null'], where: all}
+  - {from: [ao, r], to: [0r]}
+  - {from: [rx, "consonants!p:,t:,k:,d:"], to: [rx, "consonants!p:,t:,k:,d:"], where: all}
+  - {from: ["vowel!ax", rx, "null"], to: ["vowel!ax", rx, "null"], where: all}
+  - {from: ["vowel!ax", r, vowel], to: ["vowel!ax", rh, vowel], where: all}
   - {from: [0r, r], to: [0r, rh]}
   - {from: [0l, r], to: [0l, rh]}
-  # Dark L
   - {from: l, to: [lx]}
-  - {from: [ao, lx], to: [0l]}
-  - {from: [l, 'consonants'], to: [lx, 'consonants'], where: all}
-  - {from: ['vowel!ax', lx, 'vowel'], to: ['vowel!ax', ll, 'vowel'], where: all}
+  - {from: [ao, l], to: [0l]}
+  - {from: [l, consonants], to: [lx, consonants], where: all}
+  - {from: ["vowel!ax", l, vowel], to: ["vowel!ax", ll, vowel], where: all}
   - {from: [0r, l], to: [0r, lx]}
   - {from: [0l, l], to: [0l, lx]}
-
-  #- {from: [ax, rh], to: ['@r'], where: all}
-  #- {from: [ax, rx], to: ['@r'], where: all}
-  - {from: [ax, l], to: ['@l'], where: all}
-  - {from: [ax, lx], to: ['@l'], where: all}
-#consonants
-  - {from: [p], to: ['p:']}
-  - {from: [t], to: ['t:']}
-  - {from: [k], to: ['k:']}
-  - {from: [d], to: ['d:']}
-  - {from: ['liquid=rx,lx,r,rh,l', 'p:', 'fricative'], to: ['liquid=rx,lx,r,rh,l', p, 'fricative']}
-  - {from: ['liquid=rx,lx,r,rh,l', 't:', 'fricative'], to: ['liquid=rx,lx,r,rh,l', t, 'fricative']}
-  - {from: ['liquid=rx,lx,r,rh,l', 'k:', 'fricative'], to: ['liquid=rx,lx,r,rh,l', k, 'fricative']}
-  - {from: ['liquid=rx,lx,r,rh,l', 'd:', 'fricative'], to: ['liquid=rx,lx,r,rh,l', d, 'fricative']}
-
+  - {from: [ax, rh], to: ["@r"], where: all}
+  - {from: [ax, rx], to: ["@r"], where: all}
+  - {from: [ax, r], to: ["@r"], where: all}
+  - {from: [ax, l], to: ["@l"], where: all}
+  - {from: [ax, lx], to: ["@l"], where: all}
+  - {from: [p], to: ["p:"]}
+  - {from: [t], to: ["t:"]}
+  - {from: [k], to: ["k:"]}
+  - {from: [d], to: ["d:"]}
+  - {from: ["liquid=rx,lx,r,rh,l", "p:", fricative], to: ["liquid=rx,lx,r,rh,l", p, fricative]}
+  - {from: ["liquid=rx,lx,r,rh,l", "t:", fricative], to: ["liquid=rx,lx,r,rh,l", t, fricative]}
+  - {from: ["liquid=rx,lx,r,rh,l", "k:", fricative], to: ["liquid=rx,lx,r,rh,l", k, fricative]}
+  - {from: ["liquid=rx,lx,r,rh,l", "d:", fricative], to: ["liquid=rx,lx,r,rh,l", d, fricative]}
   - {from: [hh, y], to: hy}
-  - {from: ['k:', rx], to: kr}
-
-  - {from: ['p:', 'fricative'], to: [pp, 'fricative']}
-  - {from: ['t:', 'fricative'], to: [tt, 'fricative']}
-  - {from: ['k:', 'fricative'], to: [kk, 'fricative']}
-  - {from: ['d:', 'fricative'], to: [dd, 'fricative']}
-  - {from: ['fricative', 'p:'], to: ['fricative', pp]}
-  - {from: ['fricative', 't:'], to: ['fricative', tt]}
-  - {from: ['fricative', 'k:'], to: ['fricative', kk]}
-  - {from: ['fricative', 'd:'], to: ['fricative', dd]}
-
-  - {from: [b, 'vowel', b, 'vowel'], to: [b, 'vowel', bx, 'vowel']}
-
+  - {from: [k, r], to: kr}
+  - {from: [p, fricative], to: [pp, fricative]}
+  - {from: [t, fricative], to: [tt, fricative]}
+  - {from: [k, fricative], to: [kk, fricative]}
+  - {from: [d, fricative], to: [dd, fricative]}
+  - {from: [fricative, p], to: [fricative, pp]}
+  - {from: [fricative, t], to: [fricative, tt]}
+  - {from: [fricative, k], to: [fricative, kk]}
+  - {from: [fricative, d], to: [fricative, dd]}
+  - {from: [b, vowel, b, vowel], to: [b, vowel, bx, vowel]}
 fallbacks:
   - {from: pp, to: p}
   - {from: tt, to: t}
@@ -132,7 +119,18 @@ fallbacks:
   - {from: lx, to: l}
   - {from: rh, to: rx}
   - {from: ll, to: l}
-
+diphthongs:
+  - {from: 3, to: rh}
+  - {from: "@r", to: rh}
+  - {from: 0r, to: rh}
+  - {from: 0l, to: lx}
+  - {from: "@l", to: lx}
+  - {from: ay, to: y}
+  - {from: ey, to: y}
+  - {from: iy, to: y}
+  - {from: oy, to: y}
+  - {from: aw, to: w}
+  - {from: ow, to: w}
+  - {from: uw, to: w}
 entries:
-  - grapheme: openutau
-    phonemes: [ow, 'p:', ax, n, uw, 't:', aa, uw]
+  - {grapheme: openutau, phonemes: [ow, "p:", ax, n, uw, "t:", aa, uw]}

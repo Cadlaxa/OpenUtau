@@ -15,9 +15,10 @@ using System.Text.RegularExpressions;
 namespace OpenUtau.Plugin.Builtin {
     [Phonemizer("Arpasing Ex Phonemizer", "EN ARPA EX", "Cadlaxa", language: "EN")]
     public class ArpaEX : SyllableBasedPhonemizer {
-        protected override string YamlFileName => "arpaEX.yaml";
+        protected override string YamlFileName => "arpa-ex.yaml";
         protected override byte[] YamlTemplate => ARPAX.Data.Resources.arpax_template;
-        protected override string YamlVersion => "1.4.3";
+        protected override string YamlVersion => "2.1";
+        protected virtual bool YamlUpdateOverride => true;
         public ArpaEX() {
             this.vowels = new string[] {
                 "aa", "ax", "ae", "ah", "ao", "aw", "ay", "eh", "er", "ey", "ih", "iy", "ow", "oy", "uh", "uw", "a", "e", "i", "o", "u", "ai", "ei", "oi", "au", "ou", "ix", "ux",
@@ -908,40 +909,28 @@ namespace OpenUtau.Plugin.Builtin {
             return alias;
         }
 
-        protected override string ValidateAlias(string alias, int tone = 0) {
-            if (HasOto(alias, tone)) return alias;
-
-            string baseResolved = base.ValidateAlias(alias, tone);
-            if (!string.IsNullOrEmpty(baseResolved) && baseResolved != alias) {
-                if (HasOto(baseResolved, tone)) {
-                    return baseResolved;
-                }
-                alias = baseResolved;
-            }
-
-            // Apply Vowel-Only global fallbacks
+        protected override string GetHardcodedFallback(string alias, int tone, HashSet<string> suppressedTokens) {
+            // Apply Vowel-Only global fallbacks (skipping suppressed tokens)
             string vAlias = alias;
             if (missingVphonemes != null) {
                 foreach (var fb in missingVphonemes.OrderByDescending(f => f.Key.Length)) {
-                    vAlias = vAlias.Replace(fb.Key, fb.Value);
+                    if (suppressedTokens.Contains(fb.Key)) continue;
+                    vAlias = vAlias.Replace(fb.Key, fb.Value, StringComparison.Ordinal);
                 }
             }
-            if (vAlias != alias && HasOto(vAlias, tone)) return vAlias;
+            if (!string.Equals(vAlias, alias, StringComparison.Ordinal) && HasOto(vAlias, tone)) return vAlias;
 
-            // Apply Consonant-Only global fallbacks
+            // Apply Consonant-Only global fallbacks (skipping suppressed tokens)
             string cAlias = alias;
             if (missingCphonemes != null) {
                 foreach (var fb in missingCphonemes.OrderByDescending(f => f.Key.Length)) {
-                    cAlias = cAlias.Replace(fb.Key, fb.Value);
+                    if (suppressedTokens.Contains(fb.Key)) continue;
+                    cAlias = cAlias.Replace(fb.Key, fb.Value, StringComparison.Ordinal);
                 }
             }
-            if (cAlias != alias && HasOto(cAlias, tone)) return cAlias;
+            if (!string.Equals(cAlias, alias, StringComparison.Ordinal) && HasOto(cAlias, tone)) return cAlias;
 
-            // contextual array fallbacks
-            string contextualAlias = ApplyContextualFallbacks(alias, tone);
-            if (contextualAlias != alias) return contextualAlias;
-
-            return alias;
+            return null;
         }
 
         // VV FALLBACKS, START and END
