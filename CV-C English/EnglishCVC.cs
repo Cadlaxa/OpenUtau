@@ -17,7 +17,8 @@ namespace OpenUtau.Plugin.Builtin {
     // Custom CV-C Phonemizer (Yin-P) for OU https://cv-c.weebly.com/about.html
     public class EnglishCVC : SyllableBasedPhonemizer {
         protected override string YamlFileName => "en-cvc.yaml";
-        protected override string YamlVersion => "1.2";
+        protected override string YamlVersion => "1.2.1";
+        protected virtual bool YamlUpdateOverride => true;
         protected override byte[] YamlTemplate => ENCVC.Resources.Resources.en_cvc_template;
         public EnglishCVC() {
             this.vowels = new string[] {
@@ -80,13 +81,32 @@ namespace OpenUtau.Plugin.Builtin {
         protected override IG2p[] GetBaseG2ps() {
             return new IG2p[] { new ArpabetPlusG2p() };
         }
+        private int currentTone = 0;
+
+        private IEnumerable<string> SplitDiphthongs(IEnumerable<string> symbols, int tone) {
+            string[] diphthongs = new[] { "aI", "eI", "OI", "aU", "oU", "VI", "VU", "@U", "ai", "ei", "Oi", "au", "ou", "Ou", "@u" };
+
+            foreach (string s in symbols) {
+                if (diphthongs.Contains(s)
+                    && !HasOto($"b{s}", tone)
+                    && !HasOto(s, tone)
+                    && !HasOto(ValidateAlias($"b{s}", tone), tone)
+                    && !HasOto(ValidateAlias(s, tone), tone)) {
+                    yield return s[0].ToString();
+                    yield return s[1] + "^";
+                } else {
+                    yield return s;
+                }
+            }
+        }
+
         protected override string[] GetSymbols(Note note) {
+            currentTone = note.tone;
             string[] original = base.GetSymbols(note);
             phoneticHint = !string.IsNullOrEmpty(note.phoneticHint);
             if (original == null) {
                 return null;
             }
-            List<string> finalProcessedPhonemes = new List<string>();
 
             if (!phoneticHint) {
                 for (int i = 0; i < original.Length; i++) {
@@ -95,18 +115,13 @@ namespace OpenUtau.Plugin.Builtin {
                     }
                 }
             }
-            
-            // Splits diphthongs and affricates if not present in the bank
-            string[] diphthongs = new[] { "aI", "eI", "OI", "aU", "oU", "VI", "VU", "@U", "ai", "ei", "Oi", "au", "ou", "Ou", "@u", };
-            
-            foreach (string s in original) {
-                if (diphthongs.Contains(s) && !HasOto($"- {s}", note.tone) && !HasOto(s, note.tone) && !HasOto(ValidateAlias($"- {s}"), note.tone) && !HasOto(ValidateAlias(s), note.tone)) {
-                    finalProcessedPhonemes.AddRange(new string[] { s[0].ToString(), s[1] + '^'.ToString() });
-                } else {
-                    finalProcessedPhonemes.Add(s);
-                }
-            }
-            return finalProcessedPhonemes.ToArray();
+
+            return SplitDiphthongs(original, note.tone).ToArray();
+        }
+
+        protected override List<string> ApplyReplacements(List<string> inputPhonemes, bool isBoundary = false, bool isRawStream = false) {
+            var replaced = base.ApplyReplacements(inputPhonemes, isBoundary, isRawStream);
+            return SplitDiphthongs(replaced, currentTone).ToList();
         }
 
         protected override string ReplacePhoneme(string phoneme, int tone = 0) {

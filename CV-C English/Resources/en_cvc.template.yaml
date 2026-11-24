@@ -1,4 +1,4 @@
-version: 1.2
+version: 1.2.1
 isglides: false
 symbols:
   - {symbol: a, type: vowel}
@@ -124,7 +124,7 @@ replacements:
   - {from: ["@", n], to: [I, n]}
   - {from: ["@", m], to: [I, m]}
   - {from: ["@", ng], to: [I, ng]}
-  - {from: ["@", l], to: [oU, l]}
+  - {from: ["@", l], to: ['@', l]}
   - {from: ["@", s], to: [I, s]}
   - {from: ["@", d], to: [I, d]}
   - {from: ["@", t], to: [I, t]}
@@ -136,9 +136,9 @@ replacements:
   - {from: tr, to: [t, R]}
 
 #Palatized h
-  - {from: hh, to: C}
-  - {from: [h, i], to: [C, i]}
-  - {from: [h, y], to: [C, y]}
+  - {from: hh, to: h}
+  - {from: [hh, i], to: [C, i]}
+  - {from: [hh, y], to: [C, y]}
 
 #American Vowel(the phonemes[{], [eI] to [m],[n],[ng], and[ん])
   - {from: ["{", m], to: [e, a^, m]}
@@ -152,7 +152,8 @@ replacements:
   
 fallbacks:
   - {from: "&", to: "{"}
-  - {from: C, to: hh}
+  - {from: "@", to: [V, a]}
+  - {from: C, to: [hh, h]}
   - {from: "O", to: o}
   - {from: "a^", to: a}
   - {from: "I^", to: I}
@@ -200,6 +201,8 @@ fallbacks:
   - {from: rhOI, to: rrOI}
   - {from: rh, to: h}
   - {from: " h", to: " -"}
+  - {from: ts g, to: "ts -"}
+  - {from: ts s, to: "ts -"}
   - {from: s k, to: "- kk"}
   - {from: s t, to: "- tt"}
   - {from: s p, to: "- pp"}
@@ -354,41 +357,41 @@ timings:
 
 #semivowels and liquid phonemes(y, w, r, l and R)
   - {symbol: y, value: 0.4}
-  - {symbol: "- y", value: 0.7}
-  - {symbol: "a y", value: 0.7}
-  - {symbol: "i y", value: 0.7}
-  - {symbol: "u y", value: 0.7}
-  - {symbol: "e y", value: 0.7}
-  - {symbol: "o y", value: 0.7}
-  - {symbol: "n y", value: 0.7}
-  - {symbol: "I y", value: 0.7}
-  - {symbol: "{ y", value: 0.7}
-  - {symbol: "V y", value: 0.7}
-  - {symbol: "U y", value: 0.7}
-  - {symbol: "3 y", value: 0.7}
-  - {symbol: "aI y", value: 0.7}
-  - {symbol: "oU y", value: 0.7}
-  - {symbol: "aU y", value: 0.7}
-  - {symbol: "eI y", value: 0.7}
-  - {symbol: "OI y", value: 0.7}
+  - {symbol: "- y", value: 2.0}
+  - {symbol: "a y", value: 2.0}
+  - {symbol: "i y", value: 2.0}
+  - {symbol: "u y", value: 2.0}
+  - {symbol: "e y", value: 2.0}
+  - {symbol: "o y", value: 2.0}
+  - {symbol: "n y", value: 2.0}
+  - {symbol: "I y", value: 2.0}
+  - {symbol: "{ y", value: 2.0}
+  - {symbol: "V y", value: 2.0}
+  - {symbol: "U y", value: 2.0}
+  - {symbol: "3 y", value: 2.0}
+  - {symbol: "aI y", value: 2.0}
+  - {symbol: "oU y", value: 2.0}
+  - {symbol: "aU y", value: 2.0}
+  - {symbol: "eI y", value: 2.0}
+  - {symbol: "OI y", value: 2.0}
   - {symbol: w, value: 0.4}
-  - {symbol: "- w", value: 0.7}
-  - {symbol: "a w", value: 0.7}
-  - {symbol: "i w", value: 0.7}
-  - {symbol: "u w", value: 0.7}
-  - {symbol: "e w", value: 0.7}
-  - {symbol: "o w", value: 0.7}
-  - {symbol: "n w", value: 0.7}
-  - {symbol: "I w", value: 0.7}
-  - {symbol: "{ w", value: 0.7}
-  - {symbol: "V w", value: 0.7}
-  - {symbol: "U w", value: 0.7}
-  - {symbol: "3 w", value: 0.7}
-  - {symbol: "aI w", value: 0.7}
-  - {symbol: "oU w", value: 0.7}
-  - {symbol: "aU w", value: 0.7}
-  - {symbol: "eI w", value: 0.7}
-  - {symbol: "OI w", value: 0.7}
+  - {symbol: "- w", value: 2.0}
+  - {symbol: "a w", value: 2.0}
+  - {symbol: "i w", value: 2.0}
+  - {symbol: "u w", value: 2.0}
+  - {symbol: "e w", value: 2.0}
+  - {symbol: "o w", value: 2.0}
+  - {symbol: "n w", value: 2.0}
+  - {symbol: "I w", value: 2.0}
+  - {symbol: "{ w", value: 2.0}
+  - {symbol: "V w", value: 2.0}
+  - {symbol: "U w", value: 2.0}
+  - {symbol: "3 w", value: 2.0}
+  - {symbol: "aI w", value: 2.0}
+  - {symbol: "oU w", value: 2.0}
+  - {symbol: "aU w", value: 2.0}
+  - {symbol: "eI w", value: 2.0}
+  - {symbol: "OI w", value: 2.0}
   - {symbol: r, value: 0.4}
   - {symbol: "- r", value: 0.7}
   - {symbol: "a r", value: 0.7}
